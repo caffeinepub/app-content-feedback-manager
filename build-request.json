@@ -1,0 +1,180 @@
+{
+  "kind": "build_request",
+  "title": "Bulk Comments Generator, Access Key, AI Symbol Input, Live List Edit/Delete, Music Play Button",
+  "projectName": "App Review Comment Manager",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-14",
+      "text": "Add an accessKey field to the backend Settings type. Expose an update method setAccessKey(key: Text) and a query method getAccessKey() : async ?Text so the admin can store a single active access key on the network.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-7",
+          "msg-9"
+        ],
+        "quotes": [
+          "single active key at a time",
+          "stored on the network"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Settings actor stores an optional accessKey Text value",
+        "setAccessKey replaces any previous key",
+        "getAccessKey returns the current key or null if none set",
+        "Key persists across canister upgrades"
+      ]
+    },
+    {
+      "id": "REQ-15",
+      "text": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7",
+          "msg-9"
+        ],
+        "quotes": [
+          "Admin Panel > Settings",
+          "single active key at a time",
+          "admin can create/regenerate"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Current key is shown masked; a toggle reveals/hides the full key",
+        "Admin can type a custom key and save it via the backend mutation",
+        "Regenerate button creates a new random key and persists it",
+        "Success/error feedback is shown after save"
+      ]
+    },
+    {
+      "id": "REQ-16",
+      "text": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7",
+          "msg-9",
+          "msg-11"
+        ],
+        "quotes": [
+          "convert into bulk comments generator",
+          "bulk comments generator only work after adding correct access key",
+          "choose from preset options like 5,10,20,50",
+          "user select a specific comment list within the app to generate"
+        ]
+      },
+      "acceptanceCriteria": [
+        "App dropdown and Comment List dropdown are populated from backend data",
+        "Quantity selector offers exactly 5, 10, 20, 50 options",
+        "Entering a wrong access key shows 'Invalid access key' and does not generate",
+        "Entering the correct key generates the selected number of comments",
+        "Each generated comment has the list suffix appended if present",
+        "A Copy All button copies all generated comments to clipboard",
+        "Skeleton loaders shown while backend data is fetching"
+      ]
+    },
+    {
+      "id": "REQ-17",
+      "text": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7",
+          "msg-9"
+        ],
+        "quotes": [
+          "add manually symbol option in ai template generater",
+          "symbols add automatically at the last of every comment"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A text input labeled 'Append Symbol' is visible in the AI Templates generation controls",
+        "All generated template suggestions have the entered symbol appended at the end",
+        "If the symbol field is empty, generated templates are unchanged",
+        "When templates are saved to a comment list, the symbol-appended version is saved"
+      ]
+    },
+    {
+      "id": "REQ-18",
+      "text": "Add renameAppEvent(id: Text, newName: Text) and deleteAppEvent(id: Text) update methods to the backend actor for editing and removing app/event entries. Deleting an app event must also remove all associated usernames for that entry.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-9",
+          "msg-11"
+        ],
+        "quotes": [
+          "add a option to edit the live list app name or delete it"
+        ]
+      },
+      "acceptanceCriteria": [
+        "renameAppEvent updates the display name of the specified app/event",
+        "deleteAppEvent removes the app/event entry and all its associated usernames",
+        "Both methods are callable from the frontend via the actor"
+      ]
+    },
+    {
+      "id": "REQ-19",
+      "text": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-9",
+          "msg-11"
+        ],
+        "quotes": [
+          "add a option to edit the live list app name or delete it",
+          "Edit button to rename each app/event entry",
+          "Delete button to remove it"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Each app/event row in Admin > Live List shows an Edit and a Delete button",
+        "Edit opens an inline editable input; saving calls the backend rename method and refreshes the list",
+        "Delete shows a confirmation dialog; confirming calls deleteAppEvent and removes the entry from the UI",
+        "Username counts update correctly after deletion"
+      ]
+    },
+    {
+      "id": "REQ-20",
+      "text": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-13",
+          "msg-15"
+        ],
+        "quotes": [
+          "Make Button to play a uploaded song the button appeared at the right top corner",
+          "Controls the background music track uploaded via Admin Settings",
+          "Visible to all users"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A play/pause button is fixed in the top-right corner and visible on all tabs",
+        "Button shows play icon when paused, pause icon when playing",
+        "Clicking toggles the background music playback via the existing useBackgroundMusic hook",
+        "When no music track is uploaded, the button is disabled and shows a 'No music uploaded' tooltip",
+        "Button does not overlap critical header controls on mobile"
+      ]
+    }
+  ],
+  "constraints": [
+    "All Motoko logic must remain in backend/main.mo (single actor)",
+    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
+    "Access key validation must call the backend — do not validate client-side only",
+    "The play/pause music button must reuse the existing useBackgroundMusic hook"
+  ],
+  "nonGoals": [
+    "Multiple active access keys",
+    "Per-user access key assignment",
+    "External AI API integration for template generation",
+    "Real-time websocket updates",
+    "Email or SMS notifications"
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

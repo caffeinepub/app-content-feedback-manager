@@ -1,0 +1,103 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-in-admin-settings-add-an-access-key-management-section-display-the-current-active-key-masked-by-default-with-a-show-hide-toggle-a-text-input-to-set-a-new-key-a-save-key-button-that-calls-setaccesskey-on-the-backend-and-a-regenerate-button-that-creates-a-new-random-alphanumeric-key-and-saves-it-only-one-key-is-active-at-a-time",
+      "featureTitle": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/admin/AdminSettings.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-15"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-replace-the-existing-comment-generator-in-the-user-view-tab-with-a-bulk-comments-generator-the-ui-must-include-1-an-app-event-dropdown-populated-from-backend-data-2-a-comment-list-dropdown-filtered-by-the-selected-app-3-a-quantity-selector-with-preset-options-5-10-20-and-50-4-an-access-key-input-field-and-5-a-generate-button-on-submit-validate-the-entered-key-against-the-backend-s-stored-key-if-invalid-show-an-invalid-access-key-error-and-block-generation-if-valid-generate-the-chosen-quantity-of-comments-by-randomly-sampling-from-the-selected-comment-list-templates-with-the-list-s-optional-suffix-appended-display-all-generated-comments-in-a-scrollable-output-area-and-provide-a-copy-all-button",
+      "featureTitle": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
+      "files": [
+        "frontend/src/hooks/useCommentGenerator.ts",
+        "frontend/src/views/UserView.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-16"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-admin-ai-templates-add-a-manual-symbol-input-field-labeled-append-symbol-when-a-symbol-is-entered-e-g-it-is-automatically-appended-to-the-end-of-every-generated-comment-template-shown-in-the-output-list-the-symbol-field-is-optional-if-empty-no-symbol-is-appended",
+      "featureTitle": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
+      "files": [
+        "frontend/src/views/admin/AdminAITemplates.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-17"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-admin-live-list-add-an-edit-rename-button-and-a-delete-button-to-each-app-event-entry-row-the-edit-button-opens-an-inline-input-pre-filled-with-the-current-name-saving-calls-renameappevent-on-the-backend-the-delete-button-shows-a-confirmation-prompt-before-calling-deleteappevent-which-removes-the-entry-and-all-its-usernames",
+      "featureTitle": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/admin/AdminLiveList.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-19"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-a-fixed-play-pause-music-button-in-the-top-right-corner-of-the-app-visible-to-all-users-admin-and-non-admin-the-button-must-show-a-play-icon-when-music-is-paused-and-a-pause-icon-when-music-is-playing-clicking-it-toggles-playback-of-the-background-music-track-uploaded-via-admin-settings-if-no-track-has-been-uploaded-the-button-is-visible-but-disabled-with-a-tooltip-no-music-uploaded",
+      "featureTitle": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+      "files": [
+        "frontend/src/App.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-20"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

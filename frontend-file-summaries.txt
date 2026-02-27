@@ -1,0 +1,10 @@
+{
+  "frontend/src/App.tsx": "Main app shell with sticky header (logo, countdown timer, music play/pause button with tooltip), tab navigation (User View / Admin), main content area, and footer. Uses named import for AdminView and default import for UserView; manages background music state via a local hook.",
+  "frontend/src/views/admin/AdminView.tsx": "Admin panel wrapper that gates content behind AdminUnlock, then renders sub-tabs (Comments, AI Templates, Images, Chat, Live List, Settings). Updated to use default imports for AdminAITemplates, AdminLiveList, and AdminSettings to match their export style.",
+  "frontend/src/hooks/useQueries.ts": "React Query hooks for all backend operations including comment lists, apps/events, chat messages, images, settings, and the new access key management (useAccessKey, useSetAccessKey) and app event mutation hooks (useRenameAppEvent, useDeleteAppEvent).",
+  "frontend/src/hooks/useCommentGenerator.ts": "Utility hook providing generate (single comment) and generateBulk (multiple comments with optional symbol append) functions that randomly sample from a CommentList's templates and append the list suffix.",
+  "frontend/src/views/UserView.tsx": "Bulk Comments Generator view where users select an app, a comment list within that app, a quantity (5/10/20/50), enter an access key for validation, and generate/copy multiple comments.",
+  "frontend/src/views/admin/AdminSettings.tsx": "Admin settings panel with an Access Key Management section (view/toggle masked key, set custom key, regenerate random key) above the existing Background Music upload/toggle controls.",
+  "frontend/src/views/admin/AdminAITemplates.tsx": "Admin AI template generator with topic, tone, count controls plus a new Append Symbol input that appends any entered symbol to the end of every generated template, with save-to-list functionality.",
+  "frontend/src/views/admin/AdminLiveList.tsx": "Admin live list manager with app/event CRUD — add new apps, inline rename (Edit button), delete with AlertDialog confirmation, and username bulk-add for the selected app."
+}

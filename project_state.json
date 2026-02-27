@@ -1,0 +1,273 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 5,
+  "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and 3D puzzle/top-down shooter game. User View has a Bulk Comments Generator (replaces Comment Generator) locked behind an Access Key managed in Admin Settings. Admin Live List supports editing/deleting app names. A fixed play/pause button in the top-right corner controls background music for all users.",
+  "architectural_notes": [
+    "Admin unlock via code 7898 stored in sessionStorage (adminUnlocked=true); no Internet Identity or external auth",
+    "Data storage via Motoko backend canisters (template lists, apps/events, usernames, chat, images metadata, settings)",
+    "AI Templates use smart template-based generation (tone/category/length rules), not live LLM API",
+    "Chat uses polling (not WebSockets) for message refresh",
+    "Dark blue-to-green gradient UI, neon blue/green accents, mobile-first responsive layout",
+    "Access Key for Bulk Comments Generator is a single active key stored on the backend; users must enter it to unlock bulk generation"
+  ],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-build-the-overall-app-shell-with-a-dark-blue-to-green-gradient-background-theme-neon-blue-green-accent-colors-rounded-cards-smooth-css-transitions-and-a-fully-mobile-first-responsive-layout-the-header-must-show-1-app-review-comment-management-logo-title-with-an-a-avatar-icon-2-a-time-until-midnight-countdown-widget-displaying-hours-minutes-seconds-in-the-user-s-local-timezone-with-a-motivational-tagline-beneath-it-3-an-admin-status-badge-admin-unlocked-that-appears-only-when-admin-mode-is-active-and-4-a-lock-admin-button-that-clears-the-admin-session-navigation-tabs-below-the-header-user-view-upload-live-checker-admin",
+      "title": "Build the overall app shell with a dark blue-to-green gradient background theme, neon blue/green accent colors, rounded cards, smooth CSS transitions, and a fully mobile-first responsive layout. The header must show: (1) App Review Comment Management logo/title with an 'A' avatar icon, (2) a Time Until Midnight countdown widget displaying hours:minutes:seconds in the user's local timezone with a motivational tagline beneath it, (3) an Admin status badge ('Admin Unlocked') that appears only when admin mode is active, and (4) a Lock Admin button that clears the admin session. Navigation tabs below the header: User View, Upload, Live Checker, Admin.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-the-admin-unlock-flow-display-a-4-digit-pin-input-field-anywhere-accessible-e-g-clicking-the-admin-tab-when-the-user-enters-code-7898-and-submits-store-adminunlocked-true-in-sessionstorage-and-reveal-admin-features-if-the-code-is-wrong-show-an-inline-error-message-incorrect-code-try-again-and-keep-admin-locked-the-lock-admin-button-must-clear-adminunlocked-from-sessionstorage-immediately-and-hide-all-admin-only-ui-admin-tab-settings-danger-zone-and-uploads-must-all-require-admin-mode-to-access",
+      "title": "Implement the Admin unlock flow: display a 4-digit PIN input field anywhere accessible (e.g., clicking the Admin tab). When the user enters code 7898 and submits, store adminUnlocked=true in sessionStorage and reveal admin features. If the code is wrong, show an inline error message 'Incorrect code, try again' and keep admin locked. The Lock Admin button must clear adminUnlocked from sessionStorage immediately and hide all admin-only UI. Admin tab, Settings, Danger Zone, and Uploads must all require admin mode to access.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-user-view-tab-with-1-app-event-dropdown-selector-populated-from-backend-data-2-template-list-dropdown-populated-based-on-selected-app-event-3-a-generate-button-that-randomly-picks-one-template-from-the-selected-list-and-appends-the-list-s-optional-suffix-4-output-display-showing-the-generated-comment-with-a-copy-to-clipboard-button-5-skeleton-loaders-while-data-is-fetching-also-display-a-single-comment-generator-section-with-the-label-generate-one-comment-per-list-per-device-that-tracks-generated-lists-in-localstorage-per-device",
+      "title": "Build the User View tab with: (1) App/event dropdown selector populated from backend data, (2) Template List dropdown populated based on selected app/event, (3) a Generate button that randomly picks one template from the selected list and appends the list's optional suffix, (4) output display showing the generated comment with a copy-to-clipboard button, (5) skeleton loaders while data is fetching. Also display a Single Comment Generator section with the label 'Generate one comment per list per device' that tracks generated lists in localStorage per device.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-embed-a-top-down-shooter-mini-game-in-the-user-view-tab-built-with-three-js-react-three-fiber-the-game-must-render-a-top-down-2d-style-arena-allow-movement-via-wasd-or-arrow-keys-and-shooting-via-mouse-click-toward-the-cursor-spawn-enemy-entities-that-move-toward-the-player-track-a-score-enemies-destroyed-and-a-survival-timer-display-a-reset-restart-button-and-show-game-over-when-the-player-is-hit-the-game-canvas-must-be-contained-within-a-rounded-card-and-not-overflow-the-page-layout",
+      "title": "Embed a Top-Down Shooter mini-game in the User View tab built with Three.js / React Three Fiber. The game must: render a top-down 2D-style arena, allow movement via WASD or Arrow keys and shooting via mouse click toward the cursor, spawn enemy entities that move toward the player, track a score (enemies destroyed) and a survival timer, display a Reset/Restart button, and show Game Over when the player is hit. The game canvas must be contained within a rounded card and not overflow the page layout.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-live-checker-tab-show-a-username-input-field-a-multi-select-list-of-all-apps-events-with-select-all-checkbox-and-a-check-button-on-submit-query-the-backend-to-find-which-selected-apps-events-contain-that-username-display-a-results-panel-showing-found-in-list-of-apps-and-not-found-in-list-of-apps",
+      "title": "Build the Live Checker tab: show a username input field, a multi-select list of all apps/events (with Select All checkbox), and a Check button. On submit, query the backend to find which selected apps/events contain that username. Display a results panel showing 'Found in: [list of apps]' and 'Not found in: [list of apps]'.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-comments-templates-sub-tab-with-1-bulk-totals-cards-showing-each-list-name-template-count-and-lock-icon-matching-the-screenshots-hwhwh-3-nane-3-star-10-style-plus-a-locked-lists-count-card-2-a-create-new-comment-list-section-with-list-id-input-and-create-button-3-a-manage-comments-section-with-a-select-comment-list-dropdown-a-textarea-to-add-templates-one-per-line-an-add-button-a-list-of-existing-templates-with-delete-buttons-per-template-a-delete-list-button-and-a-lock-unlock-toggle-for-the-list-virtualize-the-template-list-rendering-to-prevent-lag-on-long-lists",
+      "title": "Build the Admin > Comments (Templates) sub-tab with: (1) bulk totals cards showing each list name, template count, and lock icon matching the screenshots (Hwhwh×3, Nane×3, Star×10 style), plus a Locked Lists count card, (2) a Create New Comment List section with list ID input and Create button, (3) a Manage Comments section with a Select Comment List dropdown, a textarea to add templates one per line, an Add button, a list of existing templates with delete buttons per template, a Delete List button, and a Lock/Unlock toggle for the list. Virtualize the template list rendering to prevent lag on long lists.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-ai-templates-sub-tab-with-controls-for-tone-e-g-positive-neutral-critical-category-e-g-performance-ui-features-support-and-length-short-medium-long-when-generate-is-clicked-produce-template-suggestions-using-client-side-rule-based-generation-no-external-ai-api-show-a-safety-notice-generated-templates-are-for-legitimate-feedback-only-do-not-use-to-manipulate-ratings-or-violate-third-party-platform-policies-allow-the-admin-to-select-generated-templates-and-save-them-to-a-chosen-comment-list",
+      "title": "Build the Admin > AI Templates sub-tab with controls for tone (e.g., Positive, Neutral, Critical), category (e.g., Performance, UI, Features, Support), and length (Short, Medium, Long). When Generate is clicked, produce template suggestions using client-side rule-based generation (no external AI API). Show a safety notice: 'Generated templates are for legitimate feedback only. Do not use to manipulate ratings or violate third-party platform policies.' Allow the admin to select generated templates and save them to a chosen comment list.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-images-sub-tab-allow-uploading-images-with-a-name-and-comma-separated-tags-field-display-uploaded-images-in-a-gallery-grid-with-their-name-and-tags-each-gallery-item-has-a-delete-button-image-data-base64-or-blob-url-and-metadata-are-stored-via-the-backend",
+      "title": "Build the Admin > Images sub-tab: allow uploading images with a name and comma-separated tags field. Display uploaded images in a gallery grid with their name and tags. Each gallery item has a Delete button. Image data (base64 or blob URL) and metadata are stored via the backend.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-chat-sub-tab-display-a-scrollable-message-feed-with-message-text-and-timestamps-allow-admin-to-type-and-submit-new-messages-admin-can-delete-any-individual-message-implement-polling-every-5-seconds-to-refresh-messages-from-the-backend-non-admin-users-cannot-see-or-access-this-sub-tab",
+      "title": "Build the Admin > Chat sub-tab: display a scrollable message feed with message text and timestamps. Allow admin to type and submit new messages. Admin can delete any individual message. Implement polling every 5 seconds to refresh messages from the backend. Non-admin users cannot see or access this sub-tab.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-live-list-sub-tab-show-all-apps-events-with-their-username-counts-allow-admin-to-create-new-app-event-entries-allow-admin-to-add-usernames-to-a-selected-app-event-one-per-line-via-textarea-support-bulk-upload-of-usernames-show-a-multi-select-interface-and-the-same-username-check-results-panel-as-live-checker-tab",
+      "title": "Build the Admin > Live List sub-tab: show all apps/events with their username counts. Allow admin to create new app/event entries. Allow admin to add usernames to a selected app/event one-per-line via textarea. Support bulk upload of usernames. Show a multi-select interface and the same username-check results panel as Live Checker tab.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-admin-settings-sub-tab-with-1-a-background-music-manager-that-accepts-mp3-or-wav-file-upload-up-to-10mb-shows-the-currently-loaded-track-name-and-has-enable-disable-toggle-to-play-pause-background-music-in-the-app-2-a-danger-zone-section-that-requires-the-user-to-type-the-phrase-delete-everything-before-confirming-a-clear-all-data-action-and-a-separate-export-all-data-as-json-button-that-triggers-download-of-all-backend-data-both-the-clear-and-export-actions-call-the-appropriate-backend-methods",
+      "title": "Build the Admin > Settings sub-tab with: (1) a Background Music manager that accepts MP3 or WAV file upload up to 10MB, shows the currently loaded track name, and has enable/disable toggle to play/pause background music in the app, (2) a Danger Zone section that requires the user to type the phrase 'DELETE EVERYTHING' before confirming a Clear All Data action, and a separate Export All Data as JSON button that triggers download of all backend data. Both the Clear and Export actions call the appropriate backend methods.",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-the-upload-tab-accessible-from-the-main-navigation-not-admin-locked-provide-a-simple-interface-for-bulk-uploading-template-text-files-txt-or-csv-to-a-selected-comment-list-parse-the-file-line-by-line-and-add-each-non-empty-line-as-a-template-to-the-chosen-list-show-upload-progress-and-a-success-error-summary",
+      "title": "Build the Upload tab (accessible from the main navigation, not admin-locked): provide a simple interface for bulk uploading template text files (.txt or .csv) to a selected comment list. Parse the file line-by-line and add each non-empty line as a template to the chosen list. Show upload progress and a success/error summary.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-admin-settings-add-an-access-key-management-section-display-the-current-active-key-masked-by-default-with-a-show-hide-toggle-a-text-input-to-set-a-new-key-a-save-key-button-that-calls-setaccesskey-on-the-backend-and-a-regenerate-button-that-creates-a-new-random-alphanumeric-key-and-saves-it-only-one-key-is-active-at-a-time",
+      "title": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-replace-the-existing-comment-generator-in-the-user-view-tab-with-a-bulk-comments-generator-the-ui-must-include-1-an-app-event-dropdown-populated-from-backend-data-2-a-comment-list-dropdown-filtered-by-the-selected-app-3-a-quantity-selector-with-preset-options-5-10-20-and-50-4-an-access-key-input-field-and-5-a-generate-button-on-submit-validate-the-entered-key-against-the-backend-s-stored-key-if-invalid-show-an-invalid-access-key-error-and-block-generation-if-valid-generate-the-chosen-quantity-of-comments-by-randomly-sampling-from-the-selected-comment-list-templates-with-the-list-s-optional-suffix-appended-display-all-generated-comments-in-a-scrollable-output-area-and-provide-a-copy-all-button",
+      "title": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-admin-ai-templates-add-a-manual-symbol-input-field-labeled-append-symbol-when-a-symbol-is-entered-e-g-it-is-automatically-appended-to-the-end-of-every-generated-comment-template-shown-in-the-output-list-the-symbol-field-is-optional-if-empty-no-symbol-is-appended",
+      "title": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-admin-live-list-add-an-edit-rename-button-and-a-delete-button-to-each-app-event-entry-row-the-edit-button-opens-an-inline-input-pre-filled-with-the-current-name-saving-calls-renameappevent-on-the-backend-the-delete-button-shows-a-confirmation-prompt-before-calling-deleteappevent-which-removes-the-entry-and-all-its-usernames",
+      "title": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-fixed-play-pause-music-button-in-the-top-right-corner-of-the-app-visible-to-all-users-admin-and-non-admin-the-button-must-show-a-play-icon-when-music-is-paused-and-a-pause-icon-when-music-is-playing-clicking-it-toggles-playback-of-the-background-music-track-uploaded-via-admin-settings-if-no-track-has-been-uploaded-the-button-is-visible-but-disabled-with-a-tooltip-no-music-uploaded",
+      "title": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Admin access with 4-digit code 7898, sessionStorage lock, Admin Unlocked badge, Lock Admin button",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "User View: App/event dropdown, template list selector, Generate button with optional suffix, skeleton loaders",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "3D puzzle/top-down shooter mini-game (Three.js/React Three Fiber) with reset, score, and timer display",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Admin Comments tab: bulk totals cards, create/delete lists, add templates per line, lock/unlock lists, virtualized rendering",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Admin AI Templates tab: generate suggestions by tone/category/length, save to list, policy safety rule",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Admin Images tab: upload with name+tags, gallery preview, delete",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Admin Chat tab: message feed with timestamps, admin can delete messages, polling-based refresh",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Admin Live List tab: multi-select apps/events, add/bulk-upload usernames, check username presence across apps/events",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Admin Settings tab: background music manager (MP3/WAV up to 10MB), Danger Zone (export JSON, clear all with confirmation phrase)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Time Until Midnight countdown widget in header, Live Checker tab for username lookup across apps/events",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Create a Motoko backend actor that stores and manages: (1) comment template lists (listId, displayName, templates[], locked boolean, suffix string), (2) apps/events with associated username arrays, (3) chat messages (text, timestamp, id), (4) image metadata (name, tags[], dataUrl or reference, id), (5) settings (background music enabled, music file reference). Expose query and update methods for all CRUD operations on each data type. Include a method to export all data as a JSON-serializable structure.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Replace User View Comment Generator with Bulk Comments Generator: select app, comment list, quantity (5/10/20/50 preset), locked behind Access Key entered by user",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Admin Settings: Access Key management — single active key at a time, admin can create/regenerate, stored on backend network",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Admin AI Templates: manual symbol text input — symbol auto-appended to end of every generated comment",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Admin Live List: Edit button to rename each app/event entry, Delete button to remove it and its usernames",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Fixed play/pause button in top-right corner for all users, controls background music track uploaded via Admin Settings",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "Add an accessKey field to the backend Settings type. Expose an update method setAccessKey(key: Text) and a query method getAccessKey() : async ?Text so the admin can store a single active access key on the network.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Add renameAppEvent(id: Text, newName: Text) and deleteAppEvent(id: Text) update methods to the backend actor for editing and removing app/event entries. Deleting an app event must also remove all associated usernames for that entry.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "App Content & Feedback Manager",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

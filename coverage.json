@@ -1,0 +1,115 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-27T15:53:59.727Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 7,
+    "implemented": 5,
+    "items": [
+      {
+        "id": "REQ-14",
+        "summary": "Add an accessKey field to the backend Settings type. Expose an update method setAccessKey(key: Text) and a query method getAccessKey() : async ?Text so the admin can store a single active access key on the network.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-15",
+        "summary": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminSettings.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminSettings.tsx"
+        ]
+      },
+      {
+        "id": "REQ-16",
+        "summary": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/views/UserView.tsx",
+          "frontend/src/hooks/useCommentGenerator.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/views/UserView.tsx",
+          "frontend/src/hooks/useCommentGenerator.ts"
+        ]
+      },
+      {
+        "id": "REQ-17",
+        "summary": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/views/admin/AdminAITemplates.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/views/admin/AdminAITemplates.tsx"
+        ]
+      },
+      {
+        "id": "REQ-18",
+        "summary": "Add renameAppEvent(id: Text, newName: Text) and deleteAppEvent(id: Text) update methods to the backend actor for editing and removing app/event entries. Deleting an app event must also remove all associated usernames for that entry.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-19",
+        "summary": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminLiveList.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminLiveList.tsx"
+        ]
+      },
+      {
+        "id": "REQ-20",
+        "summary": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "backend/main.mo",
+    "backend/migration.mo",
+    "build-request.json",
+    "build-template/README.md",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useCommentGenerator.ts",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/views/UserView.tsx",
+    "frontend/src/views/admin/AdminAITemplates.tsx",
+    "frontend/src/views/admin/AdminLiveList.tsx",
+    "frontend/src/views/admin/AdminSettings.tsx",
+    "frontend/src/views/admin/AdminView.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}
