@@ -11,6 +11,12 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export interface AppEvent { 'name' : string, 'usernames' : Array<string> }
+export interface BulkCommentsResult {
+  'commentListId' : string,
+  'templateCount' : bigint,
+  'generatedCount' : bigint,
+  'comments' : Array<string>,
+}
 export interface ChatMessage {
   'id' : bigint,
   'text' : string,
@@ -90,6 +96,7 @@ export interface _SERVICE {
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
   'deleteAppEvent' : ActorMethod<[string], boolean>,
   'exportAllData' : ActorMethod<[], ExportData>,
+  'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
   'getAvailableCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,

@@ -56,6 +56,12 @@ export const ExportData = IDL.Record({
   'commentLists' : IDL.Vec(CommentList),
   'images' : IDL.Vec(ImageMeta),
 });
+export const BulkCommentsResult = IDL.Record({
+  'commentListId' : IDL.Text,
+  'templateCount' : IDL.Nat,
+  'generatedCount' : IDL.Nat,
+  'comments' : IDL.Vec(IDL.Text),
+});
 export const ListMetrics = IDL.Record({
   'usedTemplates' : IDL.Nat,
   'listName' : IDL.Text,
@@ -112,6 +118,11 @@ export const idlService = IDL.Service({
     ),
   'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'exportAllData' : IDL.Func([], [ExportData], []),
+  'generateBulkComments' : IDL.Func(
+      [IDL.Text, IDL.Nat],
+      [BulkCommentsResult],
+      [],
+    ),
   'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
@@ -172,6 +183,12 @@ export const idlFactory = ({ IDL }) => {
     'commentLists' : IDL.Vec(CommentList),
     'images' : IDL.Vec(ImageMeta),
   });
+  const BulkCommentsResult = IDL.Record({
+    'commentListId' : IDL.Text,
+    'templateCount' : IDL.Nat,
+    'generatedCount' : IDL.Nat,
+    'comments' : IDL.Vec(IDL.Text),
+  });
   const ListMetrics = IDL.Record({
     'usedTemplates' : IDL.Nat,
     'listName' : IDL.Text,
@@ -228,6 +245,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'exportAllData' : IDL.Func([], [ExportData], []),
+    'generateBulkComments' : IDL.Func(
+        [IDL.Text, IDL.Nat],
+        [BulkCommentsResult],
+        [],
+      ),
     'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
     'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),

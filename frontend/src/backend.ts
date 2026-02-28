@@ -102,6 +102,12 @@ export interface ExportData {
     images: Array<ImageMeta>;
 }
 export type Time = bigint;
+export interface BulkCommentsResult {
+    commentListId: string;
+    templateCount: bigint;
+    generatedCount: bigint;
+    comments: Array<string>;
+}
 export interface CommentList {
     id: string;
     templates: Array<string>;
@@ -159,6 +165,7 @@ export interface backendInterface {
     addUsernamesToAppEvent(name: string, usernames: Array<string>): Promise<boolean>;
     deleteAppEvent(id: string): Promise<boolean>;
     exportAllData(): Promise<ExportData>;
+    generateBulkComments(listId: string, count: bigint): Promise<BulkCommentsResult>;
     getAccessKey(): Promise<string | null>;
     getAvailableCount(listId: string): Promise<bigint>;
     getListMetrics(): Promise<Array<ListMetrics>>;
@@ -364,6 +371,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.exportAllData();
             return from_candid_ExportData_n10(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async generateBulkComments(arg0: string, arg1: bigint): Promise<BulkCommentsResult> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.generateBulkComments(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.generateBulkComments(arg0, arg1);
+            return result;
         }
     }
     async getAccessKey(): Promise<string | null> {

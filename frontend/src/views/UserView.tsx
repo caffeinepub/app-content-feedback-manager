@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { useCommentLists, useAvailableCount, getLocalClaim, setLocalClaim } from "@/hooks/useQueries";
+import {
+  useCommentLists,
+  useAvailableCount,
+  useGenerateSingleComment,
+  getLocalClaim,
+  setLocalClaim,
+} from "@/hooks/useQueries";
 import { useDeviceId } from "@/hooks/useDeviceId";
-import { useActor } from "@/hooks/useActor";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -19,25 +23,36 @@ import type { CommentList } from "@/backend";
 
 export default function UserView() {
   const { data: commentLists, isLoading: listsLoading } = useCommentLists();
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
   const deviceId = useDeviceId();
+  const generateSingle = useGenerateSingleComment();
 
   const [selectedListId, setSelectedListId] = useState<string>("");
   const [generatedComment, setGeneratedComment] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isOutOfComments, setIsOutOfComments] = useState(false);
+  // Local optimistic available count (updated immediately after generation)
+  const [localAvailableCount, setLocalAvailableCount] = useState<number | null>(null);
 
   // Available count from backend for selected list
   const { data: availableCountRaw, isLoading: countLoading } = useAvailableCount(selectedListId);
-  const availableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : null;
+  const backendAvailableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : null;
+
+  // Use local optimistic count if set, otherwise fall back to backend count
+  const availableCount = localAvailableCount !== null ? localAvailableCount : backendAvailableCount;
+
+  // Sync local count when backend count changes (e.g. on mount or refetch)
+  useEffect(() => {
+    if (backendAvailableCount !== null) {
+      setLocalAvailableCount(null); // reset so backend value is used
+    }
+  }, [backendAvailableCount]);
 
   // Check lock state from localStorage whenever selected list changes
   useEffect(() => {
     setGeneratedComment("");
     setIsOutOfComments(false);
+    setLocalAvailableCount(null);
     if (selectedListId) {
       const claim = getLocalClaim(selectedListId);
       setIsLocked(!!claim);
@@ -48,48 +63,54 @@ export default function UserView() {
 
   // All unlocked comment lists
   const availableLists: CommentList[] = (commentLists ?? []).filter((l) => !l.locked);
-
   const selectedList = (commentLists ?? []).find((l) => l.id === selectedListId) ?? null;
 
   async function handleGenerate() {
-    if (!selectedList || !actor || isLocked || isOutOfComments) return;
+    if (!selectedList || isLocked || isOutOfComments || generateSingle.isPending) return;
 
-    setIsGenerating(true);
+    // Check available count before generating
+    const currentAvailable = availableCount ?? 0;
+    if (currentAvailable === 0) {
+      setIsOutOfComments(true);
+      toast.error("No comments left for this list.");
+      return;
+    }
+
+    if (selectedList.templates.length === 0) {
+      setIsOutOfComments(true);
+      toast.error("No templates in this list.");
+      return;
+    }
+
     try {
-      const available = await actor.getAvailableCount(selectedList.id);
-      const availableNum = Number(available);
+      const result = await generateSingle.mutateAsync({ listId: selectedList.id });
 
-      if (availableNum === 0) {
-        setIsOutOfComments(true);
-        toast.error("No comments left for this list.");
-        return;
-      }
-
-      const templates = selectedList.templates;
-      if (templates.length === 0) {
-        setIsOutOfComments(true);
-        toast.error("No templates in this list.");
-        return;
-      }
-
-      const randomIndex = Math.floor(Math.random() * templates.length);
-      let comment = templates[randomIndex];
-      if (selectedList.suffix) {
-        comment = comment + selectedList.suffix;
-      }
+      // Get the generated comment text (backend returns the template text)
+      const rawComment = result.comments[0] ?? "";
+      const comment = selectedList.suffix ? `${rawComment}${selectedList.suffix}` : rawComment;
 
       setGeneratedComment(comment);
+
+      // Immediately update available count optimistically
+      const newAvailable = currentAvailable - 1;
+      setLocalAvailableCount(newAvailable);
+      if (newAvailable === 0) {
+        setIsOutOfComments(true);
+      }
+
+      // Store device claim in localStorage (device lock)
       setLocalClaim(selectedList.id, deviceId);
       setIsLocked(true);
 
-      queryClient.invalidateQueries({ queryKey: ["availableCount", selectedList.id] });
-      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
-
       toast.success("Comment generated successfully!");
-    } catch (err) {
-      toast.error("Failed to generate comment. Please try again.");
-    } finally {
-      setIsGenerating(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("out of comments") || msg.includes("Out of comments")) {
+        setIsOutOfComments(true);
+        toast.error("No comments left for this list.");
+      } else {
+        toast.error("Failed to generate comment. Please try again.");
+      }
     }
   }
 
@@ -198,21 +219,43 @@ export default function UserView() {
                   }}
                 >
                   <span className="text-sm font-semibold text-foreground">Available Comments:</span>
-                  <div
-                    className="min-w-[48px] h-10 rounded-xl flex items-center justify-center font-bold text-lg"
-                    style={{
-                      background: "oklch(0.15 0.03 240)",
-                      border: "2px solid oklch(0.55 0.18 200 / 0.6)",
-                      color: "oklch(0.75 0.2 200)",
-                      minWidth: "56px",
-                      padding: "0 12px",
-                    }}
-                  >
-                    {countLoading ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      availableCount ?? 0
+                  <div className="flex items-center gap-2">
+                    {/* Out of comments badge */}
+                    {(availableCount === 0 || isOutOfComments) && !countLoading && (
+                      <span
+                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: "oklch(0.3 0.1 25 / 0.3)",
+                          color: "oklch(0.7 0.2 25)",
+                          border: "1px solid oklch(0.5 0.15 25 / 0.4)",
+                        }}
+                      >
+                        Out of comments
+                      </span>
                     )}
+                    <div
+                      className="min-w-[48px] h-10 rounded-xl flex items-center justify-center font-bold text-lg"
+                      style={{
+                        background: "oklch(0.15 0.03 240)",
+                        border: `2px solid ${
+                          availableCount === 0 && !countLoading
+                            ? "oklch(0.5 0.15 25 / 0.6)"
+                            : "oklch(0.55 0.18 200 / 0.6)"
+                        }`,
+                        color:
+                          availableCount === 0 && !countLoading
+                            ? "oklch(0.65 0.2 25)"
+                            : "oklch(0.75 0.2 200)",
+                        minWidth: "56px",
+                        padding: "0 12px",
+                      }}
+                    >
+                      {countLoading ? (
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        availableCount ?? 0
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -255,7 +298,7 @@ export default function UserView() {
               {/* Generate Button */}
               <button
                 onClick={handleGenerate}
-                disabled={!selectedList || isLocked || isOutOfComments || isGenerating}
+                disabled={!selectedList || isLocked || isOutOfComments || generateSingle.isPending}
                 className="w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
                 style={{
                   background:
@@ -267,17 +310,17 @@ export default function UserView() {
                       ? "oklch(0.5 0.04 240)"
                       : "oklch(0.98 0.005 240)",
                   cursor:
-                    !selectedList || isLocked || isOutOfComments || isGenerating
+                    !selectedList || isLocked || isOutOfComments || generateSingle.isPending
                       ? "not-allowed"
                       : "pointer",
                   boxShadow:
                     !selectedList || isLocked || isOutOfComments
                       ? "none"
                       : "0 4px 20px oklch(0.55 0.2 220 / 0.4)",
-                  opacity: isGenerating ? 0.8 : 1,
+                  opacity: generateSingle.isPending ? 0.8 : 1,
                 }}
               >
-                {isGenerating ? (
+                {generateSingle.isPending ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Generating...

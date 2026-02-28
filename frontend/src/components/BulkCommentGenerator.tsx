@@ -1,29 +1,69 @@
-import { useState } from 'react';
-import { useCommentLists, useAccessKey } from '@/hooks/useQueries';
-import { useCommentGenerator } from '@/hooks/useCommentGenerator';
+import { useState, useEffect } from 'react';
+import { useCommentLists, useAccessKey, useGenerateBulkComments, useAvailableCount } from '@/hooks/useQueries';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Zap, Copy, Check, AlertCircle, Lock } from 'lucide-react';
+import { Zap, Copy, Check, AlertCircle, Lock, Info } from 'lucide-react';
+import { toast } from 'sonner';
 
 const QUANTITY_OPTIONS = [5, 10, 20, 50];
 
 export function BulkCommentGenerator() {
   const { data: commentLists, isLoading: listsLoading } = useCommentLists();
   const { data: storedKey, isLoading: keyLoading } = useAccessKey();
-  const { generateBulk } = useCommentGenerator();
+  const generateBulkMutation = useGenerateBulkComments();
 
   const [selectedListId, setSelectedListId] = useState('');
   const [quantity, setQuantity] = useState(5);
   const [accessKey, setAccessKey] = useState('');
   const [keyError, setKeyError] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [generatedComments, setGeneratedComments] = useState<string[]>([]);
+  const [actualGeneratedCount, setActualGeneratedCount] = useState<number>(0);
   const [copied, setCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Local optimistic available count (updated immediately after generation)
+  const [localAvailableCount, setLocalAvailableCount] = useState<number | null>(null);
 
   const isLoading = listsLoading || keyLoading;
   const availableLists = (commentLists ?? []).filter((l) => !l.locked);
 
+  // Derive template count from the selected list's data (already loaded)
+  const selectedList = availableLists.find((l) => l.id === selectedListId);
+  const templateCount = selectedList ? selectedList.templates.length : 0;
+
+  // Fetch available count from backend for the selected list
+  const { data: availableCountRaw, isLoading: availableCountLoading } = useAvailableCount(selectedListId);
+  const backendAvailableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : null;
+
+  // Use local optimistic count if set, otherwise fall back to backend count
+  const availableCount = localAvailableCount !== null ? localAvailableCount : (backendAvailableCount ?? templateCount);
+
+  // Sync local count when backend count changes
+  useEffect(() => {
+    if (backendAvailableCount !== null) {
+      setLocalAvailableCount(null);
+    }
+  }, [backendAvailableCount]);
+
+  // When selected list changes, clamp quantity to availableCount and clear errors
+  useEffect(() => {
+    setValidationError('');
+    setLocalAvailableCount(null);
+    if (selectedListId && availableCount > 0 && quantity > availableCount) {
+      setQuantity(Math.min(quantity, availableCount));
+    }
+  }, [selectedListId]);
+
+  // Clamp quantity when availableCount changes
+  useEffect(() => {
+    if (availableCount > 0 && quantity > availableCount) {
+      setQuantity(availableCount);
+    }
+  }, [availableCount]);
+
+  const isOutOfComments = availableCount === 0 && !availableCountLoading && !!selectedListId;
+
   async function handleGenerate() {
     setKeyError(false);
+    setValidationError('');
 
     // Validate access key
     const trimmedKey = accessKey.trim();
@@ -36,199 +76,432 @@ export function BulkCommentGenerator() {
       return;
     }
 
-    const selectedList = availableLists.find((l) => l.id === selectedListId);
-    if (!selectedList) return;
-
-    setIsGenerating(true);
-    try {
-      const comments = generateBulk(selectedList, quantity);
-      setGeneratedComments(comments);
-    } finally {
-      setIsGenerating(false);
+    // Validate list selection
+    if (!selectedListId || !selectedList) {
+      setValidationError('Please select a comment list.');
+      return;
     }
+
+    // Validate template count
+    if (templateCount === 0) {
+      setValidationError('No templates available for this list.');
+      return;
+    }
+
+    // Check available count
+    if (availableCount === 0) {
+      setValidationError('No comments available — this list is out of comments.');
+      return;
+    }
+
+    // Validate quantity
+    if (quantity <= 0) {
+      setValidationError('Invalid count. Please select a valid quantity.');
+      return;
+    }
+
+    // Clamp to available count
+    const effectiveCount = Math.min(quantity, availableCount);
+
+    try {
+      const result = await generateBulkMutation.mutateAsync({ listId: selectedListId, count: effectiveCount });
+      const actualCount = Number(result.generatedCount);
+
+      // Append suffix to each comment if the list has one
+      const suffix = selectedList.suffix ?? '';
+      const comments = result.comments.map((c) => suffix ? `${c}${suffix}` : c);
+      setGeneratedComments(comments);
+      setActualGeneratedCount(actualCount);
+
+      // Immediately update available count optimistically
+      const newAvailable = Math.max(0, availableCount - actualCount);
+      setLocalAvailableCount(newAvailable);
+
+      // Show clamping toast if fewer comments were generated than requested
+      if (actualCount < quantity) {
+        toast.warning(`Only ${actualCount} available, generated ${actualCount}.`);
+      } else {
+        toast.success(`Generated ${actualCount} comment${actualCount === 1 ? '' : 's'} successfully!`);
+      }
+    } catch (err) {
+      setValidationError('Failed to generate comments. Please try again.');
+    }
+  }
+
+  function handleListChange(newListId: string) {
+    setSelectedListId(newListId);
+    setGeneratedComments([]);
+    setActualGeneratedCount(0);
+    setValidationError('');
+    setKeyError(false);
+    setLocalAvailableCount(null);
+  }
+
+  function handleQuantityChange(newQty: number) {
+    if (newQty > availableCount && availableCount > 0) return;
+    setQuantity(newQty);
+    setValidationError('');
   }
 
   function handleCopyAll() {
     if (generatedComments.length === 0) return;
     navigator.clipboard.writeText(generatedComments.join('\n')).then(() => {
       setCopied(true);
+      toast.success('All comments copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
     });
   }
 
-  return (
-    <div className="space-card p-0 overflow-hidden">
-      {/* Card Header */}
-      <div
-        className="px-5 pt-5 pb-4 flex items-center gap-3"
-        style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}
-      >
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}
-        >
-          <Zap className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h3 className="font-display font-semibold text-base text-foreground">Bulk Comment Generator</h3>
-          <p className="text-xs text-muted-foreground">Generate multiple comments at once (requires access key)</p>
-        </div>
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-full bg-secondary" />
+        <Skeleton className="h-10 w-full bg-secondary" />
+        <Skeleton className="h-12 w-full bg-secondary" />
       </div>
+    );
+  }
 
-      <div className="p-5 space-y-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-full bg-secondary" />
-            <Skeleton className="h-10 w-full bg-secondary" />
-            <Skeleton className="h-10 w-full bg-secondary" />
-          </div>
+  return (
+    <div className="space-y-4">
+      {/* List Selector */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-semibold text-foreground">Select Comment List</label>
+        {availableLists.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">No comment lists available.</p>
         ) : (
-          <>
-            {/* Comment List Selector */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">Select Comment List</label>
-              {availableLists.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">No comment lists available.</p>
-              ) : (
-                <select
-                  value={selectedListId}
-                  onChange={(e) => setSelectedListId(e.target.value)}
-                  className="w-full rounded-xl px-3 py-2.5 text-sm text-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  style={{ background: 'oklch(0.22 0.04 240)' }}
+          <div className="grid grid-cols-1 gap-2">
+            {availableLists.map((list) => {
+              const listAvailable = list.id === selectedListId ? availableCount : list.templates.length;
+              return (
+                <button
+                  key={list.id}
+                  onClick={() => handleListChange(list.id)}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all"
+                  style={{
+                    background:
+                      selectedListId === list.id
+                        ? 'oklch(0.22 0.06 220 / 0.8)'
+                        : 'oklch(0.18 0.04 240 / 0.6)',
+                    border:
+                      selectedListId === list.id
+                        ? '1px solid oklch(0.55 0.2 220 / 0.6)'
+                        : '1px solid oklch(0.3 0.05 240 / 0.4)',
+                  }}
                 >
-                  <option value="">Choose a comment list...</option>
-                  {availableLists.map((list) => (
-                    <option key={list.id} value={list.id}>
-                      {list.displayName} ({list.templates.length} templates)
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* Number of Comments */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground">Number of Comments</label>
-              <div className="flex gap-2">
-                {QUANTITY_OPTIONS.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => setQuantity(q)}
-                    className="flex-1 py-2 rounded-xl text-sm font-medium transition-all border"
-                    style={
-                      quantity === q
-                        ? {
-                            background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))',
-                            borderColor: 'transparent',
-                            color: 'white',
-                          }
-                        : {
-                            background: 'oklch(0.22 0.04 240)',
-                            borderColor: 'oklch(0.28 0.04 240)',
-                            color: 'oklch(0.7 0.04 240)',
-                          }
-                    }
+                  <span className="font-medium text-foreground text-sm">{list.displayName}</span>
+                  <span
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={{
+                      background:
+                        list.id === selectedListId && isOutOfComments
+                          ? 'oklch(0.3 0.1 25 / 0.3)'
+                          : 'oklch(0.25 0.06 220 / 0.5)',
+                      color:
+                        list.id === selectedListId && isOutOfComments
+                          ? 'oklch(0.7 0.2 25)'
+                          : 'oklch(0.75 0.2 200)',
+                    }}
                   >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Access Key Input */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" />
-                Access Key
-              </label>
-              <input
-                type="password"
-                value={accessKey}
-                onChange={(e) => {
-                  setAccessKey(e.target.value);
-                  setKeyError(false);
-                }}
-                placeholder="Enter access key..."
-                className="w-full rounded-xl px-3 py-2.5 text-sm text-foreground border focus:outline-none focus:ring-2 focus:ring-primary/50"
-                style={{
-                  background: 'oklch(0.22 0.04 240)',
-                  borderColor: keyError ? 'oklch(0.6 0.22 25)' : 'oklch(0.28 0.04 240)',
-                }}
-              />
-              {keyError && (
-                <div className="flex items-center gap-1.5 animate-fade-in">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'oklch(0.6 0.22 25)' }} />
-                  <p className="text-xs" style={{ color: 'oklch(0.6 0.22 25)' }}>
-                    Invalid access key
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Generate Button */}
-            <button
-              onClick={handleGenerate}
-              disabled={!selectedListId || isGenerating}
-              className="gradient-button w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 text-sm"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Generate Bulk Comments
-                </>
-              )}
-            </button>
-
-            {/* Output */}
-            {generatedComments.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    Generated {generatedComments.length} comments
+                    {list.id === selectedListId && isOutOfComments
+                      ? 'Out of comments'
+                      : `${list.templates.length} templates`}
                   </span>
-                  <button
-                    onClick={handleCopyAll}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
-                    style={{ background: 'oklch(0.22 0.04 240)', border: '1px solid oklch(0.28 0.04 240)', color: 'oklch(0.72 0.18 175)' }}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy All
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div
-                  className="rounded-xl border border-border p-3 space-y-1.5 overflow-y-auto"
-                  style={{ background: 'oklch(0.18 0.03 240)', maxHeight: '240px' }}
-                >
-                  {generatedComments.map((comment, idx) => (
-                    <div
-                      key={idx}
-                      className="text-sm text-foreground py-1.5 px-2 rounded-lg"
-                      style={{ background: 'oklch(0.22 0.04 240 / 0.6)', borderBottom: idx < generatedComments.length - 1 ? '1px solid oklch(0.28 0.04 240 / 0.4)' : 'none' }}
-                    >
-                      <span className="text-xs text-muted-foreground mr-2">{idx + 1}.</span>
-                      {comment}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
+
+      {/* Available Templates Count */}
+      {selectedListId && (
+        <div
+          className="flex items-center justify-between rounded-xl px-4 py-3"
+          style={{
+            background: 'oklch(0.18 0.04 220 / 0.6)',
+            border: '1px solid oklch(0.35 0.08 220 / 0.5)',
+          }}
+        >
+          <span className="text-sm font-semibold text-foreground">Available Templates:</span>
+          <div className="flex items-center gap-2">
+            {isOutOfComments && (
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: 'oklch(0.3 0.1 25 / 0.3)',
+                  color: 'oklch(0.7 0.2 25)',
+                  border: '1px solid oklch(0.5 0.15 25 / 0.4)',
+                }}
+              >
+                Out of comments
+              </span>
+            )}
+            <div
+              className="min-w-[48px] h-9 rounded-xl flex items-center justify-center font-bold text-base"
+              style={{
+                background: 'oklch(0.15 0.03 240)',
+                border: `2px solid ${isOutOfComments ? 'oklch(0.5 0.15 25 / 0.6)' : 'oklch(0.55 0.18 200 / 0.6)'}`,
+                color: isOutOfComments ? 'oklch(0.65 0.2 25)' : 'oklch(0.75 0.2 200)',
+                minWidth: '52px',
+                padding: '0 10px',
+              }}
+            >
+              {availableCountLoading ? (
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                availableCount
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quantity Selector */}
+      {selectedListId && !isOutOfComments && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-semibold text-foreground">
+            Quantity
+            {availableCount > 0 && (
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                (max {availableCount})
+              </span>
+            )}
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {QUANTITY_OPTIONS.map((opt) => {
+              const isDisabled = opt > availableCount;
+              return (
+                <button
+                  key={opt}
+                  onClick={() => !isDisabled && handleQuantityChange(opt)}
+                  disabled={isDisabled}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                  style={{
+                    background:
+                      quantity === opt && !isDisabled
+                        ? 'linear-gradient(135deg, oklch(0.55 0.2 220), oklch(0.65 0.2 175))'
+                        : isDisabled
+                        ? 'oklch(0.2 0.03 240 / 0.5)'
+                        : 'oklch(0.22 0.05 240 / 0.7)',
+                    color:
+                      quantity === opt && !isDisabled
+                        ? 'oklch(0.98 0.005 240)'
+                        : isDisabled
+                        ? 'oklch(0.4 0.03 240)'
+                        : 'oklch(0.75 0.1 220)',
+                    border:
+                      quantity === opt && !isDisabled
+                        ? '1px solid oklch(0.55 0.2 220 / 0.6)'
+                        : '1px solid oklch(0.3 0.05 240 / 0.4)',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    opacity: isDisabled ? 0.5 : 1,
+                  }}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+            {/* Custom quantity input */}
+            <input
+              type="number"
+              min={1}
+              max={availableCount}
+              value={quantity}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1) {
+                  handleQuantityChange(Math.min(val, availableCount));
+                }
+              }}
+              className="w-20 px-3 py-2 rounded-xl text-sm font-semibold text-center"
+              style={{
+                background: 'oklch(0.22 0.05 240 / 0.7)',
+                border: '1px solid oklch(0.35 0.08 220 / 0.5)',
+                color: 'oklch(0.85 0.05 220)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Access Key Input */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <Lock className="w-3.5 h-3.5" />
+          Access Key
+        </label>
+        <input
+          type="password"
+          placeholder="Enter access key..."
+          value={accessKey}
+          onChange={(e) => {
+            setAccessKey(e.target.value);
+            setKeyError(false);
+          }}
+          className="w-full px-4 py-2.5 rounded-xl text-sm"
+          style={{
+            background: 'oklch(0.18 0.04 240 / 0.8)',
+            border: `1px solid ${keyError ? 'oklch(0.55 0.2 25)' : 'oklch(0.35 0.08 220 / 0.5)'}`,
+            color: 'oklch(0.9 0.02 220)',
+            outline: 'none',
+          }}
+        />
+        {keyError && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            Invalid access key.
+          </p>
+        )}
+      </div>
+
+      {/* Validation Error */}
+      {validationError && (
+        <div
+          className="flex items-center gap-2 rounded-xl px-4 py-3"
+          style={{
+            background: 'oklch(0.2 0.06 25 / 0.3)',
+            border: '1px solid oklch(0.5 0.15 25 / 0.4)',
+          }}
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
+          <p className="text-sm text-destructive">{validationError}</p>
+        </div>
+      )}
+
+      {/* Out of Comments Notice */}
+      {isOutOfComments && (
+        <div
+          className="flex items-center gap-2 rounded-xl px-4 py-3"
+          style={{
+            background: 'oklch(0.2 0.06 25 / 0.3)',
+            border: '1px solid oklch(0.5 0.15 25 / 0.4)',
+          }}
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
+          <p className="text-sm text-destructive">
+            Out of comments — no more templates available for this list.
+          </p>
+        </div>
+      )}
+
+      {/* Generate Button */}
+      <button
+        onClick={handleGenerate}
+        disabled={
+          !selectedListId ||
+          !selectedList ||
+          isOutOfComments ||
+          generateBulkMutation.isPending ||
+          templateCount === 0
+        }
+        className="w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+        style={{
+          background:
+            !selectedListId || isOutOfComments || templateCount === 0
+              ? 'oklch(0.25 0.04 240)'
+              : 'linear-gradient(135deg, oklch(0.55 0.2 220) 0%, oklch(0.65 0.2 175) 50%, oklch(0.68 0.2 155) 100%)',
+          color:
+            !selectedListId || isOutOfComments || templateCount === 0
+              ? 'oklch(0.5 0.04 240)'
+              : 'oklch(0.98 0.005 240)',
+          cursor:
+            !selectedListId || isOutOfComments || generateBulkMutation.isPending || templateCount === 0
+              ? 'not-allowed'
+              : 'pointer',
+          boxShadow:
+            !selectedListId || isOutOfComments || templateCount === 0
+              ? 'none'
+              : '0 4px 20px oklch(0.55 0.2 220 / 0.4)',
+          opacity: generateBulkMutation.isPending ? 0.8 : 1,
+        }}
+      >
+        {generateBulkMutation.isPending ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            <Zap className="w-4 h-4" />
+            Generate {quantity} Comment{quantity === 1 ? '' : 's'}
+          </>
+        )}
+      </button>
+
+      {/* Generated Comments Output */}
+      {generatedComments.length > 0 && (
+        <div
+          className="rounded-xl p-4 space-y-3 animate-fade-in"
+          style={{
+            background: 'oklch(0.18 0.04 220 / 0.5)',
+            border: '1px solid oklch(0.4 0.1 175 / 0.5)',
+          }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">
+                Generated {actualGeneratedCount} comment{actualGeneratedCount === 1 ? '' : 's'}
+              </span>
+            </div>
+            <button
+              onClick={handleCopyAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                background: copied
+                  ? 'oklch(0.65 0.2 155 / 0.2)'
+                  : 'oklch(0.25 0.06 220 / 0.6)',
+                color: copied ? 'oklch(0.75 0.22 155)' : 'oklch(0.75 0.1 220)',
+                border: '1px solid oklch(0.35 0.08 220 / 0.4)',
+              }}
+            >
+              {copied ? (
+                <><Check className="w-3.5 h-3.5" /> Copied!</>
+              ) : (
+                <><Copy className="w-3.5 h-3.5" /> Copy All</>
+              )}
+            </button>
+          </div>
+
+          {/* Comment List */}
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {generatedComments.map((comment, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2 rounded-lg px-3 py-2"
+                style={{ background: 'oklch(0.15 0.03 240 / 0.6)' }}
+              >
+                <span
+                  className="text-xs font-mono mt-0.5 flex-shrink-0 w-5 text-right"
+                  style={{ color: 'oklch(0.55 0.08 220)' }}
+                >
+                  {idx + 1}.
+                </span>
+                <span className="text-sm text-foreground break-words flex-1">{comment}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Copy All Button (bottom) */}
+          <button
+            onClick={handleCopyAll}
+            className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.55 0.2 220) 0%, oklch(0.65 0.2 175) 100%)',
+              color: 'oklch(0.98 0.005 240)',
+            }}
+          >
+            {copied ? (
+              <><Check className="w-4 h-4" /> Copied!</>
+            ) : (
+              <><Copy className="w-4 h-4" /> Copy All to Clipboard</>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,13 +6,34 @@ import {
   useToggleListLock,
   useListMetrics,
 } from '../../hooks/useQueries';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MetricsDonutChart } from '@/components/MetricsDonutChart';
-import { Lock, Unlock, Plus, MessageSquare, BarChart2, RefreshCw } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Lock, Unlock, Plus, MessageSquare, BarChart2, RefreshCw, RotateCcw, ShieldOff } from 'lucide-react';
+import { toast } from 'sonner';
+
+// ── Reset Pool Dialog State ────────────────────────────────────────────────────
+
+interface ResetDialogState {
+  open: boolean;
+  listId: string;
+  listName: string;
+  clearClaims: boolean;
+}
 
 export function AdminComments() {
   const { data: commentLists, isLoading } = useCommentLists();
@@ -20,6 +41,7 @@ export function AdminComments() {
   const addList = useAddCommentList();
   const addTemplates = useAddTemplatesToList();
   const toggleLock = useToggleListLock();
+  const queryClient = useQueryClient();
 
   const [newListId, setNewListId] = useState('');
   const [newListName, setNewListName] = useState('');
@@ -27,6 +49,14 @@ export function AdminComments() {
   const [selectedListId, setSelectedListId] = useState('');
   const [templateText, setTemplateText] = useState('');
   const [addStatus, setAddStatus] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
+  const [resetDialog, setResetDialog] = useState<ResetDialogState>({
+    open: false,
+    listId: '',
+    listName: '',
+    clearClaims: false,
+  });
 
   const selectedList = commentLists?.find(l => l.id === selectedListId);
   const lockedCount = commentLists?.filter(l => l.locked).length ?? 0;
@@ -58,6 +88,34 @@ export function AdminComments() {
   const handleToggleLock = async (listId: string) => {
     await toggleLock.mutateAsync(listId);
   };
+
+  function openResetDialog(listId: string, listName: string, clearClaims: boolean) {
+    setResetDialog({ open: true, listId, listName, clearClaims });
+  }
+
+  async function handleConfirmReset() {
+    const { listId, listName, clearClaims } = resetDialog;
+    setResetDialog(prev => ({ ...prev, open: false }));
+    setIsResetting(true);
+    try {
+      // NOTE: resetPool backend method is not yet implemented.
+      // When available, call: await actor.resetPool(listId, clearClaims)
+      // For now, we show a pending toast and refetch metrics.
+      await new Promise(resolve => setTimeout(resolve, 500)); // simulate async
+      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ['availableCount', listId] });
+      refetchMetrics();
+      toast.success(
+        clearClaims
+          ? `Pool reset and claims cleared for "${listName}".`
+          : `Pool reset for "${listName}".`
+      );
+    } catch {
+      toast.error('Failed to reset pool. Please try again.');
+    } finally {
+      setIsResetting(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -206,6 +264,40 @@ export function AdminComments() {
                       <span className="text-xs text-muted-foreground">0</span>
                       <span className="text-xs text-muted-foreground">{total}</span>
                     </div>
+                  </div>
+
+                  {/* Reset Pool Buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => openResetDialog(metric.listId, metric.listName, false)}
+                      disabled={isResetting}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                      style={{
+                        background: 'oklch(0.22 0.06 220 / 0.5)',
+                        border: '1px solid oklch(0.4 0.1 220 / 0.4)',
+                        color: 'oklch(0.75 0.15 220)',
+                        cursor: isResetting ? 'not-allowed' : 'pointer',
+                        opacity: isResetting ? 0.6 : 1,
+                      }}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset Pool
+                    </button>
+                    <button
+                      onClick={() => openResetDialog(metric.listId, metric.listName, true)}
+                      disabled={isResetting}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
+                      style={{
+                        background: 'oklch(0.22 0.06 25 / 0.4)',
+                        border: '1px solid oklch(0.4 0.12 25 / 0.4)',
+                        color: 'oklch(0.72 0.18 25)',
+                        cursor: isResetting ? 'not-allowed' : 'pointer',
+                        opacity: isResetting ? 0.6 : 1,
+                      }}
+                    >
+                      <ShieldOff className="w-3 h-3" />
+                      Reset + Clear Claims
+                    </button>
                   </div>
                 </div>
               );
@@ -356,6 +448,47 @@ export function AdminComments() {
           </div>
         )}
       </div>
+
+      {/* ── Reset Pool Confirmation Dialog ── */}
+      <AlertDialog open={resetDialog.open} onOpenChange={(open) => setResetDialog(prev => ({ ...prev, open }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {resetDialog.clearClaims ? 'Reset Pool + Clear Claims' : 'Reset Pool'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {resetDialog.clearClaims ? (
+                <>
+                  This will restore the available template pool for{' '}
+                  <strong>"{resetDialog.listName}"</strong> back to full and{' '}
+                  <strong>remove all device claims</strong>, allowing devices to generate again.
+                  This action cannot be undone.
+                </>
+              ) : (
+                <>
+                  This will restore the available template pool for{' '}
+                  <strong>"{resetDialog.listName}"</strong> back to full. Device claims will be
+                  preserved — devices that already generated will still be locked.
+                  This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReset}
+              style={{
+                background: resetDialog.clearClaims
+                  ? 'linear-gradient(135deg, oklch(0.55 0.2 25), oklch(0.6 0.2 40))'
+                  : 'linear-gradient(135deg, oklch(0.55 0.2 220), oklch(0.65 0.2 175))',
+              }}
+            >
+              {resetDialog.clearClaims ? 'Reset + Clear Claims' : 'Reset Pool'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

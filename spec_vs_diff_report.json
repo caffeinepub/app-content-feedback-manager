@@ -1,14 +1,110 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-28T03:17:25.776Z",
-  "summary": "The diff implements REQ-39 correctly. The UserView.tsx file removes the App/Event dropdown from the Single Comment Generator section and now shows all unlocked comment lists directly in the 'Select Comment List' dropdown. All other functionality (available count, device lock, generate button, copy output, out-of-comments badge) is preserved. No changes are made to other tabs or backend logic.",
-  "missing_requirements": [],
-  "hallucinated_features": [],
-  "confidence": 0.95,
+  "generatedAt": "2026-02-28T03:51:26.605Z",
+  "summary": "The diff implements many UI-level optimistic update patterns and pool-tracking concepts, but several critical backend requirements appear missing or incomplete. The frontend resetPool call is stubbed with a setTimeout simulation. The useResetPool hook is absent. Backend atomic pool consumption, stable availablePoolByList, audit log, and proper metadata fields are not evidenced.",
+  "missing_requirements": [
+    {
+      "id": "REQ-45",
+      "requirement": "Add a stable availablePoolByList HashMap with preupgrade/postupgrade hooks; initialize pool on list creation; append on template addition; remove on template deletion",
+      "reason": "The visible backend code still shows usedTemplateIndices (old approach). No stable availablePoolByList or preupgrade/postupgrade hooks are visible in the truncated main.mo. Pool initialization in addCommentList and pool mutation in addTemplatesToList are not evidenced.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-46",
+      "requirement": "Replace generateComment with atomic version consuming shared pool, returning availableBefore/availableAfter/totalTemplates metadata, with device lock via claims HashMap",
+      "reason": "useGenerateSingleComment still calls generateBulkComments(listId, 1) rather than a dedicated generateComment(listId, deviceId). No metadata fields (availableBefore, availableAfter, totalTemplates) are handled from the response. Backend atomic pool consumption not evidenced.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts",
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-47",
+      "requirement": "Replace generateBulkComments with atomic version consuming shared pool, returning generatedCount/availableBefore/availableAfter/totalTemplates metadata; no device lock",
+      "reason": "useGenerateBulkComments mutationFn does not pass accessKey to the backend. BulkCommentsResult type does not include availableBefore/availableAfter/totalTemplates. Backend atomic pool consumption not evidenced.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/components/BulkCommentGenerator.tsx"
+      ]
+    },
+    {
+      "id": "REQ-48",
+      "requirement": "Update getAvailableCount to return availablePoolByList[listId].size(); update getListMetrics to derive availableTemplates from pool size",
+      "reason": "Backend changes not visible in truncated main.mo. No evidence the backend methods have been updated to use pool size.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-49",
+      "requirement": "Add resetPool(listId, clearClaims) backend method that restores pool, optionally clears claims, appends audit log, returns Result",
+      "reason": "AdminComments.tsx explicitly comments 'resetPool backend method is not yet implemented' and uses a setTimeout simulation instead of calling the actual backend method.",
+      "evidence": [
+        "frontend/src/views/admin/AdminComments.tsx",
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-50",
+      "requirement": "Add stable auditLog array to backend; resetPool appends descriptive entry; expose getAuditLog query",
+      "reason": "No evidence of stable auditLog variable or getAuditLog query in the backend. resetPool is not implemented in the backend.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-51",
+      "requirement": "generateComment mutation must pass deviceId from localStorage; handle availableBefore/availableAfter/totalTemplates metadata; generateBulkComments must handle generatedCount/availableBefore/availableAfter/totalTemplates",
+      "reason": "useGenerateSingleComment does not pass deviceId to backend. Neither mutation handles availableBefore or totalTemplates from the response. The BulkCommentsResult type does not include these fields.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
+      "id": "REQ-55",
+      "requirement": "Add useResetPool mutation hook in useQueries.ts that calls resetPool(listId, clearClaims) and invalidates queries on success",
+      "reason": "No useResetPool hook is present in useQueries.ts. AdminComments.tsx does not import or use such a hook.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/admin/AdminComments.tsx"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "AdminComments.tsx simulates resetPool with a 500ms setTimeout instead of calling the backend",
+      "reason": "The spec requires calling the actual resetPool backend method. The implementation stubs this out with a fake async delay and a comment saying the backend method is not yet implemented.",
+      "evidence": [
+        "frontend/src/views/admin/AdminComments.tsx"
+      ]
+    },
+    {
+      "description": "migration.mo added as an empty pass-through module",
+      "reason": "No migration module was requested in the build requirements. This file adds no functional value and was not specified.",
+      "evidence": [
+        "backend/migration.mo"
+      ]
+    },
+    {
+      "description": "Frontend-side access key validation in BulkCommentGenerator comparing trimmedKey to storedKey locally before calling backend",
+      "reason": "REQ-47 specifies backend access key validation only. The frontend performing its own key check before calling the backend was not requested.",
+      "evidence": [
+        "frontend/src/components/BulkCommentGenerator.tsx"
+      ]
+    }
+  ],
+  "confidence": 0.72,
   "changed_files": [
+    "backend/main.mo",
+    "backend/migration.mo",
     "frontend-file-summaries.txt",
+    "frontend/src/components/BulkCommentGenerator.tsx",
+    "frontend/src/hooks/useQueries.ts",
     "frontend/src/views/UserView.tsx",
+    "frontend/src/views/admin/AdminComments.tsx",
     "project_state.json"
   ]
 }

@@ -1,38 +1,242 @@
 {
   "kind": "build_request",
-  "title": "Remove App/Event dropdown from Single Comment Generator in User View",
-  "priority": "normal",
+  "title": "Implement consumed-template tracking with shared index pool, atomic generation, and admin reset controls",
+  "projectName": "App Review Comment Manager",
+  "priority": "high",
   "requirements": [
     {
-      "id": "REQ-39",
-      "text": "In the Single Comment Generator section within the User View tab (frontend/src/views/UserView.tsx), remove the App/Event dropdown selector entirely. The user should go directly to the 'Select Comment List' dropdown without first choosing an app/event. Since the Comment List dropdown was previously filtered by the selected app/event, it must now show all unlocked comment lists from all apps/events. All other functionality (available count display, device lock notice, Generate Single Comment button, copy output, out-of-comments badge) must remain unchanged. Do not remove or modify App/Event selectors in any other tab or section.",
-      "target": "frontend",
+      "id": "REQ-45",
+      "text": "Add a stable `availablePoolByList` HashMap (keyed by listId, value is a stable array of available template indices [Nat]) to the Motoko backend actor. On list creation, initialize the pool to [0, 1, 2, ..., N-1] where N is the number of templates. On template addition, append the new index to the pool. On template deletion, remove that index from the pool. Persist this structure across upgrades via preupgrade/postupgrade hooks into a stable array.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-build"
         ],
         "quotes": [
-          "Just remove select app/Event from single comment generator only"
+          "Maintain an AVAILABLE INDEX POOL per list: availablePoolByList[listId] = [0..N-1] at creation/import time"
         ]
       },
       "acceptanceCriteria": [
-        "The Single Comment Generator card in the User View tab does not contain an App/Event dropdown.",
-        "The 'Select Comment List' dropdown in the Single Comment Generator shows all unlocked comment lists regardless of app/event.",
-        "The Available Comments count, device lock notice, Generate Single Comment button, copy output, and out-of-comments badge all continue to function correctly.",
-        "App/Event selectors in other tabs (Live Checker, Upload/Bulk Comment Generator, etc.) are unaffected.",
-        "No console errors related to undefined selectedApp or app-event filtering in the Single Comment Generator."
+        "availablePoolByList is declared as stable storage and survives canister upgrades",
+        "Creating a new list initializes its pool to indices [0..N-1]",
+        "Adding templates to an existing list appends new indices to the pool",
+        "Deleting a template removes its index from the pool"
+      ]
+    },
+    {
+      "id": "REQ-46",
+      "text": "Replace the existing `generateComment(listId, deviceId)` backend method with an updated atomic version that consumes from the shared `availablePoolByList`. Steps: (1) check claims HashMap for composite key `listId#deviceId` — if found, return `#err('Already generated on this device for this list')`; (2) get `availablePool = availablePoolByList[listId]`; (3) if pool is empty, return `#err('No comments left for this list')`; (4) randomly select one index from the pool; (5) remove that index from the pool; (6) persist updated pool; (7) insert claim into claims HashMap; (8) return `#ok` with the template text (suffix appended if present) plus metadata: `{ comment: Text, availableBefore: Nat, availableAfter: Nat, totalTemplates: Nat }`.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "Get availablePool = availablePoolByList[listId]",
+          "Pop/remove allowedCount indices from availablePool",
+          "Insert claim for (listId, deviceId)"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Returns already-claimed error if the device has already generated from this list",
+        "Returns out-of-comments error if the pool is empty",
+        "Removes exactly one index from the pool atomically in a single update call",
+        "Returns availableBefore, availableAfter, and totalTemplates in the response",
+        "Template text is returned with suffix appended if present"
+      ]
+    },
+    {
+      "id": "REQ-47",
+      "text": "Replace the existing `generateBulkComments(listId, requestedCount, accessKey)` backend method with an updated atomic version that consumes from the shared `availablePoolByList`. Steps: (1) validate access key — if invalid, return error; (2) get `availablePool = availablePoolByList[listId]`; (3) if pool is empty, return error 'No comments left for this list'; (4) compute `allowedCount = Nat.min(requestedCount, availablePool.size())`; (5) randomly shuffle or randomly pick `allowedCount` indices from the pool; (6) remove those indices from the pool; (7) persist updated pool; (8) return the selected template texts (suffix appended) plus metadata: `{ comments: [Text], generatedCount: Nat, availableBefore: Nat, availableAfter: Nat, totalTemplates: Nat }`. No device lock is applied for bulk generation.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "Bulk Generator: no device lock, only: valid access key, max count ≤ available templates, consumes from shared pool",
+          "allowedCount = min(requestedCount, availableCount)",
+          "Pop/remove allowedCount indices from availablePool"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Returns error if access key is invalid",
+        "Returns error if pool is empty",
+        "Clamps returned count to availablePool.size()",
+        "Removes exactly allowedCount indices from the shared pool atomically",
+        "Returns generatedCount, availableBefore, availableAfter, and totalTemplates in the response",
+        "No device lock check is performed"
+      ]
+    },
+    {
+      "id": "REQ-48",
+      "text": "Update `getAvailableCount(listId: Text) : async Nat` to return `availablePoolByList[listId].size()` (the current pool size) instead of computing from used indices. Update `getListMetrics() : async [ListMetrics]` to derive `availableTemplates = availablePoolByList[listId].size()` and `usedTemplates = totalTemplates - availableTemplates` for each list, where `totalTemplates = templatesByList[listId].size()`. percentUsed = usedTemplates / totalTemplates * 100 (0.0 if totalTemplates is 0).",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "getListMetrics and getAvailableCount updated to read from availablePool size"
+        ]
+      },
+      "acceptanceCriteria": [
+        "getAvailableCount returns pool.size() for the given list",
+        "getListMetrics returns availableTemplates derived from pool size",
+        "usedTemplates = totalTemplates - availableTemplates in metrics",
+        "percentUsed is 0.0 when totalTemplates is 0"
+      ]
+    },
+    {
+      "id": "REQ-49",
+      "text": "Add a `resetPool(listId: Text, clearClaims: Bool) : async Result<(), Text>` update method to the Motoko backend. When called: (1) restore `availablePoolByList[listId]` to `[0, 1, ..., N-1]` where N = `templatesByList[listId].size()`; (2) if `clearClaims` is true, remove all entries from the claims HashMap where the key starts with `listId#`; (3) append an audit log entry recording the reset action, listId, clearClaims flag, and a timestamp. Return `#ok(())` on success or `#err(message)` if the list does not exist.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "Add Reset Pool in Admin > Comments per list: Restores available pool back to full [0..N-1], Clears 'used' state for that list",
+          "Reset + Clear Claims (optional) — Clears device locks too"
+        ]
+      },
+      "acceptanceCriteria": [
+        "resetPool restores the available pool to full [0..N-1]",
+        "When clearClaims=true, all device claims for that list are removed from the claims HashMap",
+        "When clearClaims=false, device claims are preserved",
+        "An audit log entry is recorded with listId, clearClaims flag, and timestamp",
+        "Returns error if listId does not exist"
+      ]
+    },
+    {
+      "id": "REQ-50",
+      "text": "Add a stable audit log array to the Motoko backend (e.g., `stable var auditLog: [(Text, Int)] = []`) that records entries as `(description: Text, timestamp: Int)`. The `resetPool` method must append an entry such as `'Reset pool for list [listId], clearClaims=[true/false]'` with the current time. Expose a query `getAuditLog() : async [(Text, Int)]` returning the full log.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "with confirmation + audit log entry"
+        ]
+      },
+      "acceptanceCriteria": [
+        "auditLog is stable and survives upgrades",
+        "resetPool appends a descriptive entry to the audit log",
+        "getAuditLog returns all audit entries as (description, timestamp) pairs"
+      ]
+    },
+    {
+      "id": "REQ-51",
+      "text": "In `frontend/src/hooks/useQueries.ts`, update the `generateComment` mutation to: (1) pass `deviceId` from localStorage, (2) handle the response metadata (`availableBefore`, `availableAfter`, `totalTemplates`) and expose it to the caller, (3) after a successful generation immediately update the local available count state using `availableAfter` from the response, and (4) trigger a refetch of `getListMetrics` and `getAvailableCount` for the affected list. Update the `generateBulkComments` mutation to: (1) handle the `generatedCount`, `availableBefore`, `availableAfter`, and `totalTemplates` metadata in the response, and (2) trigger a refetch of `getListMetrics` and `getAvailableCount` after generation.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "After successful generate, immediately update UI counts using response.availableAfter",
+          "Also refetch metrics to keep admin/user views consistent"
+        ]
+      },
+      "acceptanceCriteria": [
+        "generateComment mutation receives and exposes availableAfter from response",
+        "generateBulkComments mutation receives and exposes generatedCount and availableAfter",
+        "Both mutations invalidate/refetch getListMetrics and getAvailableCount after success"
+      ]
+    },
+    {
+      "id": "REQ-52",
+      "text": "In `frontend/src/views/UserView.tsx`, update the Single Comment Generator section so that after a successful `generateComment` call: (1) the 'Available Comments' count displayed immediately reflects `response.availableAfter` without waiting for a separate query refetch; (2) if the response indicates the pool was empty (out-of-comments error), show the 'Out of comments' badge; (3) the device lock notice appears immediately using the localStorage claim stored after generation.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "After generation, available count must reduce immediately: availableAfter = availableBefore - X",
+          "Frontend: immediate UI count update from response.availableAfter"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Available Comments count updates immediately after generation using availableAfter from response",
+        "Out-of-comments badge appears when no pool entries remain",
+        "Lock notice is shown immediately from localStorage claim without extra backend round-trip"
+      ]
+    },
+    {
+      "id": "REQ-53",
+      "text": "In `frontend/src/components/BulkCommentGenerator.tsx`, update the component so that: (1) after a successful generation, the 'Available Templates' label updates immediately using `response.availableAfter`; (2) if the backend clamps the count (generatedCount < requestedCount), display a toast notification: 'Only X available, generated X.' where X = generatedCount; (3) if availableAfter is 0 after generation, disable the Generate button and show 'Out of comments'.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "If requestedCount > availableTemplates: clamp to availableTemplates and show toast: 'Only X available, generated X.'",
+          "If list has 0 available: show 'Out of comments'"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Available Templates label updates immediately to availableAfter after successful bulk generation",
+        "Toast notification shown when generatedCount < requestedCount",
+        "Generate button disabled and 'Out of comments' shown when pool is empty after generation"
+      ]
+    },
+    {
+      "id": "REQ-54",
+      "text": "In `frontend/src/views/admin/AdminComments.tsx`, add a Reset Pool control per comment list in the Manage Comments section. Display two buttons per list: (1) 'Reset Pool' — restores available indices to full, does not clear device claims; (2) 'Reset Pool + Clear Claims' — restores pool AND removes all device claims for that list. Both buttons must show a confirmation dialog before executing. On confirmation, call the `resetPool` backend mutation. After success, show a success toast and refetch list metrics and available count.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "Add Reset Pool in Admin > Comments per list",
+          "Reset Pool + Clear Claims (optional) — Clears device locks too",
+          "Both require confirmation dialog, and an audit log entry is recorded"
+        ]
+      },
+      "acceptanceCriteria": [
+        "'Reset Pool' button appears per list in Admin > Comments",
+        "'Reset Pool + Clear Claims' button appears per list in Admin > Comments",
+        "A confirmation dialog is shown before either reset action executes",
+        "On success, list metrics and available count are refetched",
+        "A success toast is shown after reset completes"
+      ]
+    },
+    {
+      "id": "REQ-55",
+      "text": "In `frontend/src/hooks/useQueries.ts`, add a `useResetPool` mutation hook that calls the `resetPool(listId, clearClaims)` backend method and invalidates `getListMetrics` and `getAvailableCount` queries on success.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-build"
+        ],
+        "quotes": [
+          "Admin resetPool(listId, clearClaims) method"
+        ]
+      },
+      "acceptanceCriteria": [
+        "useResetPool mutation hook calls backend resetPool with listId and clearClaims boolean",
+        "On success, getListMetrics and getAvailableCount queries are invalidated/refetched"
       ]
     }
   ],
   "constraints": [
-    "Only modify the Single Comment Generator section in frontend/src/views/UserView.tsx.",
-    "Do not remove or alter App/Event selectors in any other component or tab.",
-    "Do not change any backend logic."
+    "Do not break existing stable storage — all new stable variables must be added alongside existing ones with proper preupgrade/postupgrade hooks",
+    "Single Comment Generator device lock (claims HashMap) must remain intact and only be cleared when clearClaims=true is passed to resetPool",
+    "Bulk Comment Generator must NOT apply device lock — only access key validation",
+    "Both generateComment and generateBulkComments must draw from the same shared availablePoolByList per list",
+    "All pool mutations must be atomic within a single update call — no intermediate awaits that could cause race conditions",
+    "Do not modify frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or any files under frontend/src/components/ui"
   ],
   "nonGoals": [
-    "Removing App/Event selectors from Live Checker, Upload tab, or Admin views.",
-    "Any backend changes.",
-    "Redesigning the Single Comment Generator card layout beyond removing the dropdown."
+    "Separate per-feature pools (Single vs Bulk do not get independent pools)",
+    "Rate limiting per access key",
+    "Bulk generation device lock",
+    "Any external AI or third-party API integration",
+    "Changes to the Live Checker, Admin Images, Admin Chat, or Admin Settings tabs"
   ],
   "imageRequirements": {
     "required": [],

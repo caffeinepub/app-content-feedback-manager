@@ -1,23 +1,86 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Remove App/Event dropdown from Single Comment Generator in User View",
+  "title": "Implement consumed-template tracking with shared index pool, atomic generation, and admin reset controls",
   "requirements": [
     {
-      "id": "REQ-39",
-      "summary": "Remove the App/Event dropdown selector from the Single Comment Generator section in UserView.tsx and update the Comment List dropdown to show all unlocked comment lists from all apps/events instead of filtered lists",
+      "id": "REQ-51",
+      "summary": "Update generateComment and generateBulkComments mutations to handle new response metadata and trigger refetches",
       "acceptanceCriteria": [
-        "The Single Comment Generator card in the User View tab does not contain an App/Event dropdown.",
-        "The 'Select Comment List' dropdown in the Single Comment Generator shows all unlocked comment lists regardless of app/event.",
-        "The Available Comments count, device lock notice, Generate Single Comment button, copy output, and out-of-comments badge all continue to function correctly.",
-        "App/Event selectors in other tabs (Live Checker, Upload/Bulk Comment Generator, etc.) are unaffected.",
-        "No console errors related to undefined selectedApp or app-event filtering in the Single Comment Generator."
+        "generateComment mutation receives and exposes availableAfter from response",
+        "generateBulkComments mutation receives and exposes generatedCount and availableAfter",
+        "Both mutations invalidate/refetch getListMetrics and getAvailableCount after success"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Update the generateComment mutation to pass deviceId from localStorage, handle the new response metadata fields (availableBefore, availableAfter, totalTemplates), and invalidate getListMetrics and getAvailableCount queries on success. Update the generateBulkComments mutation to handle the new response metadata fields (generatedCount, availableBefore, availableAfter, totalTemplates) and invalidate the same queries on success. Ensure both mutations expose the metadata to their callers for immediate UI updates."
+        }
+      ]
+    },
+    {
+      "id": "REQ-52",
+      "summary": "Update UserView Single Comment Generator to immediately reflect availableAfter and show out-of-comments badge",
+      "acceptanceCriteria": [
+        "Available Comments count updates immediately after generation using availableAfter from response",
+        "Out-of-comments badge appears when no pool entries remain",
+        "Lock notice is shown immediately from localStorage claim without extra backend round-trip"
       ],
       "file_operations": [
         {
           "path": "frontend/src/views/UserView.tsx",
           "operation": "modify",
-          "description": "Remove the App/Event dropdown selector (<select> element with id 'app-event') from the Single Comment Generator card. Remove the selectedApp state variable and its setter. Update the Comment List dropdown to show all unlocked comment lists by removing the filter condition that checks appEvent.name === selectedApp. Remove any conditional logic that depends on selectedApp being set. Ensure all other functionality (available count display via getAvailableCount query, device lock notice using useDeviceId, Generate Single Comment button with useCommentGenerator, copy output with toast feedback, out-of-comments badge) remains unchanged. Do not modify the App/Event selector in the embedded TopDownShooter game section or any other part of the component."
+          "description": "Update the Single Comment Generator section to immediately update the displayed 'Available Comments' count using response.availableAfter after a successful generateComment call. Show the 'Out of comments' badge when the backend returns an out-of-comments error or when availableAfter is 0. Ensure the device lock notice appears immediately using the localStorage claim stored after generation without requiring a separate backend query."
+        }
+      ]
+    },
+    {
+      "id": "REQ-53",
+      "summary": "Update BulkCommentGenerator to show immediate count updates, clamping toast, and out-of-comments state",
+      "acceptanceCriteria": [
+        "Available Templates label updates immediately to availableAfter after successful bulk generation",
+        "Toast notification shown when generatedCount < requestedCount",
+        "Generate button disabled and 'Out of comments' shown when pool is empty after generation"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/BulkCommentGenerator.tsx",
+          "operation": "modify",
+          "description": "Update the component to immediately reflect response.availableAfter in the 'Available Templates' label after successful bulk generation. If the backend clamped the count (generatedCount < requestedCount), display a toast notification: 'Only X available, generated X.' where X equals generatedCount. If availableAfter is 0 after generation, disable the Generate button and show an 'Out of comments' message."
+        }
+      ]
+    },
+    {
+      "id": "REQ-54",
+      "summary": "Add Reset Pool and Reset Pool + Clear Claims controls to Admin Comments with confirmation dialogs",
+      "acceptanceCriteria": [
+        "'Reset Pool' button appears per list in Admin > Comments",
+        "'Reset Pool + Clear Claims' button appears per list in Admin > Comments",
+        "A confirmation dialog is shown before either reset action executes",
+        "On success, list metrics and available count are refetched",
+        "A success toast is shown after reset completes"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/views/admin/AdminComments.tsx",
+          "operation": "modify",
+          "description": "Add two reset buttons per comment list in the Manage Comments section: 'Reset Pool' (restores available indices without clearing device claims) and 'Reset Pool + Clear Claims' (restores pool and removes all device claims for that list). Both buttons must trigger a confirmation dialog before calling the resetPool backend mutation with the appropriate clearClaims boolean flag. On success, show a success toast and refetch getListMetrics and getAvailableCount queries to update the UI."
+        }
+      ]
+    },
+    {
+      "id": "REQ-55",
+      "summary": "Add useResetPool mutation hook to call backend resetPool method and invalidate queries",
+      "acceptanceCriteria": [
+        "useResetPool mutation hook calls backend resetPool with listId and clearClaims boolean",
+        "On success, getListMetrics and getAvailableCount queries are invalidated/refetched"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a useResetPool mutation hook that calls the backend resetPool(listId, clearClaims) method. On successful mutation, invalidate and refetch the getListMetrics and getAvailableCount queries to ensure the UI reflects the restored pool state. This hook will be consumed by the AdminComments view for the reset controls."
         }
       ]
     }

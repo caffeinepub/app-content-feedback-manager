@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useActor } from "./useActor";
-import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings, ListMetrics } from "../backend";
+import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings, ListMetrics, BulkCommentsResult } from "../backend";
 
 // ── Comment Lists ──────────────────────────────────────────────────────────────
 
@@ -28,6 +28,7 @@ export function useAddCommentList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCount"] });
     },
   });
 }
@@ -76,7 +77,42 @@ export function useAvailableCount(listId: string) {
   });
 }
 
-// ── Generate Comment (device-locked) ──────────────────────────────────────────
+// ── Generate Bulk Comments ─────────────────────────────────────────────────────
+
+export function useGenerateBulkComments() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation<BulkCommentsResult, Error, { listId: string; count: number }>({
+    mutationFn: async ({ listId, count }) => {
+      if (!actor) throw new Error("Actor not initialized");
+      return actor.generateBulkComments(listId, BigInt(count));
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate available count for the specific list and all metrics
+      queryClient.invalidateQueries({ queryKey: ["availableCount", variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+    },
+  });
+}
+
+// ── Generate Single Comment (device-locked, uses shared pool) ─────────────────
+
+export function useGenerateSingleComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation<BulkCommentsResult, Error, { listId: string }>({
+    mutationFn: async ({ listId }) => {
+      if (!actor) throw new Error("Actor not initialized");
+      return actor.generateBulkComments(listId, BigInt(1));
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["availableCount", variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+    },
+  });
+}
+
+// ── Device Claim Helpers ───────────────────────────────────────────────────────
 
 const CLAIMS_KEY_PREFIX = "claim_";
 
@@ -309,7 +345,6 @@ export function useSetAccessKey() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accessKey"] });
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 }

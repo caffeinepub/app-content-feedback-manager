@@ -11,11 +11,9 @@ import Iter "mo:core/Iter";
 import Float "mo:core/Float";
 import Int "mo:core/Int";
 import MixinStorage "blob-storage/Mixin";
+import Migration "migration";
 
-import Runtime "mo:core/Runtime";
-
-// Use migration pattern with explicit type mapping for old -> new actor
-
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -67,6 +65,13 @@ actor {
     usedTemplates : Nat;
     availableTemplates : Nat;
     percentUsed : Float;
+  };
+
+  type BulkCommentsResult = {
+    commentListId : Text;
+    comments : [Text];
+    generatedCount : Nat;
+    templateCount : Nat;
   };
 
   let commentLists = Map.empty<Text, CommentList>();
@@ -276,6 +281,10 @@ actor {
         };
       }
     );
+  };
+
+  public shared ({ caller }) func generateBulkComments(listId : Text, count : Nat) : async BulkCommentsResult {
+    Runtime.trap("Function not implemented yet. This will take place in the next generated iteration.");
   };
 
   public shared ({ caller }) func exportAllData() : async ExportData {

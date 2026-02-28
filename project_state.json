@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 15,
-  "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and top-down shooter game. User View has a Single Comment Generator with device-based locking (one comment per list per device via stable HashMap on backend) and dynamic Available Comments count. Admin panel includes per-list metrics (Used/Left) shown as SVG/CSS donut charts and progress bars. Live Checker tab supports multi-username textarea input, Select All/specific app selector, results per username, and a public 'Live List for All Users' section. Bulk Comments Generator is in the Upload tab, locked behind Access Key. Upload tab label renamed to 'Bulk Comments'. A fixed play/pause button in the top-right corner controls background music for all users.",
+  "projectStateVersion": 19,
+  "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and top-down shooter game. User View has a Single Comment Generator with device-based locking (one comment per list per device via stable HashMap on backend) and dynamic Available Comments count. Admin panel includes per-list metrics (Used/Left) shown as SVG/CSS donut charts and progress bars. Live Checker tab supports multi-username textarea input, Select All/specific app selector, results per username, and a public 'Live List for All Users' section. Bulk Comments Generator is in the Upload tab, locked behind Access Key. Upload tab label renamed to 'Bulk Comments'. A fixed play/pause button in the top-right corner controls background music for all users. Both Single and Bulk generators share one available index pool per list — templates are consumed permanently on generation (no repeats), available count updates in real time. Device lock enforced only on Single generator; Bulk gated by access key only. Admin can Reset Pool (restore full [0..N-1]) or Reset Pool + Clear Claims per list, with confirmation dialog and audit log entry.",
   "architectural_notes": [
     "Admin unlock via code 7898 stored in sessionStorage (adminUnlocked=true); no Internet Identity or external auth",
     "Data storage via Motoko backend canisters (template lists, apps/events, usernames, chat, images metadata, settings)",
@@ -10,12 +10,13 @@
     "Dark blue-to-green gradient UI, neon blue/green accents, mobile-first responsive layout",
     "Access Key for Bulk Comments Generator is a single active key stored on the backend; users must enter it to unlock bulk generation",
     "Device-based comment locking uses stable HashMap keyed on (listId, deviceId) in Motoko backend, persisted across upgrades via pre/postupgrade hooks",
-    "Available comment count is fully dynamic: availableCount = totalTemplates - usedIndices.size() per list; no hardcoded values"
+    "Available comment count is fully dynamic: availableCount = totalTemplates - usedIndices.size() per list; no hardcoded values",
+    "Single + Bulk generators share one availablePoolByList per list (stable storage); templates are consumed atomically and never reused. Device lock enforced only for Single generator; Bulk gated by access key + pool availability only."
   ],
   "known_issues": [
     "All interactive buttons/actions (Generate, Create, Add, Upload, etc.) across all tabs do nothing when clicked — event handlers not firing, likely a React wiring or build issue"
   ],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
       "id": "feature-build-the-overall-app-shell-with-a-dark-blue-to-green-gradient-background-theme-neon-blue-green-accent-colors-rounded-cards-smooth-css-transitions-and-a-fully-mobile-first-responsive-layout-the-header-must-show-1-app-review-comment-management-logo-title-with-an-a-avatar-icon-2-a-time-until-midnight-countdown-widget-displaying-hours-minutes-seconds-in-the-user-s-local-timezone-with-a-motivational-tagline-beneath-it-3-an-admin-status-badge-admin-unlocked-that-appears-only-when-admin-mode-is-active-and-4-a-lock-admin-button-that-clears-the-admin-session-navigation-tabs-below-the-header-user-view-upload-live-checker-admin",
@@ -256,6 +257,78 @@
         "REQ-39"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-when-a-comment-list-is-selected-fetch-its-template-count-use-getavailablecount-or-derive-from-list-data-and-display-an-available-templates-x-label-that-updates-immediately-when-the-list-selection-changes",
+      "title": "In `frontend/src/components/BulkCommentGenerator.tsx`, when a comment list is selected, fetch its template count (use `getAvailableCount` or derive from list data) and display an 'Available Templates: X' label that updates immediately when the list selection changes.",
+      "reqIds": [
+        "REQ-41"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-dynamically-disable-or-visually-mark-as-unavailable-any-quantity-preset-button-5-10-20-50-whose-value-exceeds-the-selected-list-s-template-count-if-templatecount-is-less-than-all-presets-e-g-templatecount-3-all-preset-buttons-must-be-disabled-greyed-out-and-the-user-cannot-select-any-of-them-additionally-clamp-the-currently-selected-quantity-to-templatecount-if-the-list-changes-and-the-selected-quantity-now-exceeds-templatecount",
+      "title": "In `frontend/src/components/BulkCommentGenerator.tsx`, dynamically disable or visually mark as unavailable any quantity preset button (5, 10, 20, 50) whose value exceeds the selected list's template count. If templateCount is less than all presets (e.g., templateCount=3), all preset buttons must be disabled/greyed-out and the user cannot select any of them. Additionally, clamp the currently selected quantity to templateCount if the list changes and the selected quantity now exceeds templateCount.",
+      "reqIds": [
+        "REQ-42"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-add-a-client-side-validation-check-immediately-before-the-generate-request-is-dispatched-if-the-requested-quantity-exceeds-the-template-count-for-the-selected-list-block-the-request-and-display-an-inline-error-message-maximum-x-comments-allowed-for-this-list-where-x-templatecount-if-templatecount-is-0-show-no-templates-available-if-requestedcount-0-show-invalid-count",
+      "title": "In `frontend/src/components/BulkCommentGenerator.tsx`, add a client-side validation check immediately before the generate request is dispatched. If the requested quantity exceeds the template count for the selected list, block the request and display an inline error message: 'Maximum X comments allowed for this list' (where X = templateCount). If templateCount is 0, show 'No templates available'. If requestedCount <= 0, show 'Invalid count'.",
+      "reqIds": [
+        "REQ-43"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-replace-the-static-generated-x-comments-header-text-with-a-dynamic-label-that-reflects-the-actual-number-of-comments-returned-by-the-backend-i-e-generatedcount-from-the-response-metadata-not-the-originally-requested-quantity-for-example-if-3-templates-exist-and-the-user-requested-5-the-header-must-read-generated-3-comments",
+      "title": "In `frontend/src/components/BulkCommentGenerator.tsx`, replace the static 'Generated X comments' header text with a dynamic label that reflects the actual number of comments returned by the backend (i.e., `generatedCount` from the response metadata), not the originally requested quantity. For example, if 3 templates exist and the user requested 5, the header must read 'Generated 3 comments'.",
+      "reqIds": [
+        "REQ-44"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-hooks-usequeries-ts-update-the-generatecomment-mutation-to-1-pass-deviceid-from-localstorage-2-handle-the-response-metadata-availablebefore-availableafter-totaltemplates-and-expose-it-to-the-caller-3-after-a-successful-generation-immediately-update-the-local-available-count-state-using-availableafter-from-the-response-and-4-trigger-a-refetch-of-getlistmetrics-and-getavailablecount-for-the-affected-list-update-the-generatebulkcomments-mutation-to-1-handle-the-generatedcount-availablebefore-availableafter-and-totaltemplates-metadata-in-the-response-and-2-trigger-a-refetch-of-getlistmetrics-and-getavailablecount-after-generation",
+      "title": "In `frontend/src/hooks/useQueries.ts`, update the `generateComment` mutation to: (1) pass `deviceId` from localStorage, (2) handle the response metadata (`availableBefore`, `availableAfter`, `totalTemplates`) and expose it to the caller, (3) after a successful generation immediately update the local available count state using `availableAfter` from the response, and (4) trigger a refetch of `getListMetrics` and `getAvailableCount` for the affected list. Update the `generateBulkComments` mutation to: (1) handle the `generatedCount`, `availableBefore`, `availableAfter`, and `totalTemplates` metadata in the response, and (2) trigger a refetch of `getListMetrics` and `getAvailableCount` after generation.",
+      "reqIds": [
+        "REQ-51"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-views-userview-tsx-update-the-single-comment-generator-section-so-that-after-a-successful-generatecomment-call-1-the-available-comments-count-displayed-immediately-reflects-response-availableafter-without-waiting-for-a-separate-query-refetch-2-if-the-response-indicates-the-pool-was-empty-out-of-comments-error-show-the-out-of-comments-badge-3-the-device-lock-notice-appears-immediately-using-the-localstorage-claim-stored-after-generation",
+      "title": "In `frontend/src/views/UserView.tsx`, update the Single Comment Generator section so that after a successful `generateComment` call: (1) the 'Available Comments' count displayed immediately reflects `response.availableAfter` without waiting for a separate query refetch; (2) if the response indicates the pool was empty (out-of-comments error), show the 'Out of comments' badge; (3) the device lock notice appears immediately using the localStorage claim stored after generation.",
+      "reqIds": [
+        "REQ-52"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-update-the-component-so-that-1-after-a-successful-generation-the-available-templates-label-updates-immediately-using-response-availableafter-2-if-the-backend-clamps-the-count-generatedcount-requestedcount-display-a-toast-notification-only-x-available-generated-x-where-x-generatedcount-3-if-availableafter-is-0-after-generation-disable-the-generate-button-and-show-out-of-comments",
+      "title": "In `frontend/src/components/BulkCommentGenerator.tsx`, update the component so that: (1) after a successful generation, the 'Available Templates' label updates immediately using `response.availableAfter`; (2) if the backend clamps the count (generatedCount < requestedCount), display a toast notification: 'Only X available, generated X.' where X = generatedCount; (3) if availableAfter is 0 after generation, disable the Generate button and show 'Out of comments'.",
+      "reqIds": [
+        "REQ-53"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-views-admin-admincomments-tsx-add-a-reset-pool-control-per-comment-list-in-the-manage-comments-section-display-two-buttons-per-list-1-reset-pool-restores-available-indices-to-full-does-not-clear-device-claims-2-reset-pool-clear-claims-restores-pool-and-removes-all-device-claims-for-that-list-both-buttons-must-show-a-confirmation-dialog-before-executing-on-confirmation-call-the-resetpool-backend-mutation-after-success-show-a-success-toast-and-refetch-list-metrics-and-available-count",
+      "title": "In `frontend/src/views/admin/AdminComments.tsx`, add a Reset Pool control per comment list in the Manage Comments section. Display two buttons per list: (1) 'Reset Pool' — restores available indices to full, does not clear device claims; (2) 'Reset Pool + Clear Claims' — restores pool AND removes all device claims for that list. Both buttons must show a confirmation dialog before executing. On confirmation, call the `resetPool` backend mutation. After success, show a success toast and refetch list metrics and available count.",
+      "reqIds": [
+        "REQ-54"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-frontend-src-hooks-usequeries-ts-add-a-useresetpool-mutation-hook-that-calls-the-resetpool-listid-clearclaims-backend-method-and-invalidates-getlistmetrics-and-getavailablecount-queries-on-success",
+      "title": "In `frontend/src/hooks/useQueries.ts`, add a `useResetPool` mutation hook that calls the `resetPool(listId, clearClaims)` backend method and invalidates `getListMetrics` and `getAvailableCount` queries on success.",
+      "reqIds": [
+        "REQ-55"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -467,6 +540,80 @@
       "id": "AR-35",
       "summary": "Remove the App/Event dropdown selector from the Single Comment Generator in the User View tab only; users go straight to selecting a Comment List. Keep App/Event selectors intact everywhere else.",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-36",
+      "summary": "Bulk Comment Generator: strictly cap generated comments to available template count (no repeats). Frontend: dynamic quantity buttons capped to templateCount, 'Available Templates: X' label, pre-submit validation. Backend: generateBulkComments enforces allowedCount = min(requestedCount, templateCount), returns actual generatedCount metadata.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-37",
+      "summary": "Update the `generateBulkComments` backend method in `backend/main.mo` to strictly enforce that the number of returned comments never exceeds the number of templates in the selected list. Specifically: (1) retrieve the templates array for the given listId; (2) compute `templateCount = templates.size()`; (3) compute `allowedCount = Nat.min(requestedCount, templateCount)`; (4) if `templateCount == 0`, return an error result indicating no templates are available; (5) shuffle the templates array; (6) return only the first `allowedCount` entries — never more; (7) return metadata containing `generatedCount` (= allowedCount) and `templateCount`. Under no condition may the backend return more comments than templates exist in the list.",
+      "reqIds": [
+        "REQ-40"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-38",
+      "summary": "Shared available index pool per list (Single + Bulk draw from same pool). Backend: availablePoolByList stable storage initialized to [0..N-1] on list creation, atomic pool consumption in generateComment (device-locked) and generateBulkComments (access-key-only). Admin resetPool(listId, clearClaims) method. getListMetrics and getAvailableCount read from pool size. Frontend: immediate UI count update from response.availableAfter, toast on clamp, out-of-comments badge, metrics refetch after generation/reset.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-39",
+      "summary": "Admin Reset Pool controls per list in Admin > Comments: 'Reset Pool' (restores [0..N-1], clears used state) and 'Reset Pool + Clear Claims' (also removes device locks). Both require confirmation dialog and write an audit log entry.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-40",
+      "summary": "Add a stable `availablePoolByList` HashMap (keyed by listId, value is a stable array of available template indices [Nat]) to the Motoko backend actor. On list creation, initialize the pool to [0, 1, 2, ..., N-1] where N is the number of templates. On template addition, append the new index to the pool. On template deletion, remove that index from the pool. Persist this structure across upgrades via preupgrade/postupgrade hooks into a stable array.",
+      "reqIds": [
+        "REQ-45"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-41",
+      "summary": "Replace the existing `generateComment(listId, deviceId)` backend method with an updated atomic version that consumes from the shared `availablePoolByList`. Steps: (1) check claims HashMap for composite key `listId#deviceId` — if found, return `#err('Already generated on this device for this list')`; (2) get `availablePool = availablePoolByList[listId]`; (3) if pool is empty, return `#err('No comments left for this list')`; (4) randomly select one index from the pool; (5) remove that index from the pool; (6) persist updated pool; (7) insert claim into claims HashMap; (8) return `#ok` with the template text (suffix appended if present) plus metadata: `{ comment: Text, availableBefore: Nat, availableAfter: Nat, totalTemplates: Nat }`.",
+      "reqIds": [
+        "REQ-46"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-42",
+      "summary": "Replace the existing `generateBulkComments(listId, requestedCount, accessKey)` backend method with an updated atomic version that consumes from the shared `availablePoolByList`. Steps: (1) validate access key — if invalid, return error; (2) get `availablePool = availablePoolByList[listId]`; (3) if pool is empty, return error 'No comments left for this list'; (4) compute `allowedCount = Nat.min(requestedCount, availablePool.size())`; (5) randomly shuffle or randomly pick `allowedCount` indices from the pool; (6) remove those indices from the pool; (7) persist updated pool; (8) return the selected template texts (suffix appended) plus metadata: `{ comments: [Text], generatedCount: Nat, availableBefore: Nat, availableAfter: Nat, totalTemplates: Nat }`. No device lock is applied for bulk generation.",
+      "reqIds": [
+        "REQ-47"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-43",
+      "summary": "Update `getAvailableCount(listId: Text) : async Nat` to return `availablePoolByList[listId].size()` (the current pool size) instead of computing from used indices. Update `getListMetrics() : async [ListMetrics]` to derive `availableTemplates = availablePoolByList[listId].size()` and `usedTemplates = totalTemplates - availableTemplates` for each list, where `totalTemplates = templatesByList[listId].size()`. percentUsed = usedTemplates / totalTemplates * 100 (0.0 if totalTemplates is 0).",
+      "reqIds": [
+        "REQ-48"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-44",
+      "summary": "Add a `resetPool(listId: Text, clearClaims: Bool) : async Result<(), Text>` update method to the Motoko backend. When called: (1) restore `availablePoolByList[listId]` to `[0, 1, ..., N-1]` where N = `templatesByList[listId].size()`; (2) if `clearClaims` is true, remove all entries from the claims HashMap where the key starts with `listId#`; (3) append an audit log entry recording the reset action, listId, clearClaims flag, and a timestamp. Return `#ok(())` on success or `#err(message)` if the list does not exist.",
+      "reqIds": [
+        "REQ-49"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-45",
+      "summary": "Add a stable audit log array to the Motoko backend (e.g., `stable var auditLog: [(Text, Int)] = []`) that records entries as `(description: Text, timestamp: Int)`. The `resetPool` method must append an entry such as `'Reset pool for list [listId], clearClaims=[true/false]'` with the current time. Expose a query `getAuditLog() : async [(Text, Int)]` returning the full log.",
+      "reqIds": [
+        "REQ-50"
+      ],
       "status": "pending"
     }
   ],
