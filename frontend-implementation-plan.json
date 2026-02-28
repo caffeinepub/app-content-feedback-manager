@@ -1,83 +1,23 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Single Comment Generator with device-based locking, dynamic available count, and admin metrics charts",
+  "title": "Remove App/Event dropdown from Single Comment Generator in User View",
   "requirements": [
     {
-      "id": "REQ-36",
-      "summary": "Redesign UserView Single Comment Generator section to match the uploaded screenshot with dynamic available count, device-based lock notice, and gradient UI",
+      "id": "REQ-39",
+      "summary": "Remove the App/Event dropdown selector from the Single Comment Generator section in UserView.tsx and update the Comment List dropdown to show all unlocked comment lists from all apps/events instead of filtered lists",
       "acceptanceCriteria": [
-        "Available Comments counter shows a real number from the backend, not 28 or any other hardcoded value",
-        "Available Comments counter updates when a different list is selected",
-        "Lock notice appears if localStorage contains a claim for the selected list's deviceId+listId combination",
-        "Generate button is disabled when the lock notice is visible",
-        "Successful generation displays the comment text and a Copy to Clipboard button",
-        "Out-of-comments error shows a distinct badge/message instead of the Generate button",
-        "Card layout, icon, gradient button, and color scheme match the uploaded screenshot"
+        "The Single Comment Generator card in the User View tab does not contain an App/Event dropdown.",
+        "The 'Select Comment List' dropdown in the Single Comment Generator shows all unlocked comment lists regardless of app/event.",
+        "The Available Comments count, device lock notice, Generate Single Comment button, copy output, and out-of-comments badge all continue to function correctly.",
+        "App/Event selectors in other tabs (Live Checker, Upload/Bulk Comment Generator, etc.) are unaffected.",
+        "No console errors related to undefined selectedApp or app-event filtering in the Single Comment Generator."
       ],
       "file_operations": [
         {
           "path": "frontend/src/views/UserView.tsx",
           "operation": "modify",
-          "description": "Redesign the Single Comment Generator section to match the uploaded screenshot at frontend/public/assets/Screenshot_2026-02-28-08-04-07-838_com.miui.gallery.png. Replace the existing comment generator UI with: (1) a card featuring a blue gradient sparkle/star icon and title/subtitle; (2) retain the existing App/Event selector above the list dropdown; (3) add a 'Select Comment List' dropdown showing only unlocked lists filtered by the selected app/event; (4) add an 'Available Comments' display box that fetches the dynamic count from the backend's getAvailableCount query for the selected list (no hardcoded numbers); (5) add a blue-tinted lock notice box with sparkle icon that appears when localStorage contains a claim for the current deviceId+listId combination; (6) add a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled when the lock notice is visible; (7) on successful generation, display the generated comment text with a Copy button below the card; (8) on 'No comments left' error, show an 'Out of comments' badge instead of the button. Ensure the Available Comments counter updates reactively when the user selects a different list."
-        }
-      ]
-    },
-    {
-      "id": "REQ-37",
-      "summary": "Implement persistent deviceId generation and localStorage-based claim tracking in the frontend",
-      "acceptanceCriteria": [
-        "localStorage 'deviceId' is created on first load and reused on subsequent loads",
-        "deviceId is sent with every generateComment call",
-        "After a successful generation, the lock notice appears immediately without a page reload",
-        "Claim state in localStorage persists across browser tab refreshes"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useDeviceId.ts",
-          "operation": "create",
-          "description": "Create a custom hook that reads the deviceId from localStorage (key 'deviceId') on mount. If missing, generate a new UUID via crypto.randomUUID() and store it in localStorage. Return the deviceId string. This hook ensures a persistent device identifier across sessions."
-        },
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add a new mutation hook useGenerateComment that calls the backend's generateComment capability with (listId, deviceId). On success, store the claim in localStorage keyed by listId (e.g., localStorage.setItem(`claim_${listId}`, JSON.stringify({ deviceId, timestamp: Date.now() }))) so the UI can immediately show the lock notice without an extra backend round-trip. Return the generated comment text or error message. Invalidate any relevant queries (e.g., list metrics or available count) after a successful generation."
-        },
-        {
-          "path": "frontend/src/views/UserView.tsx",
-          "operation": "modify",
-          "description": "Import and use the useDeviceId hook to obtain the persistent deviceId. Pass this deviceId to the useGenerateComment mutation when the user clicks 'Generate Single Comment'. After a successful generation, read the claim from localStorage to immediately show the lock notice without requiring a page reload. Ensure the lock notice check runs on component mount and whenever the selected list changes."
-        }
-      ]
-    },
-    {
-      "id": "REQ-38",
-      "summary": "Add Admin Metrics section with dynamic counts, progress bars, and pure SVG/CSS donut charts for each comment list",
-      "acceptanceCriteria": [
-        "Each list has its own metrics card",
-        "Total, Used, and Available counts match backend values",
-        "Progress bar fill percentage equals usedTemplates / totalTemplates * 100",
-        "SVG donut arc correctly represents used vs available proportion",
-        "Shows 0% fill when no templates have been used",
-        "Shows 100% fill when all templates are used",
-        "No Recharts or external chart dependency is added",
-        "No hardcoded numbers anywhere in the metrics UI"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/MetricsDonutChart.tsx",
-          "operation": "create",
-          "description": "Create a reusable React component that renders a pure SVG/CSS donut chart. Accept props: usedTemplates (number), totalTemplates (number). Calculate the fill percentage as (usedTemplates / totalTemplates * 100), handling division by zero by returning 0%. Render an SVG circle element using stroke-dasharray and stroke-dashoffset to visualize the Used (filled arc) vs Available (unfilled arc) proportion. Use a blue gradient or solid color for the filled arc. Do not use Recharts or any external chart library."
-        },
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add a new query hook useListMetrics that fetches the backend's getListMetrics capability and returns an array of ListMetrics records. Each record contains listId, listName, totalTemplates, usedTemplates, availableTemplates, and percentUsed. Enable refetch on mount and ensure the query can be manually refetched by the admin panel."
-        },
-        {
-          "path": "frontend/src/views/admin/AdminComments.tsx",
-          "operation": "modify",
-          "description": "Add a new 'Metrics' sub-section within the AdminComments view. Use the useListMetrics query hook to fetch dynamic metrics for all comment lists. For each list, render a metrics card displaying: list name, Total / Used / Available counts (all from the backend query), a horizontal progress bar with fill percentage (Used/Total * 100), and a MetricsDonutChart component visualizing the used vs available proportion. Ensure all numbers are dynamic with zero hardcoded values. The progress bar should show 0% fill when no templates are used and 100% fill when all are used."
+          "description": "Remove the App/Event dropdown selector (<select> element with id 'app-event') from the Single Comment Generator card. Remove the selectedApp state variable and its setter. Update the Comment List dropdown to show all unlocked comment lists by removing the filter condition that checks appEvent.name === selectedApp. Remove any conditional logic that depends on selectedApp being set. Ensure all other functionality (available count display via getAvailableCount query, device lock notice using useDeviceId, Generate Single Comment button with useCommentGenerator, copy output with toast feedback, out-of-comments badge) remains unchanged. Do not modify the App/Event selector in the embedded TopDownShooter game section or any other part of the component."
         }
       ]
     }

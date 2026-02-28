@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 13,
+  "projectStateVersion": 15,
   "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and top-down shooter game. User View has a Single Comment Generator with device-based locking (one comment per list per device via stable HashMap on backend) and dynamic Available Comments count. Admin panel includes per-list metrics (Used/Left) shown as SVG/CSS donut charts and progress bars. Live Checker tab supports multi-username textarea input, Select All/specific app selector, results per username, and a public 'Live List for All Users' section. Bulk Comments Generator is in the Upload tab, locked behind Access Key. Upload tab label renamed to 'Bulk Comments'. A fixed play/pause button in the top-right corner controls background music for all users.",
   "architectural_notes": [
     "Admin unlock via code 7898 stored in sessionStorage (adminUnlocked=true); no Internet Identity or external auth",
@@ -248,6 +248,14 @@
         "REQ-38"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-in-the-single-comment-generator-section-within-the-user-view-tab-frontend-src-views-userview-tsx-remove-the-app-event-dropdown-selector-entirely-the-user-should-go-directly-to-the-select-comment-list-dropdown-without-first-choosing-an-app-event-since-the-comment-list-dropdown-was-previously-filtered-by-the-selected-app-event-it-must-now-show-all-unlocked-comment-lists-from-all-apps-events-all-other-functionality-available-count-display-device-lock-notice-generate-single-comment-button-copy-output-out-of-comments-badge-must-remain-unchanged-do-not-remove-or-modify-app-event-selectors-in-any-other-tab-or-section",
+      "title": "In the Single Comment Generator section within the User View tab (frontend/src/views/UserView.tsx), remove the App/Event dropdown selector entirely. The user should go directly to the 'Select Comment List' dropdown without first choosing an app/event. Since the Comment List dropdown was previously filtered by the selected app/event, it must now show all unlocked comment lists from all apps/events. All other functionality (available count display, device lock notice, Generate Single Comment button, copy output, out-of-comments badge) must remain unchanged. Do not remove or modify App/Event selectors in any other tab or section.",
+      "reqIds": [
+        "REQ-39"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -453,6 +461,12 @@
       "reqIds": [
         "REQ-35"
       ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-35",
+      "summary": "Remove the App/Event dropdown selector from the Single Comment Generator in the User View tab only; users go straight to selecting a Comment List. Keep App/Event selectors intact everywhere else.",
+      "reqIds": [],
       "status": "pending"
     }
   ],

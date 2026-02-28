@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useCommentLists, useAppsEvents, useAvailableCount, getLocalClaim, setLocalClaim } from "@/hooks/useQueries";
+import { useState, useEffect } from "react";
+import { useCommentLists, useAvailableCount, getLocalClaim, setLocalClaim } from "@/hooks/useQueries";
 import { useDeviceId } from "@/hooks/useDeviceId";
 import { useActor } from "@/hooks/useActor";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,27 +12,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Copy, Check, Sparkles, Gamepad2, Lock, AlertCircle } from "lucide-react";
+import { Copy, Check, Sparkles, Gamepad2, AlertCircle } from "lucide-react";
 import { TopDownShooter } from "@/components/TopDownShooter";
 import { toast } from "sonner";
 import type { CommentList } from "@/backend";
 
 export default function UserView() {
   const { data: commentLists, isLoading: listsLoading } = useCommentLists();
-  const { data: appsEvents, isLoading: appsLoading } = useAppsEvents();
   const { actor } = useActor();
   const queryClient = useQueryClient();
   const deviceId = useDeviceId();
 
-  const [selectedAppEvent, setSelectedAppEvent] = useState<string>("");
   const [selectedListId, setSelectedListId] = useState<string>("");
   const [generatedComment, setGeneratedComment] = useState<string>("");
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isOutOfComments, setIsOutOfComments] = useState(false);
-
-  const isLoading = listsLoading || appsLoading;
 
   // Available count from backend for selected list
   const { data: availableCountRaw, isLoading: countLoading } = useAvailableCount(selectedListId);
@@ -50,23 +46,8 @@ export default function UserView() {
     }
   }, [selectedListId]);
 
-  // Reset list selection when app/event changes
-  useEffect(() => {
-    setSelectedListId("");
-  }, [selectedAppEvent]);
-
+  // All unlocked comment lists
   const availableLists: CommentList[] = (commentLists ?? []).filter((l) => !l.locked);
-
-  // Filter lists by selected app/event
-  // Lists are matched by checking if the list's displayName or id contains the app event name
-  // Since lists don't have a direct FK to app events, we show all unlocked lists when no app is selected
-  // and filter by lists whose id starts with or matches the app event name when one is selected
-  const filteredLists: CommentList[] = selectedAppEvent
-    ? availableLists.filter((l) =>
-        l.id.toLowerCase().includes(selectedAppEvent.toLowerCase()) ||
-        l.displayName.toLowerCase().includes(selectedAppEvent.toLowerCase())
-      )
-    : availableLists;
 
   const selectedList = (commentLists ?? []).find((l) => l.id === selectedListId) ?? null;
 
@@ -75,9 +56,6 @@ export default function UserView() {
 
     setIsGenerating(true);
     try {
-      // Use the backend's getAvailableCount to check, then pick a random unused template
-      // Since the backend doesn't have a generateComment endpoint yet, we implement
-      // the device-lock logic client-side with localStorage + backend available count check
       const available = await actor.getAvailableCount(selectedList.id);
       const availableNum = Number(available);
 
@@ -87,7 +65,6 @@ export default function UserView() {
         return;
       }
 
-      // Pick a random template from the list (client-side generation)
       const templates = selectedList.templates;
       if (templates.length === 0) {
         setIsOutOfComments(true);
@@ -105,7 +82,6 @@ export default function UserView() {
       setLocalClaim(selectedList.id, deviceId);
       setIsLocked(true);
 
-      // Invalidate available count query
       queryClient.invalidateQueries({ queryKey: ["availableCount", selectedList.id] });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
 
@@ -183,52 +159,26 @@ export default function UserView() {
         </div>
 
         <div className="p-5 space-y-4">
-          {isLoading ? (
+          {listsLoading ? (
             <div className="space-y-3">
-              <Skeleton className="h-10 w-full bg-secondary" />
               <Skeleton className="h-10 w-full bg-secondary" />
               <Skeleton className="h-14 w-full bg-secondary" />
               <Skeleton className="h-12 w-full bg-secondary" />
             </div>
           ) : (
             <>
-              {/* App / Event Selector */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-semibold text-foreground">Select App / Event</label>
-                {(appsEvents ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No apps/events available.</p>
-                ) : (
-                  <Select value={selectedAppEvent} onValueChange={setSelectedAppEvent}>
-                    <SelectTrigger className="w-full bg-secondary border-border">
-                      <SelectValue placeholder="Choose an app or event..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(appsEvents ?? []).map((app) => (
-                        <SelectItem key={app.name} value={app.name}>
-                          {app.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-
               {/* Comment List Selector */}
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-foreground">Select Comment List</label>
-                {filteredLists.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    {selectedAppEvent
-                      ? "No comment lists found for this app/event."
-                      : "No comment lists available."}
-                  </p>
+                {availableLists.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No comment lists available.</p>
                 ) : (
                   <Select value={selectedListId} onValueChange={setSelectedListId}>
                     <SelectTrigger className="w-full bg-secondary border-border">
                       <SelectValue placeholder="Choose a list..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredLists.map((list) => (
+                      {availableLists.map((list) => (
                         <SelectItem key={list.id} value={list.id}>
                           {list.displayName}
                         </SelectItem>

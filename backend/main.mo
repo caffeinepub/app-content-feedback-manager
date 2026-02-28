@@ -11,11 +11,11 @@ import Iter "mo:core/Iter";
 import Float "mo:core/Float";
 import Int "mo:core/Int";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
+
 import Runtime "mo:core/Runtime";
 
 // Use migration pattern with explicit type mapping for old -> new actor
-(with migration = Migration.run)
+
 actor {
   include MixinStorage();
 

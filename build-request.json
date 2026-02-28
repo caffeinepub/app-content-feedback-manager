@@ -1,156 +1,38 @@
 {
   "kind": "build_request",
-  "title": "Single Comment Generator with device-based locking, dynamic available count, and admin metrics charts",
-  "projectName": "App Review Comment Manager",
+  "title": "Remove App/Event dropdown from Single Comment Generator in User View",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-32",
-      "text": "Add the following stable storage structures to the Motoko backend actor: (1) a stable HashMap keyed by a composite key '(listId#deviceId)' (Text) mapping to a claimed timestamp (Int), persisted via preupgrade/postupgrade hooks into a stable array; (2) a stable HashMap keyed by listId (Text) mapping to an array of used template indices (stable [Nat]), also persisted via preupgrade/postupgrade hooks. These must survive canister upgrades without data loss.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Canister upgrade does not reset claims or used-index data",
-        "preupgrade serializes both HashMaps to stable arrays",
-        "postupgrade rebuilds both HashMaps from those stable arrays",
-        "No hardcoded values exist in the stable structures"
-      ]
-    },
-    {
-      "id": "REQ-33",
-      "text": "Add an atomic update function `generateComment(listId: Text, deviceId: Text) : async Result<Text, Text>` to the Motoko backend. The function must: (1) check if the composite key '(listId#deviceId)' exists in the claims HashMap — if yes, return Err('Already generated on this device for this list'); (2) find the first template index for the given listId that is NOT in the used-indices set; (3) if no unused index exists, return Err('No comments left for this list'); (4) mark that index as used by inserting it into the per-list used-indices map; (5) insert the claim key into the claims HashMap; (6) return Ok(templateText) where templateText is the template at the selected index (with the list's optional suffix appended if present). The entire operation must be a single update call with no intermediate awaits that could allow a race condition.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "First call from a deviceId for a listId returns a template string wrapped in Ok",
-        "Second call from the same deviceId for the same listId returns Err('Already generated on this device for this list')",
-        "A call to a list with all indices used returns Err('No comments left for this list')",
-        "Returned text includes the list suffix if one is set",
-        "No hardcoded comment text is returned"
-      ]
-    },
-    {
-      "id": "REQ-34",
-      "text": "Add a query function `getListMetrics() : async [ListMetrics]` to the Motoko backend, where ListMetrics is a record type containing: listId (Text), listName (Text), totalTemplates (Nat), usedTemplates (Nat), availableTemplates (Nat), percentUsed (Float). For each comment list, availableTemplates = totalTemplates - usedTemplates, and percentUsed = usedTemplates / totalTemplates * 100 (return 0.0 if totalTemplates is 0). All values must be calculated dynamically from actual stored data — no hardcoded numbers.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Returns one entry per comment list",
-        "totalTemplates matches the actual template array size for that list",
-        "usedTemplates matches the size of the used-indices set for that list",
-        "availableTemplates equals totalTemplates minus usedTemplates",
-        "percentUsed returns 0.0 when totalTemplates is 0",
-        "No hardcoded values in the response"
-      ]
-    },
-    {
-      "id": "REQ-35",
-      "text": "Add a query function `getAvailableCount(listId: Text) : async Nat` to the Motoko backend that returns the number of unused template indices for the given list (totalTemplates - usedIndices.size()). This is used by the frontend to display the dynamic 'Available Comments: N' counter without requiring a full metrics fetch.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Returns correct count for a list with no used templates (equals total templates)",
-        "Returns correct count after one comment has been generated (decrements by 1)",
-        "Returns 0 when all templates are used",
-        "Returns 0 for an unknown listId"
-      ]
-    },
-    {
-      "id": "REQ-36",
-      "text": "In the frontend UserView, redesign the Single Comment Generator section to match the uploaded screenshot exactly: (1) a card with a blue gradient icon (sparkle/star), title 'Single Comment Generator', subtitle 'Generate one comment per list (one per device)'; (2) a 'Select Comment List' dropdown showing only unlocked lists for the selected app/event (keep the existing App/Event selector above it); (3) an 'Available Comments' display box showing the dynamic count fetched from the backend's `getAvailableCount` query for the selected list — the number must reflect real stored data, not a hardcoded value; (4) a lock notice box (blue tinted, with sparkle icon) showing 'You have already generated a comment for this list on this device.' when the device has already claimed a comment from the selected list; (5) a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled (and showing the lock notice) if the device has already claimed a comment from this list. On successful generation, display the generated comment text with a Copy button below the card. On 'No comments left' error, show an 'Out of comments' badge instead.",
+      "id": "REQ-39",
+      "text": "In the Single Comment Generator section within the User View tab (frontend/src/views/UserView.tsx), remove the App/Event dropdown selector entirely. The user should go directly to the 'Select Comment List' dropdown without first choosing an app/event. Since the Comment List dropdown was previously filtered by the selected app/event, it must now show all unlocked comment lists from all apps/events. All other functionality (available count display, device lock notice, Generate Single Comment button, copy output, out-of-comments badge) must remain unchanged. Do not remove or modify App/Event selectors in any other tab or section.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-20",
-          "msg-22",
-          "msg-24"
+          "msg-4"
+        ],
+        "quotes": [
+          "Just remove select app/Event from single comment generator only"
         ]
       },
       "acceptanceCriteria": [
-        "Available Comments counter shows a real number from the backend, not 28 or any other hardcoded value",
-        "Available Comments counter updates when a different list is selected",
-        "Lock notice appears if localStorage contains a claim for the selected list's deviceId+listId combination",
-        "Generate button is disabled when the lock notice is visible",
-        "Successful generation displays the comment text and a Copy to Clipboard button",
-        "Out-of-comments error shows a distinct badge/message instead of the Generate button",
-        "Card layout, icon, gradient button, and color scheme match the uploaded screenshot"
-      ]
-    },
-    {
-      "id": "REQ-37",
-      "text": "In the frontend, on app load, ensure a persistent deviceId exists: read from localStorage key 'deviceId'; if missing, generate one via `crypto.randomUUID()` and store it back in localStorage. Pass this deviceId to the `generateComment` backend call. After a successful generation, store the claim in localStorage as a record keyed by listId so the UI can immediately show the lock notice without an extra backend round-trip on re-render.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "localStorage 'deviceId' is created on first load and reused on subsequent loads",
-        "deviceId is sent with every generateComment call",
-        "After a successful generation, the lock notice appears immediately without a page reload",
-        "Claim state in localStorage persists across browser tab refreshes"
-      ]
-    },
-    {
-      "id": "REQ-38",
-      "text": "Add an Admin Metrics section inside the Admin > Comments sub-tab (or as a separate 'Metrics' sub-section within the Admin panel). For each comment list, display a card showing: list name, Total / Used / Available counts (all dynamic from the backend `getListMetrics` query), a horizontal progress bar (Used/Total fill percentage), and a pure SVG/CSS donut chart visualizing Used (filled arc) vs Available (unfilled arc) using stroke-dasharray and stroke-dashoffset on an SVG circle element. No Recharts or other chart library may be added. All numbers must come from real backend data with zero hardcoded values.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-12",
-          "msg-14",
-          "msg-16"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Each list has its own metrics card",
-        "Total, Used, and Available counts match backend values",
-        "Progress bar fill percentage equals usedTemplates / totalTemplates * 100",
-        "SVG donut arc correctly represents used vs available proportion",
-        "Shows 0% fill when no templates have been used",
-        "Shows 100% fill when all templates are used",
-        "No Recharts or external chart dependency is added",
-        "No hardcoded numbers anywhere in the metrics UI"
+        "The Single Comment Generator card in the User View tab does not contain an App/Event dropdown.",
+        "The 'Select Comment List' dropdown in the Single Comment Generator shows all unlocked comment lists regardless of app/event.",
+        "The Available Comments count, device lock notice, Generate Single Comment button, copy output, and out-of-comments badge all continue to function correctly.",
+        "App/Event selectors in other tabs (Live Checker, Upload/Bulk Comment Generator, etc.) are unaffected.",
+        "No console errors related to undefined selectedApp or app-event filtering in the Single Comment Generator."
       ]
     }
   ],
   "constraints": [
-    "Do not add Recharts or any external chart library — use pure SVG/CSS donut only",
-    "Do not hardcode any comment counts anywhere in backend or frontend",
-    "Do not modify files in frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
-    "Do not touch Admin panel files for the UI redesign",
-    "Stable storage must persist across canister upgrades via preupgrade/postupgrade hooks",
-    "generateComment must be a single atomic update call with no intermediate awaits"
+    "Only modify the Single Comment Generator section in frontend/src/views/UserView.tsx.",
+    "Do not remove or alter App/Event selectors in any other component or tab.",
+    "Do not change any backend logic."
   ],
   "nonGoals": [
-    "Adding SQL transactions, PostgreSQL, or any external database",
-    "WebSocket-based real-time chart updates (polling or manual refetch is sufficient)",
-    "Changing the existing CRUD operations for comment lists or app events",
-    "Changing the admin PIN code or authentication flow",
-    "Modifying the Top-Down Shooter game component",
-    "Modifying the Bulk Comments Generator in the Upload tab"
+    "Removing App/Event selectors from Live Checker, Upload tab, or Admin views.",
+    "Any backend changes.",
+    "Redesigning the Single Comment Generator card layout beyond removing the dropdown."
   ],
   "imageRequirements": {
     "required": [],
