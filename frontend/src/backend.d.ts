@@ -14,10 +14,9 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface Settings {
-    accessKey?: string;
-    bgMusicEnabled: boolean;
-    musicFile?: ExternalBlob;
+export interface CommentAssignmentResponse {
+    comment: string;
+    alreadyGenerated: boolean;
 }
 export interface ExportData {
     chatMessages: Array<ChatMessage>;
@@ -27,17 +26,12 @@ export interface ExportData {
     images: Array<ImageMeta>;
 }
 export type Time = bigint;
-export interface BulkCommentsResult {
-    commentListId: string;
-    templateCount: bigint;
-    generatedCount: bigint;
-    comments: Array<string>;
-}
 export interface CommentList {
     id: string;
     templates: Array<string>;
     displayName: string;
     locked: boolean;
+    availableCount: bigint;
     suffix: string;
 }
 export interface ListMetrics {
@@ -48,14 +42,30 @@ export interface ListMetrics {
     totalTemplates: bigint;
     listId: string;
 }
+export interface Settings {
+    accessKey?: string;
+    bgMusicEnabled: boolean;
+    musicFile?: ExternalBlob;
+}
+export interface BulkCommentsResult {
+    commentListId: string;
+    templateCount: bigint;
+    generatedCount: bigint;
+    comments: Array<string>;
+}
+export interface AppEvent {
+    name: string;
+    usernames: Array<string>;
+}
 export interface ChatMessage {
     id: bigint;
     text: string;
     timestamp: Time;
 }
-export interface AppEvent {
-    name: string;
-    usernames: Array<string>;
+export interface OnePerListResult {
+    listName: string;
+    comment: string;
+    listId: string;
 }
 export interface ImageMeta {
     id: bigint;
@@ -71,9 +81,13 @@ export interface backendInterface {
     addImage(name: string, tags: Array<string>, dataUrl: string, data: ExternalBlob | null): Promise<void>;
     addTemplatesToList(listId: string, templates: Array<string>): Promise<boolean>;
     addUsernamesToAppEvent(name: string, usernames: Array<string>): Promise<boolean>;
+    assignNextCommentFromList(listId: string, deviceId: string): Promise<CommentAssignmentResponse>;
     deleteAppEvent(id: string): Promise<boolean>;
+    deleteCommentList(id: string): Promise<boolean>;
+    editListName(id: string, newName: string): Promise<boolean>;
     exportAllData(): Promise<ExportData>;
     generateBulkComments(listId: string, count: bigint): Promise<BulkCommentsResult>;
+    generateOnePerList(deviceId: string): Promise<Array<OnePerListResult>>;
     getAccessKey(): Promise<string | null>;
     getAvailableCount(listId: string): Promise<bigint>;
     getListMetrics(): Promise<Array<ListMetrics>>;

@@ -19,31 +19,25 @@ export function BulkCommentGenerator() {
   const [generatedComments, setGeneratedComments] = useState<string[]>([]);
   const [actualGeneratedCount, setActualGeneratedCount] = useState<number>(0);
   const [copied, setCopied] = useState(false);
-  // Local optimistic available count (updated immediately after generation)
   const [localAvailableCount, setLocalAvailableCount] = useState<number | null>(null);
 
   const isLoading = listsLoading || keyLoading;
   const availableLists = (commentLists ?? []).filter((l) => !l.locked);
 
-  // Derive template count from the selected list's data (already loaded)
   const selectedList = availableLists.find((l) => l.id === selectedListId);
   const templateCount = selectedList ? selectedList.templates.length : 0;
 
-  // Fetch available count from backend for the selected list
   const { data: availableCountRaw, isLoading: availableCountLoading } = useAvailableCount(selectedListId);
   const backendAvailableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : null;
 
-  // Use local optimistic count if set, otherwise fall back to backend count
   const availableCount = localAvailableCount !== null ? localAvailableCount : (backendAvailableCount ?? templateCount);
 
-  // Sync local count when backend count changes
   useEffect(() => {
     if (backendAvailableCount !== null) {
       setLocalAvailableCount(null);
     }
   }, [backendAvailableCount]);
 
-  // When selected list changes, clamp quantity to availableCount and clear errors
   useEffect(() => {
     setValidationError('');
     setLocalAvailableCount(null);
@@ -52,7 +46,6 @@ export function BulkCommentGenerator() {
     }
   }, [selectedListId]);
 
-  // Clamp quantity when availableCount changes
   useEffect(() => {
     if (availableCount > 0 && quantity > availableCount) {
       setQuantity(availableCount);
@@ -65,7 +58,6 @@ export function BulkCommentGenerator() {
     setKeyError(false);
     setValidationError('');
 
-    // Validate access key
     const trimmedKey = accessKey.trim();
     if (!trimmedKey) {
       setKeyError(true);
@@ -76,54 +68,46 @@ export function BulkCommentGenerator() {
       return;
     }
 
-    // Validate list selection
     if (!selectedListId || !selectedList) {
       setValidationError('Please select a comment list.');
       return;
     }
 
-    // Validate template count
     if (templateCount === 0) {
       setValidationError('No templates available for this list.');
       return;
     }
 
-    // Check available count
     if (availableCount === 0) {
       setValidationError('No comments available — this list is out of comments.');
       return;
     }
 
-    // Validate quantity
     if (quantity <= 0) {
       setValidationError('Invalid count. Please select a valid quantity.');
       return;
     }
 
-    // Clamp to available count
     const effectiveCount = Math.min(quantity, availableCount);
 
     try {
       const result = await generateBulkMutation.mutateAsync({ listId: selectedListId, count: effectiveCount });
       const actualCount = Number(result.generatedCount);
 
-      // Append suffix to each comment if the list has one
       const suffix = selectedList.suffix ?? '';
       const comments = result.comments.map((c) => suffix ? `${c}${suffix}` : c);
       setGeneratedComments(comments);
       setActualGeneratedCount(actualCount);
 
-      // Immediately update available count optimistically
       const newAvailable = Math.max(0, availableCount - actualCount);
       setLocalAvailableCount(newAvailable);
 
-      // Show clamping toast if fewer comments were generated than requested
       if (actualCount < quantity) {
         toast.warning(`Only ${actualCount} available, generated ${actualCount}.`);
       } else {
         toast.success(`Generated ${actualCount} comment${actualCount === 1 ? '' : 's'} successfully!`);
       }
-    } catch (err) {
+    } catch {
       setValidationError('Failed to generate comments. Please try again.');
     }
   }
@@ -172,7 +156,6 @@ export function BulkCommentGenerator() {
         ) : (
           <div className="grid grid-cols-1 gap-2">
             {availableLists.map((list) => {
-              const listAvailable = list.id === selectedListId ? availableCount : list.templates.length;
               return (
                 <button
                   key={list.id}
@@ -302,7 +285,6 @@ export function BulkCommentGenerator() {
                 </button>
               );
             })}
-            {/* Custom quantity input */}
             <input
               type="number"
               min={1}
@@ -439,7 +421,6 @@ export function BulkCommentGenerator() {
             border: '1px solid oklch(0.4 0.1 175 / 0.5)',
           }}
         >
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-muted-foreground" />
@@ -466,7 +447,6 @@ export function BulkCommentGenerator() {
             </button>
           </div>
 
-          {/* Comment List */}
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {generatedComments.map((comment, idx) => (
               <div
@@ -476,30 +456,14 @@ export function BulkCommentGenerator() {
               >
                 <span
                   className="text-xs font-mono mt-0.5 flex-shrink-0 w-5 text-right"
-                  style={{ color: 'oklch(0.55 0.08 220)' }}
+                  style={{ color: 'oklch(0.55 0.1 220)' }}
                 >
                   {idx + 1}.
                 </span>
-                <span className="text-sm text-foreground break-words flex-1">{comment}</span>
+                <span className="text-sm text-foreground flex-1 break-words">{comment}</span>
               </div>
             ))}
           </div>
-
-          {/* Copy All Button (bottom) */}
-          <button
-            onClick={handleCopyAll}
-            className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all"
-            style={{
-              background: 'linear-gradient(135deg, oklch(0.55 0.2 220) 0%, oklch(0.65 0.2 175) 100%)',
-              color: 'oklch(0.98 0.005 240)',
-            }}
-          >
-            {copied ? (
-              <><Check className="w-4 h-4" /> Copied!</>
-            ) : (
-              <><Copy className="w-4 h-4" /> Copy All to Clipboard</>
-            )}
-          </button>
         </div>
       )}
     </div>

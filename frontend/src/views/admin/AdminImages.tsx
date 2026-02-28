@@ -4,7 +4,7 @@ import { ExternalBlob } from '../../backend';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ImageIcon, Upload, Trash2, Tag } from 'lucide-react';
+import { ImageIcon, Upload, Tag } from 'lucide-react';
 
 export function AdminImages() {
   const { data: images, isLoading } = useImages();
@@ -132,19 +132,23 @@ export function AdminImages() {
                     className="w-full h-32 object-cover"
                   />
                 ) : img.dataUrl ? (
-                  <img src={img.dataUrl} alt={img.name} className="w-full h-32 object-cover" />
+                  <img
+                    src={img.dataUrl}
+                    alt={img.name}
+                    className="w-full h-32 object-cover"
+                  />
                 ) : (
                   <div className="w-full h-32 bg-secondary flex items-center justify-center">
                     <ImageIcon className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
                 <div className="p-2">
-                  <p className="text-sm font-medium text-foreground truncate">{img.name}</p>
+                  <p className="text-xs font-medium text-foreground truncate">{img.name}</p>
                   {img.tags.length > 0 && (
                     <div className="flex items-center gap-1 mt-1 flex-wrap">
-                      <Tag className="w-3 h-3 text-muted-foreground" />
-                      {img.tags.map(tag => (
-                        <span key={tag} className="text-xs text-muted-foreground">{tag}</span>
+                      <Tag className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                      {img.tags.map((tag, i) => (
+                        <span key={i} className="text-xs text-muted-foreground">{tag}</span>
                       ))}
                     </div>
                   )}
@@ -153,10 +157,7 @@ export function AdminImages() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
-            <p>No images uploaded yet.</p>
-          </div>
+          <p className="text-muted-foreground text-sm text-center py-8">No images uploaded yet.</p>
         )}
       </div>
     </div>

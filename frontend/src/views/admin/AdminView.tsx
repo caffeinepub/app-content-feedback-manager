@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 import { AdminUnlock } from '../../components/AdminUnlock';
-import { AdminComments } from './AdminComments';
+import AdminComments from './AdminComments';
 import AdminAITemplates from './AdminAITemplates';
 import { AdminImages } from './AdminImages';
 import { AdminChat } from './AdminChat';

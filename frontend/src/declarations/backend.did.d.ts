@@ -22,11 +22,16 @@ export interface ChatMessage {
   'text' : string,
   'timestamp' : Time,
 }
+export interface CommentAssignmentResponse {
+  'comment' : string,
+  'alreadyGenerated' : boolean,
+}
 export interface CommentList {
   'id' : string,
   'templates' : Array<string>,
   'displayName' : string,
   'locked' : boolean,
+  'availableCount' : bigint,
   'suffix' : string,
 }
 export interface ExportData {
@@ -50,6 +55,11 @@ export interface ListMetrics {
   'availableTemplates' : bigint,
   'percentUsed' : number,
   'totalTemplates' : bigint,
+  'listId' : string,
+}
+export interface OnePerListResult {
+  'listName' : string,
+  'comment' : string,
   'listId' : string,
 }
 export interface Settings {
@@ -94,9 +104,16 @@ export interface _SERVICE {
   >,
   'addTemplatesToList' : ActorMethod<[string, Array<string>], boolean>,
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
+  'assignNextCommentFromList' : ActorMethod<
+    [string, string],
+    CommentAssignmentResponse
+  >,
   'deleteAppEvent' : ActorMethod<[string], boolean>,
+  'deleteCommentList' : ActorMethod<[string], boolean>,
+  'editListName' : ActorMethod<[string, string], boolean>,
   'exportAllData' : ActorMethod<[], ExportData>,
   'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
+  'generateOnePerList' : ActorMethod<[string], Array<OnePerListResult>>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
   'getAvailableCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,

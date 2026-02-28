@@ -2,27 +2,8 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-in-frontend-src-hooks-usequeries-ts-update-the-generatecomment-mutation-to-1-pass-deviceid-from-localstorage-2-handle-the-response-metadata-availablebefore-availableafter-totaltemplates-and-expose-it-to-the-caller-3-after-a-successful-generation-immediately-update-the-local-available-count-state-using-availableafter-from-the-response-and-4-trigger-a-refetch-of-getlistmetrics-and-getavailablecount-for-the-affected-list-update-the-generatebulkcomments-mutation-to-1-handle-the-generatedcount-availablebefore-availableafter-and-totaltemplates-metadata-in-the-response-and-2-trigger-a-refetch-of-getlistmetrics-and-getavailablecount-after-generation",
-      "featureTitle": "In `frontend/src/hooks/useQueries.ts`, update the `generateComment` mutation to: (1) pass `deviceId` from localStorage, (2) handle the response metadata (`availableBefore`, `availableAfter`, `totalTemplates`) and expose it to the caller, (3) after a successful generation immediately update the local available count state using `availableAfter` from the response, and (4) trigger a refetch of `getListMetrics` and `getAvailableCount` for the affected list. Update the `generateBulkComments` mutation to: (1) handle the `generatedCount`, `availableBefore`, `availableAfter`, and `totalTemplates` metadata in the response, and (2) trigger a refetch of `getListMetrics` and `getAvailableCount` after generation.",
-      "files": [
-        "frontend/src/hooks/useQueries.ts"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-51"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-in-frontend-src-views-userview-tsx-update-the-single-comment-generator-section-so-that-after-a-successful-generatecomment-call-1-the-available-comments-count-displayed-immediately-reflects-response-availableafter-without-waiting-for-a-separate-query-refetch-2-if-the-response-indicates-the-pool-was-empty-out-of-comments-error-show-the-out-of-comments-badge-3-the-device-lock-notice-appears-immediately-using-the-localstorage-claim-stored-after-generation",
-      "featureTitle": "In `frontend/src/views/UserView.tsx`, update the Single Comment Generator section so that after a successful `generateComment` call: (1) the 'Available Comments' count displayed immediately reflects `response.availableAfter` without waiting for a separate query refetch; (2) if the response indicates the pool was empty (out-of-comments error), show the 'Out of comments' badge; (3) the device lock notice appears immediately using the localStorage claim stored after generation.",
+      "featureId": "feature-in-the-user-view-userview-tsx-add-a-dark-rounded-card-box-above-the-single-comment-generator-section-that-contains-a-top-down-shooter-title-styled-in-cyan-teal-gradient-text-instruction-text-use-wasd-or-arrow-keys-to-move-click-to-shoot-survive-as-long-as-you-can-and-a-start-game-button-the-card-should-use-the-existing-dark-glass-card-style-consistent-with-the-app-s-dark-space-theme-clicking-start-game-should-launch-the-existing-topdownshooter-canvas-game-inside-or-below-the-card",
+      "featureTitle": "In the User View (UserView.tsx), add a dark rounded card box above the Single Comment Generator section that contains: a 'Top-Down Shooter' title (styled in cyan/teal gradient text), instruction text ('Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'), and a 'Start Game' button. The card should use the existing dark glass-card style consistent with the app's dark space theme. Clicking 'Start Game' should launch the existing TopDownShooter canvas game inside or below the card.",
       "files": [
         "frontend/src/views/UserView.tsx"
       ],
@@ -35,64 +16,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-52"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-in-frontend-src-components-bulkcommentgenerator-tsx-update-the-component-so-that-1-after-a-successful-generation-the-available-templates-label-updates-immediately-using-response-availableafter-2-if-the-backend-clamps-the-count-generatedcount-requestedcount-display-a-toast-notification-only-x-available-generated-x-where-x-generatedcount-3-if-availableafter-is-0-after-generation-disable-the-generate-button-and-show-out-of-comments",
-      "featureTitle": "In `frontend/src/components/BulkCommentGenerator.tsx`, update the component so that: (1) after a successful generation, the 'Available Templates' label updates immediately using `response.availableAfter`; (2) if the backend clamps the count (generatedCount < requestedCount), display a toast notification: 'Only X available, generated X.' where X = generatedCount; (3) if availableAfter is 0 after generation, disable the Generate button and show 'Out of comments'.",
-      "files": [
-        "frontend/src/components/BulkCommentGenerator.tsx"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-53"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-in-frontend-src-views-admin-admincomments-tsx-add-a-reset-pool-control-per-comment-list-in-the-manage-comments-section-display-two-buttons-per-list-1-reset-pool-restores-available-indices-to-full-does-not-clear-device-claims-2-reset-pool-clear-claims-restores-pool-and-removes-all-device-claims-for-that-list-both-buttons-must-show-a-confirmation-dialog-before-executing-on-confirmation-call-the-resetpool-backend-mutation-after-success-show-a-success-toast-and-refetch-list-metrics-and-available-count",
-      "featureTitle": "In `frontend/src/views/admin/AdminComments.tsx`, add a Reset Pool control per comment list in the Manage Comments section. Display two buttons per list: (1) 'Reset Pool' — restores available indices to full, does not clear device claims; (2) 'Reset Pool + Clear Claims' — restores pool AND removes all device claims for that list. Both buttons must show a confirmation dialog before executing. On confirmation, call the `resetPool` backend mutation. After success, show a success toast and refetch list metrics and available count.",
-      "files": [
-        "frontend/src/views/admin/AdminComments.tsx"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-54"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-in-frontend-src-hooks-usequeries-ts-add-a-useresetpool-mutation-hook-that-calls-the-resetpool-listid-clearclaims-backend-method-and-invalidates-getlistmetrics-and-getavailablecount-queries-on-success",
-      "featureTitle": "In `frontend/src/hooks/useQueries.ts`, add a `useResetPool` mutation hook that calls the `resetPool(listId, clearClaims)` backend method and invalidates `getListMetrics` and `getAvailableCount` queries on success.",
-      "files": [
-        "frontend/src/hooks/useQueries.ts"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-55"
+        "REQ-1"
       ],
       "confidence": "high"
     }

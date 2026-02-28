@@ -20,6 +20,10 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
+export const CommentAssignmentResponse = IDL.Record({
+  'comment' : IDL.Text,
+  'alreadyGenerated' : IDL.Bool,
+});
 export const Time = IDL.Int;
 export const ChatMessage = IDL.Record({
   'id' : IDL.Nat,
@@ -40,6 +44,7 @@ export const CommentList = IDL.Record({
   'templates' : IDL.Vec(IDL.Text),
   'displayName' : IDL.Text,
   'locked' : IDL.Bool,
+  'availableCount' : IDL.Nat,
   'suffix' : IDL.Text,
 });
 export const ImageMeta = IDL.Record({
@@ -61,6 +66,11 @@ export const BulkCommentsResult = IDL.Record({
   'templateCount' : IDL.Nat,
   'generatedCount' : IDL.Nat,
   'comments' : IDL.Vec(IDL.Text),
+});
+export const OnePerListResult = IDL.Record({
+  'listName' : IDL.Text,
+  'comment' : IDL.Text,
+  'listId' : IDL.Text,
 });
 export const ListMetrics = IDL.Record({
   'usedTemplates' : IDL.Nat,
@@ -116,13 +126,21 @@ export const idlService = IDL.Service({
       [IDL.Bool],
       [],
     ),
+  'assignNextCommentFromList' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [CommentAssignmentResponse],
+      [],
+    ),
   'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'editListName' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'exportAllData' : IDL.Func([], [ExportData], []),
   'generateBulkComments' : IDL.Func(
       [IDL.Text, IDL.Nat],
       [BulkCommentsResult],
       [],
     ),
+  'generateOnePerList' : IDL.Func([IDL.Text], [IDL.Vec(OnePerListResult)], []),
   'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
@@ -147,6 +165,10 @@ export const idlFactory = ({ IDL }) => {
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
   const ExternalBlob = IDL.Vec(IDL.Nat8);
+  const CommentAssignmentResponse = IDL.Record({
+    'comment' : IDL.Text,
+    'alreadyGenerated' : IDL.Bool,
+  });
   const Time = IDL.Int;
   const ChatMessage = IDL.Record({
     'id' : IDL.Nat,
@@ -167,6 +189,7 @@ export const idlFactory = ({ IDL }) => {
     'templates' : IDL.Vec(IDL.Text),
     'displayName' : IDL.Text,
     'locked' : IDL.Bool,
+    'availableCount' : IDL.Nat,
     'suffix' : IDL.Text,
   });
   const ImageMeta = IDL.Record({
@@ -188,6 +211,11 @@ export const idlFactory = ({ IDL }) => {
     'templateCount' : IDL.Nat,
     'generatedCount' : IDL.Nat,
     'comments' : IDL.Vec(IDL.Text),
+  });
+  const OnePerListResult = IDL.Record({
+    'listName' : IDL.Text,
+    'comment' : IDL.Text,
+    'listId' : IDL.Text,
   });
   const ListMetrics = IDL.Record({
     'usedTemplates' : IDL.Nat,
@@ -243,11 +271,23 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Bool],
         [],
       ),
+    'assignNextCommentFromList' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [CommentAssignmentResponse],
+        [],
+      ),
     'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'editListName' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'exportAllData' : IDL.Func([], [ExportData], []),
     'generateBulkComments' : IDL.Func(
         [IDL.Text, IDL.Nat],
         [BulkCommentsResult],
+        [],
+      ),
+    'generateOnePerList' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(OnePerListResult)],
         [],
       ),
     'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),

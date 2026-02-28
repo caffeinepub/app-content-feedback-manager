@@ -42,7 +42,7 @@ export default function AdminSettings() {
     setBgMusicEnabled(enabled);
     try {
       const musicFile = settings?.musicFile ?? null;
-      await updateSettings.mutateAsync({ bgMusicEnabled: enabled, musicFile });
+      await updateSettings.mutateAsync({ bgMusicEnabled: enabled, musicFile: musicFile as ExternalBlob | null });
       toast.success(enabled ? "Background music enabled" : "Background music disabled");
     } catch {
       toast.error("Failed to update settings");
@@ -92,6 +92,14 @@ export default function AdminSettings() {
       toast.error("Failed to regenerate access key");
     }
   };
+
+  if (settingsLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-xl">

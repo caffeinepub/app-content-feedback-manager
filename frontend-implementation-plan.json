@@ -1,86 +1,25 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Implement consumed-template tracking with shared index pool, atomic generation, and admin reset controls",
+  "title": "Add Top-Down Shooter game card to User View",
   "requirements": [
     {
-      "id": "REQ-51",
-      "summary": "Update generateComment and generateBulkComments mutations to handle new response metadata and trigger refetches",
+      "id": "REQ-1",
+      "summary": "Add a dark rounded card box containing a Top-Down Shooter game launcher above the Single Comment Generator section in UserView.tsx",
       "acceptanceCriteria": [
-        "generateComment mutation receives and exposes availableAfter from response",
-        "generateBulkComments mutation receives and exposes generatedCount and availableAfter",
-        "Both mutations invalidate/refetch getListMetrics and getAvailableCount after success"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Update the generateComment mutation to pass deviceId from localStorage, handle the new response metadata fields (availableBefore, availableAfter, totalTemplates), and invalidate getListMetrics and getAvailableCount queries on success. Update the generateBulkComments mutation to handle the new response metadata fields (generatedCount, availableBefore, availableAfter, totalTemplates) and invalidate the same queries on success. Ensure both mutations expose the metadata to their callers for immediate UI updates."
-        }
-      ]
-    },
-    {
-      "id": "REQ-52",
-      "summary": "Update UserView Single Comment Generator to immediately reflect availableAfter and show out-of-comments badge",
-      "acceptanceCriteria": [
-        "Available Comments count updates immediately after generation using availableAfter from response",
-        "Out-of-comments badge appears when no pool entries remain",
-        "Lock notice is shown immediately from localStorage claim without extra backend round-trip"
+        "User View displays a dark rounded card box with 'Top-Down Shooter' as the title in cyan/teal gradient text",
+        "The card shows instruction text: 'Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'",
+        "A 'Start Game' button is visible inside the card and launches the TopDownShooter game when clicked",
+        "The game card appears above the Single Comment Generator section",
+        "No other tabs (Upload, Live Checker, Admin) are modified",
+        "No existing features are broken or changed",
+        "The card styling matches the dark space theme with rounded corners consistent with the screenshot"
       ],
       "file_operations": [
         {
           "path": "frontend/src/views/UserView.tsx",
           "operation": "modify",
-          "description": "Update the Single Comment Generator section to immediately update the displayed 'Available Comments' count using response.availableAfter after a successful generateComment call. Show the 'Out of comments' badge when the backend returns an out-of-comments error or when availableAfter is 0. Ensure the device lock notice appears immediately using the localStorage claim stored after generation without requiring a separate backend query."
-        }
-      ]
-    },
-    {
-      "id": "REQ-53",
-      "summary": "Update BulkCommentGenerator to show immediate count updates, clamping toast, and out-of-comments state",
-      "acceptanceCriteria": [
-        "Available Templates label updates immediately to availableAfter after successful bulk generation",
-        "Toast notification shown when generatedCount < requestedCount",
-        "Generate button disabled and 'Out of comments' shown when pool is empty after generation"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/BulkCommentGenerator.tsx",
-          "operation": "modify",
-          "description": "Update the component to immediately reflect response.availableAfter in the 'Available Templates' label after successful bulk generation. If the backend clamped the count (generatedCount < requestedCount), display a toast notification: 'Only X available, generated X.' where X equals generatedCount. If availableAfter is 0 after generation, disable the Generate button and show an 'Out of comments' message."
-        }
-      ]
-    },
-    {
-      "id": "REQ-54",
-      "summary": "Add Reset Pool and Reset Pool + Clear Claims controls to Admin Comments with confirmation dialogs",
-      "acceptanceCriteria": [
-        "'Reset Pool' button appears per list in Admin > Comments",
-        "'Reset Pool + Clear Claims' button appears per list in Admin > Comments",
-        "A confirmation dialog is shown before either reset action executes",
-        "On success, list metrics and available count are refetched",
-        "A success toast is shown after reset completes"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/views/admin/AdminComments.tsx",
-          "operation": "modify",
-          "description": "Add two reset buttons per comment list in the Manage Comments section: 'Reset Pool' (restores available indices without clearing device claims) and 'Reset Pool + Clear Claims' (restores pool and removes all device claims for that list). Both buttons must trigger a confirmation dialog before calling the resetPool backend mutation with the appropriate clearClaims boolean flag. On success, show a success toast and refetch getListMetrics and getAvailableCount queries to update the UI."
-        }
-      ]
-    },
-    {
-      "id": "REQ-55",
-      "summary": "Add useResetPool mutation hook to call backend resetPool method and invalidate queries",
-      "acceptanceCriteria": [
-        "useResetPool mutation hook calls backend resetPool with listId and clearClaims boolean",
-        "On success, getListMetrics and getAvailableCount queries are invalidated/refetched"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add a useResetPool mutation hook that calls the backend resetPool(listId, clearClaims) method. On successful mutation, invalidate and refetch the getListMetrics and getAvailableCount queries to ensure the UI reflects the restored pool state. This hook will be consumed by the AdminComments view for the reset controls."
+          "description": "Add a dark rounded card box above the Single Comment Generator section. The card contains: a 'Top-Down Shooter' title styled with cyan/teal gradient text (using existing gradient-heading or neon-text utility classes), instruction text 'Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!', and a 'Start Game' button. Use the existing glass-card styling for consistency with the dark space theme. Add state to toggle the TopDownShooter component visibility when the button is clicked. Import and conditionally render the TopDownShooter component (from frontend/src/components/TopDownShooter.tsx) inside or below the card when the game is active. Ensure the card is positioned directly above the existing Single Comment Generator section without altering any other layout or functionality."
         }
       ]
     }

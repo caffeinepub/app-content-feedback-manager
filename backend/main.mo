@@ -9,11 +9,11 @@ import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Float "mo:core/Float";
-import Int "mo:core/Int";
 import MixinStorage "blob-storage/Mixin";
-import Migration "migration";
 
-(with migration = Migration.run)
+import Runtime "mo:core/Runtime";
+
+
 actor {
   include MixinStorage();
 
@@ -23,6 +23,7 @@ actor {
     templates : [Text];
     locked : Bool;
     suffix : Text;
+    availableCount : Nat;
   };
 
   type AppEvent = {
@@ -74,11 +75,23 @@ actor {
     templateCount : Nat;
   };
 
+  type OnePerListResult = {
+    listId : Text;
+    listName : Text;
+    comment : Text;
+  };
+
+  type CommentAssignmentResponse = {
+    comment : Text;
+    alreadyGenerated : Bool;
+  };
+
   let commentLists = Map.empty<Text, CommentList>();
   let appsEvents = Map.empty<Text, AppEvent>();
   let chatMessages = List.empty<ChatMessage>();
   let images = Map.empty<Nat, ImageMeta>();
   let usedTemplateIndices = Map.empty<Text, Set.Set<Nat>>();
+  let deviceClaims = Map.empty<Text, [Text]>();
 
   var nextImageId = 1;
   var nextMessageId = 1;
@@ -107,9 +120,38 @@ actor {
       templates = [];
       locked = false;
       suffix;
+      availableCount = 0;
     };
     commentLists.add(id, list);
     true;
+  };
+
+  public shared ({ caller }) func deleteCommentList(id : Text) : async Bool {
+    switch (commentLists.get(id)) {
+      case (null) { false };
+      case (_) {
+        commentLists.remove(id);
+        true;
+      };
+    };
+  };
+
+  public shared ({ caller }) func editListName(id : Text, newName : Text) : async Bool {
+    switch (commentLists.get(id)) {
+      case (null) { false };
+      case (?list) {
+        let newList : CommentList = {
+          id = list.id;
+          displayName = newName;
+          templates = list.templates;
+          locked = list.locked;
+          suffix = list.suffix;
+          availableCount = list.availableCount;
+        };
+        commentLists.add(id, newList);
+        true;
+      };
+    };
   };
 
   public shared ({ caller }) func addTemplatesToList(listId : Text, templates : [Text]) : async Bool {
@@ -117,12 +159,14 @@ actor {
       case (null) { false };
       case (?list) {
         if (list.locked) { return false };
+        let newTemplates = list.templates.concat(templates);
         let newList : CommentList = {
           id = list.id;
           displayName = list.displayName;
-          templates = list.templates.concat(templates);
+          templates = newTemplates;
           locked = list.locked;
           suffix = list.suffix;
+          availableCount = newTemplates.size();
         };
         commentLists.add(listId, newList);
         true;
@@ -140,6 +184,7 @@ actor {
           templates = list.templates;
           locked = not list.locked;
           suffix = list.suffix;
+          availableCount = list.availableCount;
         };
         commentLists.add(listId, newList);
         true;
@@ -238,18 +283,7 @@ actor {
   public query ({ caller }) func getAvailableCount(listId : Text) : async Nat {
     switch (commentLists.get(listId)) {
       case (null) { 0 };
-      case (?list) {
-        let usedIndices = switch (usedTemplateIndices.get(listId)) {
-          case (null) { Set.empty<Nat>() };
-          case (?set) { set };
-        };
-        let usedCount = usedIndices.size();
-        if (list.templates.size() > 0 and usedCount > 0) {
-          list.templates.size() - usedCount;
-        } else {
-          list.templates.size();
-        };
-      };
+      case (?list) { list.availableCount };
     };
   };
 
@@ -285,6 +319,168 @@ actor {
 
   public shared ({ caller }) func generateBulkComments(listId : Text, count : Nat) : async BulkCommentsResult {
     Runtime.trap("Function not implemented yet. This will take place in the next generated iteration.");
+  };
+
+  public shared ({ caller }) func generateOnePerList(deviceId : Text) : async [OnePerListResult] {
+    let results = List.empty<OnePerListResult>();
+    let usedTemplatesMap = Map.empty<Text, Set.Set<Nat>>();
+    let deviceClaimsMap = Map.empty<Text, [Text]>();
+
+    for ((id, list) in commentLists.entries()) {
+      if (not list.locked) {
+        if (list.templates.size() > 0) {
+          let usedIndices = switch (usedTemplatesMap.get(id)) {
+            case (null) { Set.empty<Nat>() };
+            case (?set) { set };
+          };
+
+          if (usedIndices.size() < list.templates.size()) {
+            let availableTemplates = Array.tabulate(
+              list.templates.size(),
+              func(i) { if (usedIndices.contains(i)) { false } else { true } },
+            );
+
+            let availableValues = availableTemplates.values();
+
+            var found = false;
+            var pickedTemplate : ?Text = null;
+            var counter = 0;
+
+            for (isAvailable in availableValues) {
+              if (isAvailable and not found) {
+                if (counter < list.templates.size()) {
+                  pickedTemplate := ?list.templates[counter];
+                  found := true;
+                };
+              };
+              counter += 1;
+            };
+
+            switch (pickedTemplate) {
+              case (null) { () };
+              case (?template) {
+                results.add({
+                  listId = id;
+                  listName = list.displayName;
+                  comment = template;
+                });
+
+                let updatedUsedIndices = Set.empty<Nat>();
+                for (idx in usedIndices.values()) {
+                  updatedUsedIndices.add(idx);
+                };
+                usedTemplatesMap.add(id, updatedUsedIndices);
+
+                let deviceClaimsArray = switch (deviceClaimsMap.get(id)) {
+                  case (null) { [] };
+                  case (?existing) { existing };
+                };
+                deviceClaimsMap.add(id, deviceClaimsArray.concat([id]));
+              };
+            };
+          };
+        };
+      };
+    };
+
+    usedTemplateIndices.clear();
+    for ((k, v) in usedTemplatesMap.entries()) {
+      usedTemplateIndices.add(k, v);
+    };
+
+    deviceClaims.clear();
+    for ((k, v) in deviceClaimsMap.entries()) {
+      deviceClaims.add(k, v);
+    };
+
+    results.toArray();
+  };
+
+  public shared ({ caller }) func assignNextCommentFromList(listId : Text, deviceId : Text) : async CommentAssignmentResponse {
+    switch (commentLists.get(listId)) {
+      case (null) {
+        Runtime.trap("Comment list not found. ");
+      };
+      case (?list) {
+        let deviceClaimsArray = switch (deviceClaims.get(listId)) {
+          case (null) { [] };
+          case (?claims) { claims };
+        };
+
+        let claimsFromDevice = deviceClaimsArray.filter(
+          func(claimedId) { claimedId == deviceId }
+        );
+
+        if (claimsFromDevice.size() > 0) {
+          let comment = switch (claimsFromDevice.values().next()) {
+            case (?firstClaim) { firstClaim };
+            case (null) {
+              Runtime.trap("Unexpected error: Device claims not found. ");
+            };
+          };
+          return {
+            comment;
+            alreadyGenerated = true;
+          };
+        };
+
+        let usedIndices = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+
+        let usedCount = usedIndices.size();
+        if (usedCount >= list.templates.size()) {
+          Runtime.trap("No available comments left for this list. ");
+        };
+
+        var found = false;
+        var pickedTemplate : ?Text = null;
+        var counter = 0;
+
+        for (template in list.templates.values()) {
+          if (not found) {
+            if (not usedIndices.contains(counter)) {
+              pickedTemplate := ?template;
+              found := true;
+            };
+          };
+          counter += 1;
+        };
+
+        switch (pickedTemplate) {
+          case (null) {
+            Runtime.trap("Failed to find an available template. ");
+          };
+          case (?template) {
+            let newClaim = deviceClaimsArray.concat([deviceId]);
+            deviceClaims.add(listId, newClaim);
+
+            let updatedUsedIndices = Set.empty<Nat>();
+            for (idx in usedIndices.values()) {
+              updatedUsedIndices.add(idx);
+            };
+            usedTemplateIndices.add(listId, updatedUsedIndices);
+
+            let updatedList = {
+              list with availableCount = if (list.availableCount > 1) {
+                list.availableCount - 1;
+              } else {
+                0;
+              };
+            };
+            if (updatedList.availableCount > 0) {
+              commentLists.add(listId, updatedList);
+            };
+
+            {
+              comment = template;
+              alreadyGenerated = false;
+            };
+          };
+        };
+      };
+    };
   };
 
   public shared ({ caller }) func exportAllData() : async ExportData {

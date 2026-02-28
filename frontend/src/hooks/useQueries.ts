@@ -1,12 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useActor } from "./useActor";
-import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings, ListMetrics, BulkCommentsResult } from "../backend";
+import type { ExternalBlob, BulkCommentsResult, OnePerListResult, CommentAssignmentResponse } from "../backend";
 
 // ── Comment Lists ──────────────────────────────────────────────────────────────
 
 export function useCommentLists() {
   const { actor, isFetching } = useActor();
-  return useQuery<CommentList[]>({
+  return useQuery({
     queryKey: ["commentLists"],
     queryFn: async () => {
       if (!actor) return [];
@@ -21,7 +21,15 @@ export function useAddCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, displayName, suffix }: { id: string; displayName: string; suffix: string }) => {
+    mutationFn: async ({
+      id,
+      displayName,
+      suffix,
+    }: {
+      id: string;
+      displayName: string;
+      suffix: string;
+    }) => {
       if (!actor) throw new Error("Actor not initialized");
       return actor.addCommentList(id, displayName, suffix);
     },
@@ -29,6 +37,39 @@ export function useAddCommentList() {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
       queryClient.invalidateQueries({ queryKey: ["availableCount"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
+    },
+  });
+}
+
+export function useDeleteCommentList() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not initialized");
+      return actor.deleteCommentList(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCount"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
+    },
+  });
+}
+
+export function useEditListName() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, newName }: { id: string; newName: string }) => {
+      if (!actor) throw new Error("Actor not initialized");
+      return actor.editListName(id, newName);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
     },
   });
 }
@@ -37,14 +78,21 @@ export function useAddTemplatesToList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ listId, templates }: { listId: string; templates: string[] }) => {
+    mutationFn: async ({
+      listId,
+      templates,
+    }: {
+      listId: string;
+      templates: string[];
+    }) => {
       if (!actor) throw new Error("Actor not initialized");
       return actor.addTemplatesToList(listId, templates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
-      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
       queryClient.invalidateQueries({ queryKey: ["availableCount"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
     },
   });
 }
@@ -67,13 +115,52 @@ export function useToggleListLock() {
 
 export function useAvailableCount(listId: string) {
   const { actor, isFetching } = useActor();
-  return useQuery<bigint>({
+  return useQuery({
     queryKey: ["availableCount", listId],
     queryFn: async () => {
-      if (!actor || !listId) return BigInt(0);
+      if (!actor) return BigInt(0);
       return actor.getAvailableCount(listId);
     },
     enabled: !!actor && !isFetching && !!listId,
+  });
+}
+
+/**
+ * Polls available comment counts for a set of list IDs every 5 seconds.
+ * Returns a map of listId -> number (available count).
+ */
+export function useAvailableCountsForLists(listIds: string[]) {
+  const { actor, isFetching } = useActor();
+  const key = listIds.slice().sort().join(",");
+  return useQuery<Record<string, number>>({
+    queryKey: ["availableCounts", key],
+    queryFn: async () => {
+      if (!actor || listIds.length === 0) return {};
+      const entries = await Promise.all(
+        listIds.map(async (id) => {
+          const count = await actor.getAvailableCount(id);
+          return [id, Number(count)] as [string, number];
+        })
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: !!actor && !isFetching && listIds.length > 0,
+    refetchInterval: 5000,
+  });
+}
+
+// ── List Metrics ───────────────────────────────────────────────────────────────
+
+export function useListMetrics() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["listMetrics"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getListMetrics();
+    },
+    enabled: !!actor && !isFetching,
+    refetchOnMount: true,
   });
 }
 
@@ -88,62 +175,56 @@ export function useGenerateBulkComments() {
       return actor.generateBulkComments(listId, BigInt(count));
     },
     onSuccess: (_data, variables) => {
-      // Invalidate available count for the specific list and all metrics
       queryClient.invalidateQueries({ queryKey: ["availableCount", variables.listId] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
     },
   });
 }
 
-// ── Generate Single Comment (device-locked, uses shared pool) ─────────────────
+// ── Generate One Per List ──────────────────────────────────────────────────────
 
-export function useGenerateSingleComment() {
+export function useGenerateOnePerList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
-  return useMutation<BulkCommentsResult, Error, { listId: string }>({
-    mutationFn: async ({ listId }) => {
+  return useMutation<OnePerListResult[], Error, string>({
+    mutationFn: async (deviceId: string) => {
       if (!actor) throw new Error("Actor not initialized");
-      return actor.generateBulkComments(listId, BigInt(1));
+      return actor.generateOnePerList(deviceId);
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["availableCount", variables.listId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["availableCount"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
 
-// ── Device Claim Helpers ───────────────────────────────────────────────────────
+// ── Assign Next Comment From List (per-device, per-list) ───────────────────────
 
-const CLAIMS_KEY_PREFIX = "claim_";
-
-export function getLocalClaim(listId: string): { deviceId: string; timestamp: number } | null {
-  try {
-    const raw = localStorage.getItem(`${CLAIMS_KEY_PREFIX}${listId}`);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setLocalClaim(listId: string, deviceId: string) {
-  localStorage.setItem(
-    `${CLAIMS_KEY_PREFIX}${listId}`,
-    JSON.stringify({ deviceId, timestamp: Date.now() })
-  );
-}
-
-// ── List Metrics ───────────────────────────────────────────────────────────────
-
-export function useListMetrics() {
-  const { actor, isFetching } = useActor();
-  return useQuery<ListMetrics[]>({
-    queryKey: ["listMetrics"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getListMetrics();
+export function useAssignComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation<
+    CommentAssignmentResponse & { isAlreadyGenerated: boolean },
+    Error,
+    { listId: string; deviceId: string }
+  >({
+    mutationFn: async ({ listId, deviceId }) => {
+      if (!actor) throw new Error("Actor not initialized");
+      const result = await actor.assignNextCommentFromList(listId, deviceId);
+      return {
+        comment: result.comment,
+        alreadyGenerated: result.alreadyGenerated,
+        isAlreadyGenerated: result.alreadyGenerated,
+      };
     },
-    enabled: !!actor && !isFetching,
-    refetchOnMount: true,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCount"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCounts"] });
+    },
   });
 }
 
@@ -151,7 +232,7 @@ export function useListMetrics() {
 
 export function useAppsEvents() {
   const { actor, isFetching } = useActor();
-  return useQuery<AppEvent[]>({
+  return useQuery({
     queryKey: ["appsEvents"],
     queryFn: async () => {
       if (!actor) return [];
@@ -180,7 +261,13 @@ export function useAddUsernamesToAppEvent() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ name, usernames }: { name: string; usernames: string[] }) => {
+    mutationFn: async ({
+      name,
+      usernames,
+    }: {
+      name: string;
+      usernames: string[];
+    }) => {
       if (!actor) throw new Error("Actor not initialized");
       return actor.addUsernamesToAppEvent(name, usernames);
     },
@@ -222,7 +309,7 @@ export function useDeleteAppEvent() {
 
 export function useChatMessages() {
   const { actor, isFetching } = useActor();
-  return useQuery<ChatMessage[]>({
+  return useQuery({
     queryKey: ["chatMessages"],
     queryFn: async () => {
       if (!actor) return [];
@@ -251,7 +338,7 @@ export function useAddChatMessage() {
 
 export function useImages() {
   const { actor, isFetching } = useActor();
-  return useQuery<ImageMeta[]>({
+  return useQuery({
     queryKey: ["images"],
     queryFn: async () => {
       if (!actor) return [];
@@ -275,7 +362,7 @@ export function useAddImage() {
       name: string;
       tags: string[];
       dataUrl: string;
-      data: import("../backend").ExternalBlob | null;
+      data: ExternalBlob | null;
     }) => {
       if (!actor) throw new Error("Actor not initialized");
       return actor.addImage(name, tags, dataUrl, data);
@@ -290,10 +377,10 @@ export function useAddImage() {
 
 export function useSettings() {
   const { actor, isFetching } = useActor();
-  return useQuery<Settings>({
+  return useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      if (!actor) throw new Error("Actor not initialized");
+      if (!actor) return null;
       const data = await actor.exportAllData();
       return data.settings;
     },
@@ -310,7 +397,7 @@ export function useUpdateSettings() {
       musicFile,
     }: {
       bgMusicEnabled: boolean;
-      musicFile: import("../backend").ExternalBlob | null;
+      musicFile: ExternalBlob | null;
     }) => {
       if (!actor) throw new Error("Actor not initialized");
       return actor.updateSettings(bgMusicEnabled, musicFile);
@@ -321,11 +408,9 @@ export function useUpdateSettings() {
   });
 }
 
-// ── Access Key ─────────────────────────────────────────────────────────────────
-
 export function useAccessKey() {
   const { actor, isFetching } = useActor();
-  return useQuery<string | null>({
+  return useQuery({
     queryKey: ["accessKey"],
     queryFn: async () => {
       if (!actor) return null;
