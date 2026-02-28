@@ -56,6 +56,14 @@ export const ExportData = IDL.Record({
   'commentLists' : IDL.Vec(CommentList),
   'images' : IDL.Vec(ImageMeta),
 });
+export const ListMetrics = IDL.Record({
+  'usedTemplates' : IDL.Nat,
+  'listName' : IDL.Text,
+  'availableTemplates' : IDL.Nat,
+  'percentUsed' : IDL.Float64,
+  'totalTemplates' : IDL.Nat,
+  'listId' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -105,6 +113,8 @@ export const idlService = IDL.Service({
   'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'exportAllData' : IDL.Func([], [ExportData], []),
   'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+  'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
   'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'setAccessKey' : IDL.Func([IDL.Text], [], []),
   'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
@@ -162,6 +172,14 @@ export const idlFactory = ({ IDL }) => {
     'commentLists' : IDL.Vec(CommentList),
     'images' : IDL.Vec(ImageMeta),
   });
+  const ListMetrics = IDL.Record({
+    'usedTemplates' : IDL.Nat,
+    'listName' : IDL.Text,
+    'availableTemplates' : IDL.Nat,
+    'percentUsed' : IDL.Float64,
+    'totalTemplates' : IDL.Nat,
+    'listId' : IDL.Text,
+  });
   
   return IDL.Service({
     '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -211,6 +229,8 @@ export const idlFactory = ({ IDL }) => {
     'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'exportAllData' : IDL.Func([], [ExportData], []),
     'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+    'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
     'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'setAccessKey' : IDL.Func([IDL.Text], [], []),
     'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),

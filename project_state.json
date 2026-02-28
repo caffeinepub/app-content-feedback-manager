@@ -1,16 +1,20 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 5,
-  "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and 3D puzzle/top-down shooter game. User View has a Bulk Comments Generator (replaces Comment Generator) locked behind an Access Key managed in Admin Settings. Admin Live List supports editing/deleting app names. A fixed play/pause button in the top-right corner controls background music for all users.",
+  "projectStateVersion": 13,
+  "summary": "App Content & Feedback Manager website with dark blue-to-green gradient UI, mobile-first layout, admin access via code 7898 (sessionStorage), and full feature set including template management, AI template generation (with manual symbol append option), live checker, chat, images, and top-down shooter game. User View has a Single Comment Generator with device-based locking (one comment per list per device via stable HashMap on backend) and dynamic Available Comments count. Admin panel includes per-list metrics (Used/Left) shown as SVG/CSS donut charts and progress bars. Live Checker tab supports multi-username textarea input, Select All/specific app selector, results per username, and a public 'Live List for All Users' section. Bulk Comments Generator is in the Upload tab, locked behind Access Key. Upload tab label renamed to 'Bulk Comments'. A fixed play/pause button in the top-right corner controls background music for all users.",
   "architectural_notes": [
     "Admin unlock via code 7898 stored in sessionStorage (adminUnlocked=true); no Internet Identity or external auth",
     "Data storage via Motoko backend canisters (template lists, apps/events, usernames, chat, images metadata, settings)",
     "AI Templates use smart template-based generation (tone/category/length rules), not live LLM API",
     "Chat uses polling (not WebSockets) for message refresh",
     "Dark blue-to-green gradient UI, neon blue/green accents, mobile-first responsive layout",
-    "Access Key for Bulk Comments Generator is a single active key stored on the backend; users must enter it to unlock bulk generation"
+    "Access Key for Bulk Comments Generator is a single active key stored on the backend; users must enter it to unlock bulk generation",
+    "Device-based comment locking uses stable HashMap keyed on (listId, deviceId) in Motoko backend, persisted across upgrades via pre/postupgrade hooks",
+    "Available comment count is fully dynamic: availableCount = totalTemplates - usedIndices.size() per list; no hardcoded values"
   ],
-  "known_issues": [],
+  "known_issues": [
+    "All interactive buttons/actions (Generate, Create, Add, Upload, etc.) across all tabs do nothing when clicked — event handlers not firing, likely a React wiring or build issue"
+  ],
   "isFixRequest": false,
   "existing_features": [
     {
@@ -148,6 +152,102 @@
         "REQ-20"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-in-the-user-view-tab-remove-the-bulk-comments-generator-which-replaced-the-original-generator-and-restore-the-original-single-comment-generator-an-app-event-dropdown-a-template-list-dropdown-filtered-by-the-selected-app-event-a-generate-button-that-randomly-picks-one-template-from-the-selected-list-and-appends-the-list-s-optional-suffix-an-output-display-with-a-copy-to-clipboard-button-skeleton-loaders-while-data-is-fetching-and-a-generate-one-comment-per-list-per-device-section-that-tracks-generated-lists-in-localstorage-per-device",
+      "title": "In the User View tab, remove the Bulk Comments Generator (which replaced the original generator) and restore the original Single Comment Generator: an App/Event dropdown, a Template List dropdown filtered by the selected app/event, a Generate button that randomly picks one template from the selected list and appends the list's optional suffix, an output display with a copy-to-clipboard button, skeleton loaders while data is fetching, and a 'Generate one comment per list per device' section that tracks generated lists in localStorage per device.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-user-view-tab-restore-the-top-down-shooter-mini-game-section-using-the-existing-topdownshooter-component-exactly-as-it-appeared-in-version-1-contained-within-a-rounded-card-with-wasd-arrow-key-movement-mouse-click-shooting-toward-the-cursor-enemy-spawning-score-and-survival-timer-display-reset-restart-button-and-game-over-state-on-player-hit",
+      "title": "In the User View tab, restore the Top-Down Shooter mini-game section (using the existing TopDownShooter component) exactly as it appeared in Version 1: contained within a rounded card, with WASD/arrow key movement, mouse-click shooting toward the cursor, enemy spawning, score and survival timer display, Reset/Restart button, and Game Over state on player hit.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restore-the-admin-live-list-sub-tab-to-its-version-1-state-show-all-apps-events-with-their-username-counts-allow-creating-new-app-event-entries-allow-adding-usernames-to-a-selected-app-event-one-per-line-via-textarea-support-bulk-upload-of-usernames-and-show-a-multi-select-interface-with-the-same-username-check-results-panel-as-the-live-checker-tab-the-edit-rename-and-delete-buttons-added-in-a-later-version-must-be-retained",
+      "title": "Restore the Admin > Live List sub-tab to its Version 1 state: show all apps/events with their username counts, allow creating new app/event entries, allow adding usernames to a selected app/event one-per-line via textarea, support bulk upload of usernames, and show a multi-select interface with the same username-check results panel as the Live Checker tab. The Edit (rename) and Delete buttons added in a later version must be retained.",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-redesign-the-overall-app-ui-to-closely-match-the-dark-blue-deep-space-aesthetic-shown-in-the-reference-screenshots-deep-navy-to-dark-teal-gradient-background-with-subtle-floating-geometric-shapes-diamonds-triangles-squares-scattered-across-the-background-as-decorative-elements-dark-semi-transparent-card-backgrounds-with-slightly-lighter-borders-neon-blue-teal-gradient-text-for-section-headings-teal-to-blue-gradient-primary-buttons-and-consistent-rounded-card-containers-for-all-sections-apply-this-consistently-across-user-view-upload-live-checker-and-any-non-admin-tabs-do-not-touch-admin-panel-files",
+      "title": "Redesign the overall app UI to closely match the dark blue deep-space aesthetic shown in the reference screenshots: deep navy-to-dark-teal gradient background with subtle floating geometric shapes (diamonds, triangles, squares) scattered across the background as decorative elements, dark semi-transparent card backgrounds with slightly lighter borders, neon blue/teal gradient text for section headings, teal-to-blue gradient primary buttons, and consistent rounded card containers for all sections. Apply this consistently across User View, Upload, Live Checker, and any non-admin tabs. Do not touch Admin panel files.",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-redesign-the-live-checker-tab-to-support-multi-username-lookup-replace-the-single-username-input-with-a-textarea-labeled-usernames-to-check-one-per-line-accepting-multiple-usernames-keep-the-app-event-selector-as-a-single-dropdown-select-app-event-with-a-choose-an-app-event-default-plus-a-select-all-option-rename-the-tab-page-title-to-live-list-checker-with-subtitle-check-if-usernames-exist-in-app-event-lists-the-check-button-should-be-labeled-check-usernames-results-must-display-per-username-for-each-username-entered-show-username-found-in-n-lists-app-a-app-b-app-c-and-not-found-in-app-x-app-y-match-the-card-layout-shown-in-screenshot-1-username-checker-card-with-icon-title-subtitle-select-app-event-dropdown-textarea-and-teal-gradient-check-usernames-button",
+      "title": "Redesign the Live Checker tab to support multi-username lookup: replace the single username input with a textarea labeled 'Usernames to Check (one per line)' accepting multiple usernames. Keep the app/event selector as a single dropdown (Select App/Event) with a 'Choose an app/event...' default plus a Select All option. Rename the tab page title to 'Live List Checker' with subtitle 'Check if usernames exist in app/event lists'. The Check button should be labeled 'Check Usernames'. Results must display per-username: for each username entered, show 'username: found in N lists — App A, App B, App C' and 'not found in: App X, App Y'. Match the card layout shown in screenshot 1 (Username Checker card with icon, title, subtitle, Select App/Event dropdown, textarea, and teal gradient Check Usernames button).",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-public-live-list-for-all-users-section-below-the-username-checker-card-inside-the-live-checker-tab-this-section-is-visible-to-all-users-no-admin-required-it-displays-all-app-event-entries-fetched-from-the-backend-each-showing-the-app-event-name-and-all-associated-usernames-in-a-readable-list-or-expandable-panel-users-can-browse-which-usernames-are-in-each-list-without-any-authentication",
+      "title": "Add a public 'Live List for All Users' section below the Username Checker card inside the Live Checker tab. This section is visible to all users (no admin required). It displays all app/event entries fetched from the backend, each showing the app/event name and all associated usernames in a readable list or expandable panel. Users can browse which usernames are in each list without any authentication.",
+      "reqIds": [
+        "REQ-26"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-move-the-bulk-comments-generator-app-event-dropdown-comment-list-dropdown-quantity-selector-5-10-20-50-access-key-input-generate-button-scrollable-output-copy-all-button-into-the-upload-tab-place-it-as-a-distinct-section-card-labeled-bulk-comment-generator-with-subtitle-generate-multiple-comments-at-once-requires-access-key-matching-the-card-layout-visible-in-screenshot-3-the-access-key-validation-must-call-the-backend-s-getaccesskey-method-invalid-key-shows-invalid-access-key-error-and-blocks-generation-remove-the-bulk-comments-generator-from-any-other-location-if-it-exists",
+      "title": "Move the Bulk Comments Generator (app/event dropdown, comment list dropdown, quantity selector 5/10/20/50, access key input, Generate button, scrollable output, Copy All button) into the Upload tab. Place it as a distinct section card labeled 'Bulk Comment Generator' with subtitle 'Generate multiple comments at once (requires access key)', matching the card layout visible in screenshot 3. The access key validation must call the backend's getAccessKey method; invalid key shows 'Invalid access key' error and blocks generation. Remove the Bulk Comments Generator from any other location if it exists.",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-upload-tab-rename-the-section-label-bulk-uploading-template-to-bulk-comments-only-no-other-changes-to-the-upload-tab-s-existing-file-upload-functionality",
+      "title": "In the Upload tab, rename the section label 'Bulk Uploading Template' to 'Bulk Comments' only. No other changes to the Upload tab's existing file upload functionality.",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restructure-the-upload-tab-layout-to-match-screenshot-3-display-three-section-cards-in-order-1-upload-comment-card-with-a-textarea-labeled-your-comment-and-an-upload-comment-button-2-bulk-comment-generator-card-the-moved-bulk-generator-per-req-27-and-3-the-existing-bulk-file-upload-section-renamed-to-bulk-comments-per-req-28-the-page-title-should-read-upload-section-with-subtitle-upload-comments-generate-bulk-comments-and-upload-rating-images",
+      "title": "Restructure the Upload tab layout to match screenshot 3: display three section cards in order — (1) 'Upload Comment' card with a textarea labeled 'Your Comment' and an 'Upload Comment' button, (2) 'Bulk Comment Generator' card (the moved bulk generator per REQ-27), and (3) the existing bulk file upload section renamed to 'Bulk Comments' (per REQ-28). The page title should read 'Upload Section' with subtitle 'Upload comments, generate bulk comments, and upload rating images'.",
+      "reqIds": [
+        "REQ-29"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-frontend-userview-redesign-the-single-comment-generator-section-to-match-the-uploaded-screenshot-exactly-1-a-card-with-a-blue-gradient-icon-sparkle-star-title-single-comment-generator-subtitle-generate-one-comment-per-list-one-per-device-2-a-select-comment-list-dropdown-showing-only-unlocked-lists-for-the-selected-app-event-keep-the-existing-app-event-selector-above-it-3-an-available-comments-display-box-showing-the-dynamic-count-fetched-from-the-backend-s-getavailablecount-query-for-the-selected-list-the-number-must-reflect-real-stored-data-not-a-hardcoded-value-4-a-lock-notice-box-blue-tinted-with-sparkle-icon-showing-you-have-already-generated-a-comment-for-this-list-on-this-device-when-the-device-has-already-claimed-a-comment-from-the-selected-list-5-a-generate-single-comment-button-with-a-blue-to-teal-gradient-matching-the-screenshot-disabled-and-showing-the-lock-notice-if-the-device-has-already-claimed-a-comment-from-this-list-on-successful-generation-display-the-generated-comment-text-with-a-copy-button-below-the-card-on-no-comments-left-error-show-an-out-of-comments-badge-instead",
+      "title": "In the frontend UserView, redesign the Single Comment Generator section to match the uploaded screenshot exactly: (1) a card with a blue gradient icon (sparkle/star), title 'Single Comment Generator', subtitle 'Generate one comment per list (one per device)'; (2) a 'Select Comment List' dropdown showing only unlocked lists for the selected app/event (keep the existing App/Event selector above it); (3) an 'Available Comments' display box showing the dynamic count fetched from the backend's `getAvailableCount` query for the selected list — the number must reflect real stored data, not a hardcoded value; (4) a lock notice box (blue tinted, with sparkle icon) showing 'You have already generated a comment for this list on this device.' when the device has already claimed a comment from the selected list; (5) a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled (and showing the lock notice) if the device has already claimed a comment from this list. On successful generation, display the generated comment text with a Copy button below the card. On 'No comments left' error, show an 'Out of comments' badge instead.",
+      "reqIds": [
+        "REQ-36"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-frontend-on-app-load-ensure-a-persistent-deviceid-exists-read-from-localstorage-key-deviceid-if-missing-generate-one-via-crypto-randomuuid-and-store-it-back-in-localstorage-pass-this-deviceid-to-the-generatecomment-backend-call-after-a-successful-generation-store-the-claim-in-localstorage-as-a-record-keyed-by-listid-so-the-ui-can-immediately-show-the-lock-notice-without-an-extra-backend-round-trip-on-re-render",
+      "title": "In the frontend, on app load, ensure a persistent deviceId exists: read from localStorage key 'deviceId'; if missing, generate one via `crypto.randomUUID()` and store it back in localStorage. Pass this deviceId to the `generateComment` backend call. After a successful generation, store the claim in localStorage as a record keyed by listId so the UI can immediately show the lock notice without an extra backend round-trip on re-render.",
+      "reqIds": [
+        "REQ-37"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-admin-metrics-section-inside-the-admin-comments-sub-tab-or-as-a-separate-metrics-sub-section-within-the-admin-panel-for-each-comment-list-display-a-card-showing-list-name-total-used-available-counts-all-dynamic-from-the-backend-getlistmetrics-query-a-horizontal-progress-bar-used-total-fill-percentage-and-a-pure-svg-css-donut-chart-visualizing-used-filled-arc-vs-available-unfilled-arc-using-stroke-dasharray-and-stroke-dashoffset-on-an-svg-circle-element-no-recharts-or-other-chart-library-may-be-added-all-numbers-must-come-from-real-backend-data-with-zero-hardcoded-values",
+      "title": "Add an Admin Metrics section inside the Admin > Comments sub-tab (or as a separate 'Metrics' sub-section within the Admin panel). For each comment list, display a card showing: list name, Total / Used / Available counts (all dynamic from the backend `getListMetrics` query), a horizontal progress bar (Used/Total fill percentage), and a pure SVG/CSS donut chart visualizing Used (filled arc) vs Available (unfilled arc) using stroke-dasharray and stroke-dashoffset on an SVG circle element. No Recharts or other chart library may be added. All numbers must come from real backend data with zero hardcoded values.",
+      "reqIds": [
+        "REQ-38"
+      ],
+      "version": 1
     }
   ],
   "new_feature_requests": [
@@ -262,6 +362,96 @@
       "summary": "Add renameAppEvent(id: Text, newName: Text) and deleteAppEvent(id: Text) update methods to the backend actor for editing and removing app/event entries. Deleting an app event must also remove all associated usernames for that entry.",
       "reqIds": [
         "REQ-18"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Redesign Live Checker tab: multi-username textarea, Select All/specific app selector, Check button. Results per username showing count and list names (e.g. 'john123: found in 3 lists — App A, App B, App C')",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-23",
+      "summary": "Add public 'Live List for All Users' section inside Live Checker tab — visible to all users, shows all app/event lists with their usernames",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-24",
+      "summary": "Move Bulk Comments Generator to Upload tab, locked behind Access Key entry",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "Rename 'Bulk Uploading Template' label in Upload tab to 'Bulk Comments', no other changes",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-26",
+      "summary": "Overall UI redesign to better match the dark blue gradient style shown in user-provided screenshots",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-27",
+      "summary": "Audit and fix all interactive event handlers across the entire frontend so that every button, form submission, and action (Generate, Create, Add, Upload, Check, Delete, Save, Copy, Lock/Unlock, Send, etc.) fires correctly when clicked or submitted. The root cause — whether a React state/context wiring issue, a missing or broken useActor/React Query mutation setup, silent build error, or incorrect event binding — must be identified and resolved globally.",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-28",
+      "summary": "Audit and fix the React Query mutation hooks in frontend/src/hooks/useQueries.ts to ensure all mutate/mutateAsync calls are correctly wired to the backend actor methods. Verify that the actor instance from useActor is valid and non-null before any mutation or query is executed, and handle cases where the actor may be undefined to prevent silent no-ops.",
+      "reqIds": [
+        "REQ-31"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-29",
+      "summary": "Backend (Motoko): stable HashMap keyed on (listId, deviceId) for device-based claims with pre/postupgrade hooks, per-list used template index tracking (availableCount = total - usedIndices.size()), atomic generateComment(listId, deviceId) returning #alreadyClaimed or #noCommentsLeft, and admin metrics query (totalTemplates, usedTemplates, availableTemplates, percentUsed per list). Zero hardcoded counts.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-30",
+      "summary": "Frontend: Single Comment Generator with App/Event selector → filtered List selector → dynamic 'Available Comments: N' from backend, device lock badge, out-of-comments state, crypto.randomUUID() deviceId in localStorage sent with every generate request. Admin metrics view with per-list SVG/CSS donut charts (stroke-dasharray/stroke-dashoffset) + progress bars. Dark theme + blue→green gradient button polish, toast notifications, loading skeletons.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-31",
+      "summary": "Add the following stable storage structures to the Motoko backend actor: (1) a stable HashMap keyed by a composite key '(listId#deviceId)' (Text) mapping to a claimed timestamp (Int), persisted via preupgrade/postupgrade hooks into a stable array; (2) a stable HashMap keyed by listId (Text) mapping to an array of used template indices (stable [Nat]), also persisted via preupgrade/postupgrade hooks. These must survive canister upgrades without data loss.",
+      "reqIds": [
+        "REQ-32"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-32",
+      "summary": "Add an atomic update function `generateComment(listId: Text, deviceId: Text) : async Result<Text, Text>` to the Motoko backend. The function must: (1) check if the composite key '(listId#deviceId)' exists in the claims HashMap — if yes, return Err('Already generated on this device for this list'); (2) find the first template index for the given listId that is NOT in the used-indices set; (3) if no unused index exists, return Err('No comments left for this list'); (4) mark that index as used by inserting it into the per-list used-indices map; (5) insert the claim key into the claims HashMap; (6) return Ok(templateText) where templateText is the template at the selected index (with the list's optional suffix appended if present). The entire operation must be a single update call with no intermediate awaits that could allow a race condition.",
+      "reqIds": [
+        "REQ-33"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-33",
+      "summary": "Add a query function `getListMetrics() : async [ListMetrics]` to the Motoko backend, where ListMetrics is a record type containing: listId (Text), listName (Text), totalTemplates (Nat), usedTemplates (Nat), availableTemplates (Nat), percentUsed (Float). For each comment list, availableTemplates = totalTemplates - usedTemplates, and percentUsed = usedTemplates / totalTemplates * 100 (return 0.0 if totalTemplates is 0). All values must be calculated dynamically from actual stored data — no hardcoded numbers.",
+      "reqIds": [
+        "REQ-34"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-34",
+      "summary": "Add a query function `getAvailableCount(listId: Text) : async Nat` to the Motoko backend that returns the number of unused template indices for the given list (totalTemplates - usedIndices.size()). This is used by the frontend to display the dynamic 'Available Comments: N' counter without requiring a full metrics fetch.",
+      "reqIds": [
+        "REQ-35"
       ],
       "status": "pending"
     }

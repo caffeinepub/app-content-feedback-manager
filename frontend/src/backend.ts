@@ -112,14 +112,22 @@ export interface CommentList {
 export interface _CaffeineStorageRefillInformation {
     proposed_top_up_amount?: bigint;
 }
-export interface AppEvent {
-    name: string;
-    usernames: Array<string>;
+export interface ListMetrics {
+    usedTemplates: bigint;
+    listName: string;
+    availableTemplates: bigint;
+    percentUsed: number;
+    totalTemplates: bigint;
+    listId: string;
 }
 export interface ChatMessage {
     id: bigint;
     text: string;
     timestamp: Time;
+}
+export interface AppEvent {
+    name: string;
+    usernames: Array<string>;
 }
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
@@ -152,6 +160,8 @@ export interface backendInterface {
     deleteAppEvent(id: string): Promise<boolean>;
     exportAllData(): Promise<ExportData>;
     getAccessKey(): Promise<string | null>;
+    getAvailableCount(listId: string): Promise<bigint>;
+    getListMetrics(): Promise<Array<ListMetrics>>;
     renameAppEvent(id: string, newName: string): Promise<boolean>;
     setAccessKey(key: string): Promise<void>;
     toggleListLock(listId: string): Promise<boolean>;
@@ -368,6 +378,34 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getAccessKey();
             return from_candid_opt_n14(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getAvailableCount(arg0: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAvailableCount(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAvailableCount(arg0);
+            return result;
+        }
+    }
+    async getListMetrics(): Promise<Array<ListMetrics>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getListMetrics();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getListMetrics();
+            return result;
         }
     }
     async renameAppEvent(arg0: string, arg1: string): Promise<boolean> {

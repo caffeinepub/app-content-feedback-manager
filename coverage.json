@@ -1,88 +1,82 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T15:53:59.727Z",
+  "generatedAt": "2026-02-28T03:05:27.620Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 7,
-    "implemented": 5,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-14",
-        "summary": "Add an accessKey field to the backend Settings type. Expose an update method setAccessKey(key: Text) and a query method getAccessKey() : async ?Text so the admin can store a single active access key on the network.",
+        "id": "REQ-32",
+        "summary": "Add the following stable storage structures to the Motoko backend actor: (1) a stable HashMap keyed by a composite key '(listId#deviceId)' (Text) mapping to a claimed timestamp (Int), persisted via preupgrade/postupgrade hooks into a stable array; (2) a stable HashMap keyed by listId (Text) mapping to an array of used template indices (stable [Nat]), also persisted via preupgrade/postupgrade hooks. These must survive canister upgrades without data loss.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-15",
-        "summary": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ]
-      },
-      {
-        "id": "REQ-16",
-        "summary": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/views/UserView.tsx",
-          "frontend/src/hooks/useCommentGenerator.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/views/UserView.tsx",
-          "frontend/src/hooks/useCommentGenerator.ts"
-        ]
-      },
-      {
-        "id": "REQ-17",
-        "summary": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/views/admin/AdminAITemplates.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/views/admin/AdminAITemplates.tsx"
-        ]
-      },
-      {
-        "id": "REQ-18",
-        "summary": "Add renameAppEvent(id: Text, newName: Text) and deleteAppEvent(id: Text) update methods to the backend actor for editing and removing app/event entries. Deleting an app event must also remove all associated usernames for that entry.",
+        "id": "REQ-33",
+        "summary": "Add an atomic update function `generateComment(listId: Text, deviceId: Text) : async Result<Text, Text>` to the Motoko backend. The function must: (1) check if the composite key '(listId#deviceId)' exists in the claims HashMap — if yes, return Err('Already generated on this device for this list'); (2) find the first template index for the given listId that is NOT in the used-indices set; (3) if no unused index exists, return Err('No comments left for this list'); (4) mark that index as used by inserting it into the per-list used-indices map; (5) insert the claim key into the claims HashMap; (6) return Ok(templateText) where templateText is the template at the selected index (with the list's optional suffix appended if present). The entire operation must be a single update call with no intermediate awaits that could allow a race condition.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-19",
-        "summary": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
+        "id": "REQ-34",
+        "summary": "Add a query function `getListMetrics() : async [ListMetrics]` to the Motoko backend, where ListMetrics is a record type containing: listId (Text), listName (Text), totalTemplates (Nat), usedTemplates (Nat), availableTemplates (Nat), percentUsed (Float). For each comment list, availableTemplates = totalTemplates - usedTemplates, and percentUsed = usedTemplates / totalTemplates * 100 (return 0.0 if totalTemplates is 0). All values must be calculated dynamically from actual stored data — no hardcoded numbers.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-35",
+        "summary": "Add a query function `getAvailableCount(listId: Text) : async Nat` to the Motoko backend that returns the number of unused template indices for the given list (totalTemplates - usedIndices.size()). This is used by the frontend to display the dynamic 'Available Comments: N' counter without requiring a full metrics fetch.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-36",
+        "summary": "In the frontend UserView, redesign the Single Comment Generator section to match the uploaded screenshot exactly: (1) a card with a blue gradient icon (sparkle/star), title 'Single Comment Generator', subtitle 'Generate one comment per list (one per device)'; (2) a 'Select Comment List' dropdown showing only unlocked lists for the selected app/event (keep the existing App/Event selector above it); (3) an 'Available Comments' display box showing the dynamic count fetched from the backend's `getAvailableCount` query for the selected list — the number must reflect real stored data, not a hardcoded value; (4) a lock notice box (blue tinted, with sparkle icon) showing 'You have already generated a comment for this list on this device.' when the device has already claimed a comment from the selected list; (5) a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled (and showing the lock notice) if the device has already claimed a comment from this list. On successful generation, display the generated comment text with a Copy button below the card. On 'No comments left' error, show an 'Out of comments' badge instead.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminLiveList.tsx"
+          "frontend/src/views/UserView.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminLiveList.tsx"
+          "frontend/src/views/UserView.tsx"
         ]
       },
       {
-        "id": "REQ-20",
-        "summary": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+        "id": "REQ-37",
+        "summary": "In the frontend, on app load, ensure a persistent deviceId exists: read from localStorage key 'deviceId'; if missing, generate one via `crypto.randomUUID()` and store it back in localStorage. Pass this deviceId to the `generateComment` backend call. After a successful generation, store the claim in localStorage as a record keyed by listId so the UI can immediately show the lock notice without an extra backend round-trip on re-render.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/App.tsx"
+          "frontend/src/hooks/useDeviceId.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/UserView.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/App.tsx"
+          "frontend/src/hooks/useDeviceId.ts",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/UserView.tsx"
+        ]
+      },
+      {
+        "id": "REQ-38",
+        "summary": "Add an Admin Metrics section inside the Admin > Comments sub-tab (or as a separate 'Metrics' sub-section within the Admin panel). For each comment list, display a card showing: list name, Total / Used / Available counts (all dynamic from the backend `getListMetrics` query), a horizontal progress bar (Used/Total fill percentage), and a pure SVG/CSS donut chart visualizing Used (filled arc) vs Available (unfilled arc) using stroke-dasharray and stroke-dashoffset on an SVG circle element. No Recharts or other chart library may be added. All numbers must come from real backend data with zero hardcoded values.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/MetricsDonutChart.tsx",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminComments.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/MetricsDonutChart.tsx",
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/views/admin/AdminComments.tsx"
         ]
       }
     ]
@@ -91,22 +85,18 @@
     "backend/main.mo",
     "backend/migration.mo",
     "build-request.json",
-    "build-template/README.md",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
+    "frontend/src/components/MetricsDonutChart.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
-    "frontend/src/hooks/useCommentGenerator.ts",
+    "frontend/src/hooks/useDeviceId.ts",
     "frontend/src/hooks/useQueries.ts",
     "frontend/src/views/UserView.tsx",
-    "frontend/src/views/admin/AdminAITemplates.tsx",
-    "frontend/src/views/admin/AdminLiveList.tsx",
-    "frontend/src/views/admin/AdminSettings.tsx",
-    "frontend/src/views/admin/AdminView.tsx",
+    "frontend/src/views/admin/AdminComments.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

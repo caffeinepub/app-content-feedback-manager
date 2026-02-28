@@ -38,6 +38,14 @@ export interface ImageMeta {
   'name' : string,
   'tags' : Array<string>,
 }
+export interface ListMetrics {
+  'usedTemplates' : bigint,
+  'listName' : string,
+  'availableTemplates' : bigint,
+  'percentUsed' : number,
+  'totalTemplates' : bigint,
+  'listId' : string,
+}
 export interface Settings {
   'accessKey' : [] | [string],
   'bgMusicEnabled' : boolean,
@@ -83,6 +91,8 @@ export interface _SERVICE {
   'deleteAppEvent' : ActorMethod<[string], boolean>,
   'exportAllData' : ActorMethod<[], ExportData>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
+  'getAvailableCount' : ActorMethod<[string], bigint>,
+  'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'renameAppEvent' : ActorMethod<[string, string], boolean>,
   'setAccessKey' : ActorMethod<[string], undefined>,
   'toggleListLock' : ActorMethod<[string], boolean>,

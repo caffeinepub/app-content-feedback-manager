@@ -2,30 +2,9 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-in-admin-settings-add-an-access-key-management-section-display-the-current-active-key-masked-by-default-with-a-show-hide-toggle-a-text-input-to-set-a-new-key-a-save-key-button-that-calls-setaccesskey-on-the-backend-and-a-regenerate-button-that-creates-a-new-random-alphanumeric-key-and-saves-it-only-one-key-is-active-at-a-time",
-      "featureTitle": "In Admin > Settings, add an Access Key Management section: display the current active key (masked by default with a show/hide toggle), a text input to set a new key, a Save Key button that calls setAccessKey on the backend, and a Regenerate button that creates a new random alphanumeric key and saves it. Only one key is active at a time.",
+      "featureId": "feature-in-the-frontend-userview-redesign-the-single-comment-generator-section-to-match-the-uploaded-screenshot-exactly-1-a-card-with-a-blue-gradient-icon-sparkle-star-title-single-comment-generator-subtitle-generate-one-comment-per-list-one-per-device-2-a-select-comment-list-dropdown-showing-only-unlocked-lists-for-the-selected-app-event-keep-the-existing-app-event-selector-above-it-3-an-available-comments-display-box-showing-the-dynamic-count-fetched-from-the-backend-s-getavailablecount-query-for-the-selected-list-the-number-must-reflect-real-stored-data-not-a-hardcoded-value-4-a-lock-notice-box-blue-tinted-with-sparkle-icon-showing-you-have-already-generated-a-comment-for-this-list-on-this-device-when-the-device-has-already-claimed-a-comment-from-the-selected-list-5-a-generate-single-comment-button-with-a-blue-to-teal-gradient-matching-the-screenshot-disabled-and-showing-the-lock-notice-if-the-device-has-already-claimed-a-comment-from-this-list-on-successful-generation-display-the-generated-comment-text-with-a-copy-button-below-the-card-on-no-comments-left-error-show-an-out-of-comments-badge-instead",
+      "featureTitle": "In the frontend UserView, redesign the Single Comment Generator section to match the uploaded screenshot exactly: (1) a card with a blue gradient icon (sparkle/star), title 'Single Comment Generator', subtitle 'Generate one comment per list (one per device)'; (2) a 'Select Comment List' dropdown showing only unlocked lists for the selected app/event (keep the existing App/Event selector above it); (3) an 'Available Comments' display box showing the dynamic count fetched from the backend's `getAvailableCount` query for the selected list — the number must reflect real stored data, not a hardcoded value; (4) a lock notice box (blue tinted, with sparkle icon) showing 'You have already generated a comment for this list on this device.' when the device has already claimed a comment from the selected list; (5) a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled (and showing the lock notice) if the device has already claimed a comment from this list. On successful generation, display the generated comment text with a Copy button below the card. On 'No comments left' error, show an 'Out of comments' badge instead.",
       "files": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/views/admin/AdminSettings.tsx"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-15"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-replace-the-existing-comment-generator-in-the-user-view-tab-with-a-bulk-comments-generator-the-ui-must-include-1-an-app-event-dropdown-populated-from-backend-data-2-a-comment-list-dropdown-filtered-by-the-selected-app-3-a-quantity-selector-with-preset-options-5-10-20-and-50-4-an-access-key-input-field-and-5-a-generate-button-on-submit-validate-the-entered-key-against-the-backend-s-stored-key-if-invalid-show-an-invalid-access-key-error-and-block-generation-if-valid-generate-the-chosen-quantity-of-comments-by-randomly-sampling-from-the-selected-comment-list-templates-with-the-list-s-optional-suffix-appended-display-all-generated-comments-in-a-scrollable-output-area-and-provide-a-copy-all-button",
-      "featureTitle": "Replace the existing Comment Generator in the User View tab with a Bulk Comments Generator. The UI must include: (1) an App/Event dropdown populated from backend data, (2) a Comment List dropdown filtered by the selected app, (3) a quantity selector with preset options 5, 10, 20, and 50, (4) an Access Key input field, and (5) a Generate button. On submit, validate the entered key against the backend's stored key — if invalid, show an 'Invalid access key' error and block generation. If valid, generate the chosen quantity of comments by randomly sampling from the selected comment list templates (with the list's optional suffix appended), display all generated comments in a scrollable output area, and provide a Copy All button.",
-      "files": [
-        "frontend/src/hooks/useCommentGenerator.ts",
         "frontend/src/views/UserView.tsx"
       ],
       "components": [
@@ -37,35 +16,17 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-16"
+        "REQ-36"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-in-admin-ai-templates-add-a-manual-symbol-input-field-labeled-append-symbol-when-a-symbol-is-entered-e-g-it-is-automatically-appended-to-the-end-of-every-generated-comment-template-shown-in-the-output-list-the-symbol-field-is-optional-if-empty-no-symbol-is-appended",
-      "featureTitle": "In Admin > AI Templates, add a Manual Symbol input field labeled 'Append Symbol'. When a symbol is entered (e.g., ⭐, ✅, 🔥), it is automatically appended to the end of every generated comment template shown in the output list. The symbol field is optional — if empty, no symbol is appended.",
+      "featureId": "feature-in-the-frontend-on-app-load-ensure-a-persistent-deviceid-exists-read-from-localstorage-key-deviceid-if-missing-generate-one-via-crypto-randomuuid-and-store-it-back-in-localstorage-pass-this-deviceid-to-the-generatecomment-backend-call-after-a-successful-generation-store-the-claim-in-localstorage-as-a-record-keyed-by-listid-so-the-ui-can-immediately-show-the-lock-notice-without-an-extra-backend-round-trip-on-re-render",
+      "featureTitle": "In the frontend, on app load, ensure a persistent deviceId exists: read from localStorage key 'deviceId'; if missing, generate one via `crypto.randomUUID()` and store it back in localStorage. Pass this deviceId to the `generateComment` backend call. After a successful generation, store the claim in localStorage as a record keyed by listId so the UI can immediately show the lock notice without an extra backend round-trip on re-render.",
       "files": [
-        "frontend/src/views/admin/AdminAITemplates.tsx"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-17"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-in-admin-live-list-add-an-edit-rename-button-and-a-delete-button-to-each-app-event-entry-row-the-edit-button-opens-an-inline-input-pre-filled-with-the-current-name-saving-calls-renameappevent-on-the-backend-the-delete-button-shows-a-confirmation-prompt-before-calling-deleteappevent-which-removes-the-entry-and-all-its-usernames",
-      "featureTitle": "In Admin > Live List, add an Edit (rename) button and a Delete button to each app/event entry row. The Edit button opens an inline input pre-filled with the current name; saving calls renameAppEvent on the backend. The Delete button shows a confirmation prompt before calling deleteAppEvent, which removes the entry and all its usernames.",
-      "files": [
+        "frontend/src/hooks/useDeviceId.ts",
         "frontend/src/hooks/useQueries.ts",
-        "frontend/src/views/admin/AdminLiveList.tsx"
+        "frontend/src/views/UserView.tsx"
       ],
       "components": [
         "blob-storage@4.0.0",
@@ -76,15 +37,17 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-19"
+        "REQ-37"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-a-fixed-play-pause-music-button-in-the-top-right-corner-of-the-app-visible-to-all-users-admin-and-non-admin-the-button-must-show-a-play-icon-when-music-is-paused-and-a-pause-icon-when-music-is-playing-clicking-it-toggles-playback-of-the-background-music-track-uploaded-via-admin-settings-if-no-track-has-been-uploaded-the-button-is-visible-but-disabled-with-a-tooltip-no-music-uploaded",
-      "featureTitle": "Add a fixed play/pause music button in the top-right corner of the app, visible to all users (admin and non-admin). The button must show a play icon when music is paused and a pause icon when music is playing. Clicking it toggles playback of the background music track uploaded via Admin > Settings. If no track has been uploaded, the button is visible but disabled with a tooltip 'No music uploaded'.",
+      "featureId": "feature-add-an-admin-metrics-section-inside-the-admin-comments-sub-tab-or-as-a-separate-metrics-sub-section-within-the-admin-panel-for-each-comment-list-display-a-card-showing-list-name-total-used-available-counts-all-dynamic-from-the-backend-getlistmetrics-query-a-horizontal-progress-bar-used-total-fill-percentage-and-a-pure-svg-css-donut-chart-visualizing-used-filled-arc-vs-available-unfilled-arc-using-stroke-dasharray-and-stroke-dashoffset-on-an-svg-circle-element-no-recharts-or-other-chart-library-may-be-added-all-numbers-must-come-from-real-backend-data-with-zero-hardcoded-values",
+      "featureTitle": "Add an Admin Metrics section inside the Admin > Comments sub-tab (or as a separate 'Metrics' sub-section within the Admin panel). For each comment list, display a card showing: list name, Total / Used / Available counts (all dynamic from the backend `getListMetrics` query), a horizontal progress bar (Used/Total fill percentage), and a pure SVG/CSS donut chart visualizing Used (filled arc) vs Available (unfilled arc) using stroke-dasharray and stroke-dashoffset on an SVG circle element. No Recharts or other chart library may be added. All numbers must come from real backend data with zero hardcoded values.",
       "files": [
-        "frontend/src/App.tsx"
+        "frontend/src/components/MetricsDonutChart.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/admin/AdminComments.tsx"
       ],
       "components": [
         "blob-storage@4.0.0",
@@ -95,7 +58,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-20"
+        "REQ-38"
       ],
       "confidence": "high"
     }

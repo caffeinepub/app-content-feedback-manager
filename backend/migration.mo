@@ -1,9 +1,14 @@
 import Map "mo:core/Map";
 import List "mo:core/List";
+import Set "mo:core/Set";
 import Nat "mo:core/Nat";
+import Array "mo:core/Array";
+import Time "mo:core/Time";
+import Text "mo:core/Text";
+import Storage "blob-storage/Storage";
 
 module {
-  type CommentList = {
+  type OldCommentList = {
     id : Text;
     displayName : Text;
     templates : [Text];
@@ -11,61 +16,54 @@ module {
     suffix : Text;
   };
 
-  type AppEvent = {
+  type OldAppEvent = {
     name : Text;
     usernames : [Text];
   };
 
-  type ChatMessage = {
+  type OldChatMessage = {
     id : Nat;
     text : Text;
-    timestamp : Int;
+    timestamp : Time.Time;
   };
 
-  type ImageMeta = {
+  type OldImageMeta = {
     id : Nat;
     name : Text;
     tags : [Text];
     dataUrl : Text;
-    data : ?Blob;
+    data : ?Storage.ExternalBlob;
   };
 
-  type SettingsOld = {
+  type OldSettings = {
     bgMusicEnabled : Bool;
-    musicFile : ?Blob;
-  };
-
-  type SettingsNew = {
-    bgMusicEnabled : Bool;
-    musicFile : ?Blob;
+    musicFile : ?Storage.ExternalBlob;
     accessKey : ?Text;
   };
 
   type OldActor = {
-    commentLists : Map.Map<Text, CommentList>;
-    appsEvents : Map.Map<Text, AppEvent>;
-    chatMessages : List.List<ChatMessage>;
-    images : Map.Map<Nat, ImageMeta>;
-    settings : SettingsOld;
+    commentLists : Map.Map<Text, OldCommentList>;
+    appsEvents : Map.Map<Text, OldAppEvent>;
+    chatMessages : List.List<OldChatMessage>;
+    images : Map.Map<Nat, OldImageMeta>;
+    settings : OldSettings;
     nextImageId : Nat;
     nextMessageId : Nat;
   };
 
-  type NewActor = {
-    commentLists : Map.Map<Text, CommentList>;
-    appsEvents : Map.Map<Text, AppEvent>;
-    chatMessages : List.List<ChatMessage>;
-    images : Map.Map<Nat, ImageMeta>;
-    settings : SettingsNew;
+  public func run(old : OldActor) : { // New actor type after migration
+    commentLists : Map.Map<Text, OldCommentList>;
+    appsEvents : Map.Map<Text, OldAppEvent>;
+    chatMessages : List.List<OldChatMessage>;
+    images : Map.Map<Nat, OldImageMeta>;
+    usedTemplateIndices : Map.Map<Text, Set.Set<Nat>>; // Add new structure
+    settings : OldSettings;
     nextImageId : Nat;
     nextMessageId : Nat;
-  };
-
-  public func run(old : OldActor) : NewActor {
-    let newSettings : SettingsNew = {
-      old.settings with
-      accessKey = null
+  } {
+    {
+      old with
+      usedTemplateIndices = Map.empty<Text, Set.Set<Nat>>();
     };
-    { old with settings = newSettings };
   };
 };

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useActor } from "./useActor";
-import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings } from "../backend";
+import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings, ListMetrics } from "../backend";
 
 // ── Comment Lists ──────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ export function useAddCommentList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
     },
   });
 }
@@ -41,6 +42,8 @@ export function useAddTemplatesToList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["availableCount"] });
     },
   });
 }
@@ -56,6 +59,55 @@ export function useToggleListLock() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
+  });
+}
+
+// ── Available Count ────────────────────────────────────────────────────────────
+
+export function useAvailableCount(listId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<bigint>({
+    queryKey: ["availableCount", listId],
+    queryFn: async () => {
+      if (!actor || !listId) return BigInt(0);
+      return actor.getAvailableCount(listId);
+    },
+    enabled: !!actor && !isFetching && !!listId,
+  });
+}
+
+// ── Generate Comment (device-locked) ──────────────────────────────────────────
+
+const CLAIMS_KEY_PREFIX = "claim_";
+
+export function getLocalClaim(listId: string): { deviceId: string; timestamp: number } | null {
+  try {
+    const raw = localStorage.getItem(`${CLAIMS_KEY_PREFIX}${listId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLocalClaim(listId: string, deviceId: string) {
+  localStorage.setItem(
+    `${CLAIMS_KEY_PREFIX}${listId}`,
+    JSON.stringify({ deviceId, timestamp: Date.now() })
+  );
+}
+
+// ── List Metrics ───────────────────────────────────────────────────────────────
+
+export function useListMetrics() {
+  const { actor, isFetching } = useActor();
+  return useQuery<ListMetrics[]>({
+    queryKey: ["listMetrics"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getListMetrics();
+    },
+    enabled: !!actor && !isFetching,
+    refetchOnMount: true,
   });
 }
 

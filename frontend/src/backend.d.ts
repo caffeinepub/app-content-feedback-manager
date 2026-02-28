@@ -34,14 +34,22 @@ export interface CommentList {
     locked: boolean;
     suffix: string;
 }
-export interface AppEvent {
-    name: string;
-    usernames: Array<string>;
+export interface ListMetrics {
+    usedTemplates: bigint;
+    listName: string;
+    availableTemplates: bigint;
+    percentUsed: number;
+    totalTemplates: bigint;
+    listId: string;
 }
 export interface ChatMessage {
     id: bigint;
     text: string;
     timestamp: Time;
+}
+export interface AppEvent {
+    name: string;
+    usernames: Array<string>;
 }
 export interface ImageMeta {
     id: bigint;
@@ -60,6 +68,8 @@ export interface backendInterface {
     deleteAppEvent(id: string): Promise<boolean>;
     exportAllData(): Promise<ExportData>;
     getAccessKey(): Promise<string | null>;
+    getAvailableCount(listId: string): Promise<bigint>;
+    getListMetrics(): Promise<Array<ListMetrics>>;
     renameAppEvent(id: string, newName: string): Promise<boolean>;
     setAccessKey(key: string): Promise<void>;
     toggleListLock(listId: string): Promise<boolean>;

@@ -95,4 +95,127 @@
   .gradient-btn:hover {
     background: linear-gradient(135deg, oklch(0.62 0.2 200) 0%, oklch(0.72 0.22 160) 100%);
   }
+
+  /* Space card — dark semi-transparent card with rounded corners */
+  .space-card {
+    background: oklch(0.15 0.03 240 / 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid oklch(0.3 0.05 220 / 0.6);
+    border-radius: 1rem;
+    box-shadow: 0 4px 32px oklch(0 0 0 / 0.4);
+  }
+
+  /* Gradient heading — neon blue/teal gradient text */
+  .gradient-heading {
+    background: linear-gradient(135deg, oklch(0.75 0.2 210) 0%, oklch(0.72 0.18 175) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Gradient button — teal-to-blue */
+  .gradient-button {
+    background: linear-gradient(135deg, oklch(0.55 0.18 200) 0%, oklch(0.65 0.2 160) 100%);
+    color: oklch(0.98 0.005 240);
+    border: none;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .gradient-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, oklch(0.62 0.2 200) 0%, oklch(0.72 0.22 160) 100%);
+    opacity: 0.95;
+  }
+  .gradient-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Floating geometric shapes background decoration */
+  .floating-shapes {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .floating-shapes::before,
+  .floating-shapes::after {
+    content: '';
+    position: absolute;
+    border: 1px solid oklch(0.72 0.18 175 / 0.12);
+    animation: float-shapes 20s ease-in-out infinite;
+  }
+  .floating-shapes::before {
+    width: 60px;
+    height: 60px;
+    top: 15%;
+    right: 8%;
+    transform: rotate(45deg);
+    animation-delay: 0s;
+  }
+  .floating-shapes::after {
+    width: 40px;
+    height: 40px;
+    bottom: 25%;
+    left: 5%;
+    transform: rotate(30deg);
+    animation-delay: -7s;
+  }
+
+  .app-bg-gradient {
+    position: relative;
+    min-height: 100vh;
+    background: linear-gradient(160deg, oklch(0.1 0.03 240) 0%, oklch(0.13 0.04 220) 50%, oklch(0.11 0.04 175) 100%);
+  }
+}
+
+@layer components {
+  /* Extra floating shape elements rendered via pseudo-elements on .shape-* helpers */
+  .shape-diamond {
+    position: absolute;
+    border: 1px solid oklch(0.72 0.18 175 / 0.1);
+    transform: rotate(45deg);
+    pointer-events: none;
+  }
+  .shape-square {
+    position: absolute;
+    border: 1px solid oklch(0.55 0.18 200 / 0.1);
+    pointer-events: none;
+  }
+  .shape-triangle {
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-bottom: 26px solid oklch(0.72 0.18 175 / 0.08);
+    pointer-events: none;
+  }
+}
+
+@keyframes float-shapes {
+  0%, 100% { transform: rotate(45deg) translateY(0px); opacity: 0.6; }
+  50% { transform: rotate(45deg) translateY(-20px); opacity: 1; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.5; }
+  33% { transform: translateY(-15px) rotate(5deg); opacity: 0.8; }
+  66% { transform: translateY(8px) rotate(-3deg); opacity: 0.6; }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-neon {
+  0%, 100% { box-shadow: 0 0 8px oklch(0.72 0.18 175 / 0.4); }
+  50% { box-shadow: 0 0 20px oklch(0.72 0.18 175 / 0.8); }
 }

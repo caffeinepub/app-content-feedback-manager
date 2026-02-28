@@ -1,15 +1,23 @@
 # Specification
 
 ## Summary
-**Goal:** Add bulk comment generation with access key protection, AI template symbol appending, live list app/event edit/delete, and a global music play/pause button.
+**Goal:** Add device-based comment locking, dynamic available comment counts, and admin metrics charts (SVG/CSS donut) to the App Review Comment Manager.
 
 **Planned changes:**
-- Backend: Add `accessKey` field to Settings, expose `setAccessKey` and `getAccessKey` methods that persist across upgrades
-- Backend: Add `renameAppEvent` and `deleteAppEvent` methods; deleting an app/event also removes all its associated usernames
-- Admin > Settings: Add Access Key Management section with masked key display, show/hide toggle, custom key input, Save Key button, and Regenerate button
-- User View: Replace existing Comment Generator with a Bulk Comments Generator featuring App dropdown, Comment List dropdown, quantity selector (5/10/20/50), Access Key input, Generate button, scrollable output, and Copy All button; validate key against backend before generating
-- Admin > AI Templates: Add optional "Append Symbol" text input that appends the entered symbol to every generated comment template in the output
-- Admin > Live List: Add Edit (inline rename) and Delete (with confirmation) buttons to each app/event entry row
-- Add a fixed play/pause music button in the top-right corner visible to all users, reusing the existing `useBackgroundMusic` hook; disabled with tooltip when no track is uploaded
 
-**User-visible outcome:** Admins can manage a single access key and use it to gate bulk comment generation for users; AI template generation supports symbol appending; live list app/event entries can be renamed or deleted; all users see a persistent music play/pause button in the top-right corner.
+**Backend (Motoko):**
+- Add stable HashMaps for (1) device claims keyed by `listId#deviceId` and (2) used template indices per list, both persisted via `preupgrade`/`postupgrade` hooks
+- Add atomic `generateComment(listId, deviceId)` update function that checks device claim, finds first unused template index, marks it used, records the claim, and returns the template text (with suffix if set); returns errors for duplicate device or exhausted list
+- Add `getListMetrics()` query returning per-list records with listId, listName, totalTemplates, usedTemplates, availableTemplates, and percentUsed — all calculated from real stored data
+- Add `getAvailableCount(listId)` query returning the count of unused templates for a given list
+
+**Frontend (UserView):**
+- On app load, read or generate a persistent `deviceId` via `crypto.randomUUID()` stored in localStorage
+- Redesign the Single Comment Generator section to match the screenshot: blue gradient sparkle icon, title, subtitle, App/Event selector, "Select Comment List" dropdown (unlocked lists only), "Available Comments" display box fetching real count from `getAvailableCount`, blue-tinted lock notice when device has already claimed from the selected list, blue-to-teal gradient "Generate Single Comment" button (disabled when locked)
+- After successful generation, display the generated comment text with a Copy button; show "Out of comments" badge on exhausted list error
+- Store claim state in localStorage keyed by listId so lock notice appears immediately after generation without a page reload
+
+**Frontend (Admin panel):**
+- Add a Metrics sub-section in the Admin > Comments tab showing a card per list with: list name, Total/Used/Available counts from `getListMetrics`, a horizontal progress bar, and a pure SVG/CSS donut chart (stroke-dasharray/stroke-dashoffset) — no external chart library
+
+**User-visible outcome:** Users see a redesigned Single Comment Generator that shows the real available comment count, prevents duplicate generation per device with a lock notice, and copies the generated comment easily. Admins can view per-list usage metrics with progress bars and donut charts inside the admin panel.

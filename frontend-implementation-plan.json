@@ -1,109 +1,83 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Bulk Comments Generator, Access Key, AI Symbol Input, Live List Edit/Delete, Music Play Button",
+  "title": "Single Comment Generator with device-based locking, dynamic available count, and admin metrics charts",
   "requirements": [
     {
-      "id": "REQ-15",
-      "summary": "Add Access Key Management section to Admin > Settings with current key display (masked/show toggle), custom key input, Save Key button, and Regenerate button that creates random alphanumeric keys",
+      "id": "REQ-36",
+      "summary": "Redesign UserView Single Comment Generator section to match the uploaded screenshot with dynamic available count, device-based lock notice, and gradient UI",
       "acceptanceCriteria": [
-        "Current key is shown masked; a toggle reveals/hides the full key",
-        "Admin can type a custom key and save it via the backend mutation",
-        "Regenerate button creates a new random key and persists it",
-        "Success/error feedback is shown after save"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Add useAccessKey query hook to fetch the current access key via backend.getAccessKey(), and add useSetAccessKey mutation hook that calls backend.setAccessKey(key: string) with success/error callbacks and query invalidation"
-        },
-        {
-          "path": "frontend/src/views/admin/AdminSettings.tsx",
-          "operation": "modify",
-          "description": "Add Access Key Management section above existing music settings. Include: (1) current key display with mask/unmask toggle button, (2) text input for entering a new custom key, (3) Save Key button that calls the setAccessKey mutation, (4) Regenerate button that generates a random 16-character alphanumeric key and saves it, and (5) success/error toast notifications using the existing UI patterns"
-        }
-      ]
-    },
-    {
-      "id": "REQ-16",
-      "summary": "Replace existing Comment Generator in User View with Bulk Comments Generator featuring App/Event dropdown, Comment List dropdown filtered by selected app, quantity selector (5/10/20/50), Access Key input, and Generate button with backend key validation",
-      "acceptanceCriteria": [
-        "App dropdown and Comment List dropdown are populated from backend data",
-        "Quantity selector offers exactly 5, 10, 20, 50 options",
-        "Entering a wrong access key shows 'Invalid access key' and does not generate",
-        "Entering the correct key generates the selected number of comments",
-        "Each generated comment has the list suffix appended if present",
-        "A Copy All button copies all generated comments to clipboard",
-        "Skeleton loaders shown while backend data is fetching"
+        "Available Comments counter shows a real number from the backend, not 28 or any other hardcoded value",
+        "Available Comments counter updates when a different list is selected",
+        "Lock notice appears if localStorage contains a claim for the selected list's deviceId+listId combination",
+        "Generate button is disabled when the lock notice is visible",
+        "Successful generation displays the comment text and a Copy to Clipboard button",
+        "Out-of-comments error shows a distinct badge/message instead of the Generate button",
+        "Card layout, icon, gradient button, and color scheme match the uploaded screenshot"
       ],
       "file_operations": [
         {
           "path": "frontend/src/views/UserView.tsx",
           "operation": "modify",
-          "description": "Replace the existing single-comment generator section with a Bulk Comments Generator. Add: (1) App/Event dropdown populated from useAppsEvents query, (2) Comment List dropdown filtered by selected app using useCommentLists query, (3) quantity selector with radio buttons or select for 5, 10, 20, 50, (4) Access Key password input field, (5) Generate button that validates the entered key against backend.getAccessKey() before generation, (6) scrollable output area displaying all generated comments with each comment showing the list's suffix appended, and (7) Copy All button using navigator.clipboard API. Show validation error toast 'Invalid access key' when keys don't match. Use skeleton loaders during data fetch"
+          "description": "Redesign the Single Comment Generator section to match the uploaded screenshot at frontend/public/assets/Screenshot_2026-02-28-08-04-07-838_com.miui.gallery.png. Replace the existing comment generator UI with: (1) a card featuring a blue gradient sparkle/star icon and title/subtitle; (2) retain the existing App/Event selector above the list dropdown; (3) add a 'Select Comment List' dropdown showing only unlocked lists filtered by the selected app/event; (4) add an 'Available Comments' display box that fetches the dynamic count from the backend's getAvailableCount query for the selected list (no hardcoded numbers); (5) add a blue-tinted lock notice box with sparkle icon that appears when localStorage contains a claim for the current deviceId+listId combination; (6) add a 'Generate Single Comment' button with a blue-to-teal gradient matching the screenshot, disabled when the lock notice is visible; (7) on successful generation, display the generated comment text with a Copy button below the card; (8) on 'No comments left' error, show an 'Out of comments' badge instead of the button. Ensure the Available Comments counter updates reactively when the user selects a different list."
+        }
+      ]
+    },
+    {
+      "id": "REQ-37",
+      "summary": "Implement persistent deviceId generation and localStorage-based claim tracking in the frontend",
+      "acceptanceCriteria": [
+        "localStorage 'deviceId' is created on first load and reused on subsequent loads",
+        "deviceId is sent with every generateComment call",
+        "After a successful generation, the lock notice appears immediately without a page reload",
+        "Claim state in localStorage persists across browser tab refreshes"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useDeviceId.ts",
+          "operation": "create",
+          "description": "Create a custom hook that reads the deviceId from localStorage (key 'deviceId') on mount. If missing, generate a new UUID via crypto.randomUUID() and store it in localStorage. Return the deviceId string. This hook ensures a persistent device identifier across sessions."
         },
-        {
-          "path": "frontend/src/hooks/useCommentGenerator.ts",
-          "operation": "modify",
-          "description": "Extend the hook to support bulk generation mode: add a generateBulk function that accepts quantity, listId, and suffix parameters, randomly samples from the selected list's templates quantity times (with replacement), appends the suffix to each generated comment, and returns an array of generated comments. Remove or make optional the localStorage single-use tracking for bulk mode"
-        }
-      ]
-    },
-    {
-      "id": "REQ-17",
-      "summary": "Add Manual Symbol input field labeled 'Append Symbol' to Admin > AI Templates that automatically appends the entered symbol to every generated template in the output list",
-      "acceptanceCriteria": [
-        "A text input labeled 'Append Symbol' is visible in the AI Templates generation controls",
-        "All generated template suggestions have the entered symbol appended at the end",
-        "If the symbol field is empty, generated templates are unchanged",
-        "When templates are saved to a comment list, the symbol-appended version is saved"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/views/admin/AdminAITemplates.tsx",
-          "operation": "modify",
-          "description": "Add a text input field labeled 'Append Symbol' above or beside the existing generation controls (tone/category/length). Store the symbol value in component state. When templates are generated via the templateGenerator utility, map over the results and append the symbol (if non-empty) to the end of each template string before displaying them in the output list. Ensure that when selected templates are saved to a comment list, the symbol-appended versions are persisted"
-        }
-      ]
-    },
-    {
-      "id": "REQ-19",
-      "summary": "Add Edit (rename) and Delete buttons to each app/event entry row in Admin > Live List with inline editing and confirmation dialog",
-      "acceptanceCriteria": [
-        "Each app/event row in Admin > Live List shows an Edit and a Delete button",
-        "Edit opens an inline editable input; saving calls the backend rename method and refreshes the list",
-        "Delete shows a confirmation dialog; confirming calls deleteAppEvent and removes the entry from the UI",
-        "Username counts update correctly after deletion"
-      ],
-      "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add useRenameAppEvent mutation hook that calls backend.renameAppEvent(id, newName) and invalidates the apps/events query on success. Add useDeleteAppEvent mutation hook that calls backend.deleteAppEvent(id) and invalidates the apps/events query on success"
+          "description": "Add a new mutation hook useGenerateComment that calls the backend's generateComment capability with (listId, deviceId). On success, store the claim in localStorage keyed by listId (e.g., localStorage.setItem(`claim_${listId}`, JSON.stringify({ deviceId, timestamp: Date.now() }))) so the UI can immediately show the lock notice without an extra backend round-trip. Return the generated comment text or error message. Invalidate any relevant queries (e.g., list metrics or available count) after a successful generation."
         },
         {
-          "path": "frontend/src/views/admin/AdminLiveList.tsx",
+          "path": "frontend/src/views/UserView.tsx",
           "operation": "modify",
-          "description": "Add Edit and Delete buttons to each app/event row. For Edit: toggle to inline input mode showing the current name, provide Save/Cancel buttons, call renameAppEvent mutation on save and refresh the list. For Delete: show a confirmation dialog (using shadcn/ui AlertDialog component) with message 'This will delete the app/event and all associated usernames. Continue?', call deleteAppEvent mutation on confirm, and remove the entry from the UI with success feedback"
+          "description": "Import and use the useDeviceId hook to obtain the persistent deviceId. Pass this deviceId to the useGenerateComment mutation when the user clicks 'Generate Single Comment'. After a successful generation, read the claim from localStorage to immediately show the lock notice without requiring a page reload. Ensure the lock notice check runs on component mount and whenever the selected list changes."
         }
       ]
     },
     {
-      "id": "REQ-20",
-      "summary": "Add fixed play/pause music button in top-right corner visible to all users, showing play icon when paused and pause icon when playing, controlling background music via existing useBackgroundMusic hook",
+      "id": "REQ-38",
+      "summary": "Add Admin Metrics section with dynamic counts, progress bars, and pure SVG/CSS donut charts for each comment list",
       "acceptanceCriteria": [
-        "A play/pause button is fixed in the top-right corner and visible on all tabs",
-        "Button shows play icon when paused, pause icon when playing",
-        "Clicking toggles the background music playback via the existing useBackgroundMusic hook",
-        "When no music track is uploaded, the button is disabled and shows a 'No music uploaded' tooltip",
-        "Button does not overlap critical header controls on mobile"
+        "Each list has its own metrics card",
+        "Total, Used, and Available counts match backend values",
+        "Progress bar fill percentage equals usedTemplates / totalTemplates * 100",
+        "SVG donut arc correctly represents used vs available proportion",
+        "Shows 0% fill when no templates have been used",
+        "Shows 100% fill when all templates are used",
+        "No Recharts or external chart dependency is added",
+        "No hardcoded numbers anywhere in the metrics UI"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/components/MetricsDonutChart.tsx",
+          "operation": "create",
+          "description": "Create a reusable React component that renders a pure SVG/CSS donut chart. Accept props: usedTemplates (number), totalTemplates (number). Calculate the fill percentage as (usedTemplates / totalTemplates * 100), handling division by zero by returning 0%. Render an SVG circle element using stroke-dasharray and stroke-dashoffset to visualize the Used (filled arc) vs Available (unfilled arc) proportion. Use a blue gradient or solid color for the filled arc. Do not use Recharts or any external chart library."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Add a fixed-position music play/pause button in the top-right corner of the header (or as a floating button overlaying the viewport). Use the existing useBackgroundMusic hook to access isPlaying state and toggle function. Show a play icon (from lucide-react or shadcn/ui icons) when paused, pause icon when playing. Query backend settings via useQueries to check if a music file is uploaded; if not, disable the button and show a tooltip 'No music uploaded' (using shadcn/ui Tooltip component). Ensure the button is visible and accessible on all tabs and does not overlap the admin badge or countdown timer on mobile viewports"
+          "description": "Add a new query hook useListMetrics that fetches the backend's getListMetrics capability and returns an array of ListMetrics records. Each record contains listId, listName, totalTemplates, usedTemplates, availableTemplates, and percentUsed. Enable refetch on mount and ensure the query can be manually refetched by the admin panel."
+        },
+        {
+          "path": "frontend/src/views/admin/AdminComments.tsx",
+          "operation": "modify",
+          "description": "Add a new 'Metrics' sub-section within the AdminComments view. Use the useListMetrics query hook to fetch dynamic metrics for all comment lists. For each list, render a metrics card displaying: list name, Total / Used / Available counts (all from the backend query), a horizontal progress bar with fill percentage (Used/Total * 100), and a MetricsDonutChart component visualizing the used vs available proportion. Ensure all numbers are dynamic with zero hardcoded values. The progress bar should show 0% fill when no templates are used and 100% fill when all are used."
         }
       ]
     }

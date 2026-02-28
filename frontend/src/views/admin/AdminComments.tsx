@@ -1,14 +1,22 @@
 import { useState } from 'react';
-import { useCommentLists, useAddCommentList, useAddTemplatesToList, useToggleListLock } from '../../hooks/useQueries';
+import {
+  useCommentLists,
+  useAddCommentList,
+  useAddTemplatesToList,
+  useToggleListLock,
+  useListMetrics,
+} from '../../hooks/useQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Lock, Unlock, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { MetricsDonutChart } from '@/components/MetricsDonutChart';
+import { Lock, Unlock, Plus, MessageSquare, BarChart2, RefreshCw } from 'lucide-react';
 
 export function AdminComments() {
   const { data: commentLists, isLoading } = useCommentLists();
+  const { data: listMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useListMetrics();
   const addList = useAddCommentList();
   const addTemplates = useAddTemplatesToList();
   const toggleLock = useToggleListLock();
@@ -67,7 +75,11 @@ export function AdminComments() {
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-neon-teal" />
                   <span className="font-medium text-foreground">{list.displayName}</span>
-                  {list.locked && <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive">Locked</span>}
+                  {list.locked && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive">
+                      Locked
+                    </span>
+                  )}
                 </div>
                 <span className="font-bold text-neon-teal">{list.templates.length}</span>
               </div>
@@ -81,6 +93,126 @@ export function AdminComments() {
           </div>
         </div>
       )}
+
+      {/* ── Metrics Section ── */}
+      <div className="glass-card rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-neon-teal" />
+            <h3 className="font-display font-semibold text-lg">Usage Metrics</h3>
+          </div>
+          <button
+            onClick={() => refetchMetrics()}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh metrics"
+          >
+            <RefreshCw className={`w-4 h-4 ${metricsLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {metricsLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-28 bg-secondary rounded-xl" />
+            ))}
+          </div>
+        ) : !listMetrics || listMetrics.length === 0 ? (
+          <p className="text-muted-foreground text-sm text-center py-4">No lists to show metrics for.</p>
+        ) : (
+          <div className="space-y-3">
+            {listMetrics.map(metric => {
+              const total = Number(metric.totalTemplates);
+              const used = Number(metric.usedTemplates);
+              const available = Number(metric.availableTemplates);
+              const pct = total > 0 ? (used / total) * 100 : 0;
+
+              return (
+                <div
+                  key={metric.listId}
+                  className="rounded-xl p-4 space-y-3"
+                  style={{
+                    background: 'oklch(0.18 0.035 240 / 0.8)',
+                    border: '1px solid oklch(0.3 0.05 220 / 0.5)',
+                  }}
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground text-sm">{metric.listName}</span>
+                    <span className="text-xs text-muted-foreground">{Math.round(pct)}% used</span>
+                  </div>
+
+                  {/* Donut + Stats row */}
+                  <div className="flex items-center gap-4">
+                    {/* SVG Donut */}
+                    <div className="flex-shrink-0">
+                      <MetricsDonutChart
+                        usedTemplates={used}
+                        totalTemplates={total}
+                        size={72}
+                        strokeWidth={9}
+                      />
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex-1 grid grid-cols-3 gap-2">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-foreground">{total}</div>
+                        <div className="text-xs text-muted-foreground">Total</div>
+                      </div>
+                      <div className="text-center">
+                        <div
+                          className="text-lg font-bold"
+                          style={{ color: 'oklch(0.65 0.2 220)' }}
+                        >
+                          {used}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Used</div>
+                      </div>
+                      <div className="text-center">
+                        <div
+                          className="text-lg font-bold"
+                          style={{ color: 'oklch(0.72 0.2 155)' }}
+                        >
+                          {available}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Left</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div>
+                    <div
+                      className="w-full rounded-full overflow-hidden"
+                      style={{
+                        height: '6px',
+                        background: 'oklch(0.25 0.04 240)',
+                      }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(pct, 100)}%`,
+                          background:
+                            pct >= 90
+                              ? 'linear-gradient(90deg, oklch(0.6 0.22 25), oklch(0.65 0.2 40))'
+                              : pct >= 60
+                              ? 'linear-gradient(90deg, oklch(0.65 0.2 60), oklch(0.68 0.2 100))'
+                              : 'linear-gradient(90deg, oklch(0.55 0.2 220), oklch(0.68 0.2 155))',
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-xs text-muted-foreground">0</span>
+                      <span className="text-xs text-muted-foreground">{total}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Create New List */}
       <div className="glass-card rounded-2xl p-5 space-y-4">
@@ -118,7 +250,9 @@ export function AdminComments() {
                 Creating...
               </span>
             ) : (
-              <span className="flex items-center gap-2"><Plus className="w-4 h-4" />Create</span>
+              <span className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />Create
+              </span>
             )}
           </Button>
         </div>

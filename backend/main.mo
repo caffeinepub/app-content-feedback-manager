@@ -1,14 +1,20 @@
 import Storage "blob-storage/Storage";
 import List "mo:core/List";
 import Map "mo:core/Map";
+import Set "mo:core/Set";
+import Nat "mo:core/Nat";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
+import Float "mo:core/Float";
+import Int "mo:core/Int";
 import MixinStorage "blob-storage/Mixin";
 import Migration "migration";
+import Runtime "mo:core/Runtime";
 
+// Use migration pattern with explicit type mapping for old -> new actor
 (with migration = Migration.run)
 actor {
   include MixinStorage();
@@ -54,21 +60,38 @@ actor {
     settings : Settings;
   };
 
+  type ListMetrics = {
+    listId : Text;
+    listName : Text;
+    totalTemplates : Nat;
+    usedTemplates : Nat;
+    availableTemplates : Nat;
+    percentUsed : Float;
+  };
+
   let commentLists = Map.empty<Text, CommentList>();
   let appsEvents = Map.empty<Text, AppEvent>();
   let chatMessages = List.empty<ChatMessage>();
   let images = Map.empty<Nat, ImageMeta>();
-  var settings = {
-    bgMusicEnabled = false;
-    musicFile : ?Storage.ExternalBlob = null;
-    accessKey : ?Text = null;
-  };
+  let usedTemplateIndices = Map.empty<Text, Set.Set<Nat>>();
+
   var nextImageId = 1;
   var nextMessageId = 1;
+  var settings : Settings = {
+    bgMusicEnabled = false;
+    musicFile = null;
+    accessKey = null;
+  };
 
   module CommentList {
     public func compare(a : CommentList, b : CommentList) : Order.Order {
       Text.compare(a.displayName, b.displayName);
+    };
+  };
+
+  module AppEvent {
+    public func compare(a : AppEvent, b : AppEvent) : Order.Order {
+      Text.compare(a.name, b.name);
     };
   };
 
@@ -207,6 +230,54 @@ actor {
     };
   };
 
+  public query ({ caller }) func getAvailableCount(listId : Text) : async Nat {
+    switch (commentLists.get(listId)) {
+      case (null) { 0 };
+      case (?list) {
+        let usedIndices = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+        let usedCount = usedIndices.size();
+        if (list.templates.size() > 0 and usedCount > 0) {
+          list.templates.size() - usedCount;
+        } else {
+          list.templates.size();
+        };
+      };
+    };
+  };
+
+  public query ({ caller }) func getListMetrics() : async [ListMetrics] {
+    commentLists.values().toArray().map(
+      func(list) {
+        let usedIndices = switch (usedTemplateIndices.get(list.id)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+        let usedCount = usedIndices.size();
+        let totalTemplates = list.templates.size();
+        {
+          listId = list.id;
+          listName = list.displayName;
+          totalTemplates;
+          usedTemplates = usedCount;
+          availableTemplates = if (totalTemplates > 0 and usedCount > 0) {
+            totalTemplates - usedCount;
+          } else {
+            totalTemplates;
+          };
+          percentUsed = if (totalTemplates == 0) {
+            0.0;
+          } else {
+            let ratio = usedCount.toFloat() / totalTemplates.toFloat();
+            ratio * 100.0;
+          };
+        };
+      }
+    );
+  };
+
   public shared ({ caller }) func exportAllData() : async ExportData {
     {
       commentLists = commentLists.values().toArray();
@@ -217,4 +288,3 @@ actor {
     };
   };
 };
-
