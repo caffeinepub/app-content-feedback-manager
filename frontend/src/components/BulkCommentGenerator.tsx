@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useCommentLists, useAccessKey, useGenerateBulkComments, useAvailableCount } from '@/hooks/useQueries';
+import { useCommentLists, useAccessKey, useAvailableCount } from '@/hooks/useQueries';
+import { useCommentGenerator } from '@/hooks/useCommentGenerator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Zap, Copy, Check, AlertCircle, Lock, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import type { CommentList } from '@/backend';
 
 const QUANTITY_OPTIONS = [5, 10, 20, 50];
 
 export function BulkCommentGenerator() {
   const { data: commentLists, isLoading: listsLoading } = useCommentLists();
   const { data: storedKey, isLoading: keyLoading } = useAccessKey();
-  const generateBulkMutation = useGenerateBulkComments();
+  const { generateBulk } = useCommentGenerator();
 
   const [selectedListId, setSelectedListId] = useState('');
   const [quantity, setQuantity] = useState(5);
@@ -19,45 +21,38 @@ export function BulkCommentGenerator() {
   const [generatedComments, setGeneratedComments] = useState<string[]>([]);
   const [actualGeneratedCount, setActualGeneratedCount] = useState<number>(0);
   const [copied, setCopied] = useState(false);
-  const [localAvailableCount, setLocalAvailableCount] = useState<number | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const isLoading = listsLoading || keyLoading;
   const availableLists = (commentLists ?? []).filter((l) => !l.locked);
-
-  const selectedList = availableLists.find((l) => l.id === selectedListId);
+  const selectedList: CommentList | undefined = availableLists.find((l) => l.id === selectedListId);
   const templateCount = selectedList ? selectedList.templates.length : 0;
 
+  // Fetch available count from backend for the selected list
   const { data: availableCountRaw, isLoading: availableCountLoading } = useAvailableCount(selectedListId);
-  const backendAvailableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : null;
+  const availableCount = availableCountRaw !== undefined ? Number(availableCountRaw) : templateCount;
 
-  const availableCount = localAvailableCount !== null ? localAvailableCount : (backendAvailableCount ?? templateCount);
-
-  useEffect(() => {
-    if (backendAvailableCount !== null) {
-      setLocalAvailableCount(null);
-    }
-  }, [backendAvailableCount]);
-
+  // When selected list changes, reset state
   useEffect(() => {
     setValidationError('');
-    setLocalAvailableCount(null);
-    if (selectedListId && availableCount > 0 && quantity > availableCount) {
-      setQuantity(Math.min(quantity, availableCount));
-    }
+    setGeneratedComments([]);
+    setActualGeneratedCount(0);
   }, [selectedListId]);
 
+  // Clamp quantity when availableCount changes
   useEffect(() => {
     if (availableCount > 0 && quantity > availableCount) {
       setQuantity(availableCount);
     }
   }, [availableCount]);
 
-  const isOutOfComments = availableCount === 0 && !availableCountLoading && !!selectedListId;
+  const isOutOfComments = templateCount === 0 && !availableCountLoading && !!selectedListId;
 
   async function handleGenerate() {
     setKeyError(false);
     setValidationError('');
 
+    // Validate access key
     const trimmedKey = accessKey.trim();
     if (!trimmedKey) {
       setKeyError(true);
@@ -68,47 +63,41 @@ export function BulkCommentGenerator() {
       return;
     }
 
+    // Validate list selection
     if (!selectedListId || !selectedList) {
       setValidationError('Please select a comment list.');
       return;
     }
 
+    // Validate template count
     if (templateCount === 0) {
       setValidationError('No templates available for this list.');
       return;
     }
 
-    if (availableCount === 0) {
-      setValidationError('No comments available — this list is out of comments.');
-      return;
-    }
-
+    // Validate quantity
     if (quantity <= 0) {
       setValidationError('Invalid count. Please select a valid quantity.');
       return;
     }
 
-    const effectiveCount = Math.min(quantity, availableCount);
+    const effectiveCount = Math.min(quantity, templateCount);
 
+    setIsGenerating(true);
     try {
-      const result = await generateBulkMutation.mutateAsync({ listId: selectedListId, count: effectiveCount });
-      const actualCount = Number(result.generatedCount);
-
-      const suffix = selectedList.suffix ?? '';
-      const comments = result.comments.map((c) => suffix ? `${c}${suffix}` : c);
+      const comments = generateBulk(selectedList, effectiveCount);
       setGeneratedComments(comments);
-      setActualGeneratedCount(actualCount);
+      setActualGeneratedCount(comments.length);
 
-      const newAvailable = Math.max(0, availableCount - actualCount);
-      setLocalAvailableCount(newAvailable);
-
-      if (actualCount < quantity) {
-        toast.warning(`Only ${actualCount} available, generated ${actualCount}.`);
+      if (comments.length < quantity) {
+        toast.warning(`Only ${comments.length} templates available, generated ${comments.length}.`);
       } else {
-        toast.success(`Generated ${actualCount} comment${actualCount === 1 ? '' : 's'} successfully!`);
+        toast.success(`Generated ${comments.length} comment${comments.length === 1 ? '' : 's'} successfully!`);
       }
     } catch {
       setValidationError('Failed to generate comments. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   }
 
@@ -118,11 +107,10 @@ export function BulkCommentGenerator() {
     setActualGeneratedCount(0);
     setValidationError('');
     setKeyError(false);
-    setLocalAvailableCount(null);
   }
 
   function handleQuantityChange(newQty: number) {
-    if (newQty > availableCount && availableCount > 0) return;
+    if (newQty > templateCount && templateCount > 0) return;
     setQuantity(newQty);
     setValidationError('');
   }
@@ -155,44 +143,42 @@ export function BulkCommentGenerator() {
           <p className="text-sm text-muted-foreground italic">No comment lists available.</p>
         ) : (
           <div className="grid grid-cols-1 gap-2">
-            {availableLists.map((list) => {
-              return (
-                <button
-                  key={list.id}
-                  onClick={() => handleListChange(list.id)}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all"
+            {availableLists.map((list) => (
+              <button
+                key={list.id}
+                onClick={() => handleListChange(list.id)}
+                className="flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all"
+                style={{
+                  background:
+                    selectedListId === list.id
+                      ? 'oklch(0.22 0.06 220 / 0.8)'
+                      : 'oklch(0.18 0.04 240 / 0.6)',
+                  border:
+                    selectedListId === list.id
+                      ? '1px solid oklch(0.55 0.2 220 / 0.6)'
+                      : '1px solid oklch(0.3 0.05 240 / 0.4)',
+                }}
+              >
+                <span className="font-medium text-foreground text-sm">{list.displayName}</span>
+                <span
+                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
                   style={{
                     background:
-                      selectedListId === list.id
-                        ? 'oklch(0.22 0.06 220 / 0.8)'
-                        : 'oklch(0.18 0.04 240 / 0.6)',
-                    border:
-                      selectedListId === list.id
-                        ? '1px solid oklch(0.55 0.2 220 / 0.6)'
-                        : '1px solid oklch(0.3 0.05 240 / 0.4)',
+                      list.id === selectedListId && isOutOfComments
+                        ? 'oklch(0.3 0.1 25 / 0.3)'
+                        : 'oklch(0.25 0.06 220 / 0.5)',
+                    color:
+                      list.id === selectedListId && isOutOfComments
+                        ? 'oklch(0.7 0.2 25)'
+                        : 'oklch(0.75 0.2 200)',
                   }}
                 >
-                  <span className="font-medium text-foreground text-sm">{list.displayName}</span>
-                  <span
-                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                    style={{
-                      background:
-                        list.id === selectedListId && isOutOfComments
-                          ? 'oklch(0.3 0.1 25 / 0.3)'
-                          : 'oklch(0.25 0.06 220 / 0.5)',
-                      color:
-                        list.id === selectedListId && isOutOfComments
-                          ? 'oklch(0.7 0.2 25)'
-                          : 'oklch(0.75 0.2 200)',
-                    }}
-                  >
-                    {list.id === selectedListId && isOutOfComments
-                      ? 'Out of comments'
-                      : `${list.templates.length} templates`}
-                  </span>
-                </button>
-              );
-            })}
+                  {list.id === selectedListId && isOutOfComments
+                    ? 'No templates'
+                    : `${list.templates.length} templates`}
+                </span>
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -217,7 +203,7 @@ export function BulkCommentGenerator() {
                   border: '1px solid oklch(0.5 0.15 25 / 0.4)',
                 }}
               >
-                Out of comments
+                No templates
               </span>
             )}
             <div
@@ -233,7 +219,7 @@ export function BulkCommentGenerator() {
               {availableCountLoading ? (
                 <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                availableCount
+                templateCount
               )}
             </div>
           </div>
@@ -245,15 +231,15 @@ export function BulkCommentGenerator() {
         <div className="space-y-1.5">
           <label className="text-sm font-semibold text-foreground">
             Quantity
-            {availableCount > 0 && (
+            {templateCount > 0 && (
               <span className="ml-2 text-xs text-muted-foreground font-normal">
-                (max {availableCount})
+                (max {templateCount})
               </span>
             )}
           </label>
           <div className="flex gap-2 flex-wrap">
             {QUANTITY_OPTIONS.map((opt) => {
-              const isDisabled = opt > availableCount;
+              const isDisabled = opt > templateCount;
               return (
                 <button
                   key={opt}
@@ -285,15 +271,16 @@ export function BulkCommentGenerator() {
                 </button>
               );
             })}
+            {/* Custom quantity input */}
             <input
               type="number"
               min={1}
-              max={availableCount}
+              max={templateCount}
               value={quantity}
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
                 if (!isNaN(val) && val >= 1) {
-                  handleQuantityChange(Math.min(val, availableCount));
+                  handleQuantityChange(Math.min(val, templateCount));
                 }
               }}
               className="w-20 px-3 py-2 rounded-xl text-sm font-semibold text-center"
@@ -363,7 +350,7 @@ export function BulkCommentGenerator() {
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
           <p className="text-sm text-destructive">
-            Out of comments — no more templates available for this list.
+            No templates available for this list.
           </p>
         </div>
       )}
@@ -375,7 +362,7 @@ export function BulkCommentGenerator() {
           !selectedListId ||
           !selectedList ||
           isOutOfComments ||
-          generateBulkMutation.isPending ||
+          isGenerating ||
           templateCount === 0
         }
         className="w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
@@ -389,17 +376,17 @@ export function BulkCommentGenerator() {
               ? 'oklch(0.5 0.04 240)'
               : 'oklch(0.98 0.005 240)',
           cursor:
-            !selectedListId || isOutOfComments || generateBulkMutation.isPending || templateCount === 0
+            !selectedListId || isOutOfComments || isGenerating || templateCount === 0
               ? 'not-allowed'
               : 'pointer',
           boxShadow:
             !selectedListId || isOutOfComments || templateCount === 0
               ? 'none'
               : '0 4px 20px oklch(0.55 0.2 220 / 0.4)',
-          opacity: generateBulkMutation.isPending ? 0.8 : 1,
+          opacity: isGenerating ? 0.8 : 1,
         }}
       >
-        {generateBulkMutation.isPending ? (
+        {isGenerating ? (
           <>
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             Generating...
@@ -421,6 +408,7 @@ export function BulkCommentGenerator() {
             border: '1px solid oklch(0.4 0.1 175 / 0.5)',
           }}
         >
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-muted-foreground" />
@@ -447,6 +435,7 @@ export function BulkCommentGenerator() {
             </button>
           </div>
 
+          {/* Comment List */}
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {generatedComments.map((comment, idx) => (
               <div
@@ -456,7 +445,7 @@ export function BulkCommentGenerator() {
               >
                 <span
                   className="text-xs font-mono mt-0.5 flex-shrink-0 w-5 text-right"
-                  style={{ color: 'oklch(0.55 0.1 220)' }}
+                  style={{ color: 'oklch(0.55 0.08 220)' }}
                 >
                   {idx + 1}.
                 </span>

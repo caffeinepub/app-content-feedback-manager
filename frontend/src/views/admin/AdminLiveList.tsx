@@ -1,568 +1,407 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from 'react';
+import { Plus, Upload, RefreshCw, Trash2, Edit2, Check, X, Users, FileText } from 'lucide-react';
+import { useActor } from '../../hooks/useActor';
 import {
-  useAppsEvents,
+  useGetAppEvents,
   useAddAppEvent,
   useAddUsernamesToAppEvent,
   useRenameAppEvent,
   useDeleteAppEvent,
-} from "@/hooks/useQueries";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Upload,
-  UserPlus,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Users,
-} from "lucide-react";
-import type { AppEvent } from "@/backend";
+  useImportLiveList,
+} from '../../hooks/useQueries';
+import { parseLiveListReport } from '../../utils/liveListParser';
+import type { ImportSummary } from '../../backend';
 
 export default function AdminLiveList() {
-  const { data: appsEvents, isLoading } = useAppsEvents();
-  const addAppEventMutation = useAddAppEvent();
-  const addUsernamesMutation = useAddUsernamesToAppEvent();
-  const renameMutation = useRenameAppEvent();
-  const deleteMutation = useDeleteAppEvent();
+  const { actor } = useActor();
+  const { data: appEvents = [], isLoading } = useGetAppEvents();
 
-  // New app/event form
-  const [newAppName, setNewAppName] = useState("");
+  const addAppEvent = useAddAppEvent();
+  const addUsernames = useAddUsernamesToAppEvent();
+  const renameAppEvent = useRenameAppEvent();
+  const deleteAppEvent = useDeleteAppEvent();
+  const importLiveList = useImportLiveList();
 
-  // Add usernames form
-  const [selectedAppForAdd, setSelectedAppForAdd] = useState<string>("");
-  const [usernamesText, setUsernamesText] = useState("");
+  // Create list
+  const [newListName, setNewListName] = useState('');
+  const [createError, setCreateError] = useState('');
 
-  // Inline rename state
-  const [editingApp, setEditingApp] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-
-  // Bulk upload
+  // Add usernames
+  const [selectedApp, setSelectedApp] = useState('');
+  const [usernamesText, setUsernamesText] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Username checker
-  const [checkerUsername, setCheckerUsername] = useState("");
-  const [selectedAppsForCheck, setSelectedAppsForCheck] = useState<Set<string>>(new Set());
-  const [checkResults, setCheckResults] = useState<{
-    foundIn: string[];
-    notFoundIn: string[];
-  } | null>(null);
+  // Rename
+  const [editingApp, setEditingApp] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
-  function handleAddApp() {
-    const name = newAppName.trim();
-    if (!name) return;
-    addAppEventMutation.mutate(name, {
-      onSuccess: () => setNewAppName(""),
-    });
-  }
+  // Auto import
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
 
-  function handleAddUsernames() {
-    if (!selectedAppForAdd || !usernamesText.trim()) return;
-    const usernames = usernamesText
-      .split("\n")
-      .map((u) => u.trim())
-      .filter(Boolean);
-    if (usernames.length === 0) return;
-    addUsernamesMutation.mutate(
-      { name: selectedAppForAdd, usernames },
-      { onSuccess: () => setUsernamesText("") }
-    );
-  }
-
-  function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedAppForAdd) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const usernames = text
-        .split(/[\n,]/)
-        .map((u) => u.trim())
-        .filter(Boolean);
-      if (usernames.length === 0) return;
-      addUsernamesMutation.mutate({ name: selectedAppForAdd, usernames });
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  }
-
-  function startEdit(app: AppEvent) {
-    setEditingApp(app.name);
-    setEditName(app.name);
-  }
-
-  function handleRename(oldName: string) {
-    const newName = editName.trim();
-    if (!newName || newName === oldName) {
-      setEditingApp(null);
+  const handleCreateList = async () => {
+    const name = newListName.trim();
+    if (!name) {
+      setCreateError('Please enter a list name');
       return;
     }
-    renameMutation.mutate(
-      { id: oldName, newName },
-      {
-        onSuccess: () => {
-          setEditingApp(null);
-          if (selectedAppForAdd === oldName) setSelectedAppForAdd(newName);
-          if (selectedAppsForCheck.has(oldName)) {
-            setSelectedAppsForCheck((prev) => {
-              const next = new Set(prev);
-              next.delete(oldName);
-              next.add(newName);
-              return next;
-            });
-          }
-        },
+    if (!actor) {
+      setCreateError('Not connected. Please refresh and try again.');
+      return;
+    }
+    setCreateError('');
+    try {
+      await addAppEvent.mutateAsync(name);
+      setNewListName('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCreateError(`Failed to create list: ${msg}`);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleCreateList();
+  };
+
+  const parseUsernames = (text: string): string[] => {
+    return text
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u.length > 0);
+  };
+
+  const handleAddUsernames = async () => {
+    if (!selectedApp) {
+      setUploadError('Please select an app/event first');
+      return;
+    }
+    const usernames = parseUsernames(usernamesText);
+    if (usernames.length === 0) {
+      setUploadError('Please enter at least one username');
+      return;
+    }
+    if (!actor) {
+      setUploadError('Not connected. Please refresh and try again.');
+      return;
+    }
+    setUploadError('');
+    setUploadSuccess('');
+    try {
+      await addUsernames.mutateAsync({ name: selectedApp, usernames });
+      setUploadSuccess(`Successfully added ${usernames.length} username(s) to "${selectedApp}"`);
+      setUsernamesText('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(`Failed to add usernames: ${msg}`);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!selectedApp) {
+      setUploadError('Please select an app/event first');
+      return;
+    }
+    if (!actor) {
+      setUploadError('Not connected. Please refresh and try again.');
+      return;
+    }
+    setUploadError('');
+    setUploadSuccess('');
+    try {
+      const text = await file.text();
+      const usernames = parseUsernames(text);
+      if (usernames.length === 0) {
+        setUploadError('No valid usernames found in file');
+        return;
       }
-    );
-  }
+      await addUsernames.mutateAsync({ name: selectedApp, usernames });
+      setUploadSuccess(`Successfully added ${usernames.length} username(s) from file to "${selectedApp}"`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setUploadError(`Failed to upload file: ${msg}`);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
-  function handleDelete(name: string) {
-    deleteMutation.mutate(name, {
-      onSuccess: () => {
-        if (selectedAppForAdd === name) setSelectedAppForAdd("");
-        setSelectedAppsForCheck((prev) => {
-          const next = new Set(prev);
-          next.delete(name);
-          return next;
-        });
-      },
+  const handleRenameStart = (appName: string) => {
+    setEditingApp(appName);
+    setEditName(appName);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!editingApp || !editName.trim()) return;
+    if (!actor) return;
+    try {
+      await renameAppEvent.mutateAsync({ oldName: editingApp, newName: editName.trim() });
+      setEditingApp(null);
+      setEditName('');
+    } catch (err: unknown) {
+      console.error('Rename failed:', err);
+    }
+  };
+
+  const handleDelete = async (appName: string) => {
+    if (!actor) return;
+    if (!window.confirm(`Delete "${appName}" and all its usernames?`)) return;
+    try {
+      await deleteAppEvent.mutateAsync(appName);
+    } catch (err: unknown) {
+      console.error('Delete failed:', err);
+    }
+  };
+
+  const handleImportAndSave = async () => {
+    if (!importText.trim()) {
+      setImportError('Please paste a report first');
+      return;
+    }
+    if (!actor) {
+      setImportError('Not connected. Please refresh and try again.');
+      return;
+    }
+    setImportError('');
+    setImportSummary(null);
+
+    const parseResult = parseLiveListReport(importText);
+    if (!parseResult.success || parseResult.entries.length === 0) {
+      // Use errorMessage (the correct field name from liveListParser)
+      setImportError(parseResult.errorMessage ?? 'Could not parse any app/event data from the report');
+      return;
+    }
+
+    const imports = parseResult.entries.map((entry) => {
+      const imp: import('../../backend').AppImport = {
+        appName: entry.appName,
+        usernames: entry.usernames,
+      };
+      if (entry.importDate) imp.importDate = entry.importDate;
+      return imp;
     });
-  }
 
-  function toggleAppForCheck(name: string) {
-    setSelectedAppsForCheck((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-    setCheckResults(null);
-  }
-
-  function handleCheck() {
-    const username = checkerUsername.trim().toLowerCase();
-    if (!username || selectedAppsForCheck.size === 0) return;
-    const foundIn: string[] = [];
-    const notFoundIn: string[] = [];
-    (appsEvents ?? []).forEach((app) => {
-      if (!selectedAppsForCheck.has(app.name)) return;
-      const found = app.usernames.some((u) => u.toLowerCase() === username);
-      if (found) foundIn.push(app.name);
-      else notFoundIn.push(app.name);
-    });
-    setCheckResults({ foundIn, notFoundIn });
-  }
-
-  function selectAllApps() {
-    setSelectedAppsForCheck(new Set((appsEvents ?? []).map((a) => a.name)));
-    setCheckResults(null);
-  }
-
-  function clearAllApps() {
-    setSelectedAppsForCheck(new Set());
-    setCheckResults(null);
-  }
+    try {
+      const summary = await importLiveList.mutateAsync(imports);
+      setImportSummary(summary);
+      setImportText('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setImportError(`Import failed: ${msg}`);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Apps/Events Table */}
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="h-4 w-4 text-primary" />
-            Apps / Events
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Add new app */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="New app/event name…"
-              value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddApp()}
-              className="flex-1"
-            />
-            <Button
-              onClick={handleAddApp}
-              disabled={!newAppName.trim() || addAppEventMutation.isPending}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          </div>
-
-          {/* Table */}
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : (appsEvents ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground italic text-center py-4">
-              No apps/events yet. Add one above.
-            </p>
-          ) : (
-            <div className="rounded-md border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="text-center">Usernames</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(appsEvents ?? []).map((app) => (
-                    <TableRow key={app.name}>
-                      <TableCell>
-                        {editingApp === app.name ? (
-                          <div className="flex gap-2">
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleRename(app.name);
-                                if (e.key === "Escape") setEditingApp(null);
-                              }}
-                              className="h-7 text-sm"
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => handleRename(app.name)}
-                              disabled={renameMutation.isPending}
-                            >
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => setEditingApp(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="font-medium text-sm">{app.name}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary" className="text-xs">
-                          {app.usernames.length}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => startEdit(app)}
-                            disabled={editingApp !== null}
-                          >
-                            <Pencil className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-3 w-3 mr-1" />
-                                Delete
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete "{app.name}"?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete this app/event and all{" "}
-                                  {app.usernames.length} username(s) associated with it.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(app.name)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add Usernames Section */}
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <UserPlus className="h-4 w-4 text-primary" />
-            Add Usernames
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Select app */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Select App / Event</label>
-            {isLoading ? (
-              <Skeleton className="h-9 w-full" />
-            ) : (appsEvents ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No apps/events available.</p>
+      {/* Create App / Event List */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Plus className="w-5 h-5 text-primary" />
+          Create App / Event List
+        </h3>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Name"
+            className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={handleCreateList}
+            disabled={addAppEvent.isPending || !newListName.trim()}
+            className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 min-w-[90px] justify-center"
+          >
+            {addAppEvent.isPending ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {(appsEvents ?? []).map((app) => (
-                  <button
-                    key={app.name}
-                    onClick={() => setSelectedAppForAdd(app.name)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                      selectedAppForAdd === app.name
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background border-border hover:bg-accent"
-                    }`}
-                  >
-                    {app.name}
-                  </button>
-                ))}
-              </div>
+              'Create'
             )}
-          </div>
+          </button>
+        </div>
+        {createError && (
+          <p className="mt-2 text-sm text-destructive">{createError}</p>
+        )}
+      </div>
 
-          {/* Textarea */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Usernames (one per line)</label>
-            <Textarea
-              placeholder={"username1\nusername2\nusername3"}
-              value={usernamesText}
-              onChange={(e) => setUsernamesText(e.target.value)}
-              rows={6}
-              className="font-mono text-sm"
-              disabled={!selectedAppForAdd}
-            />
+      {/* App / Event Lists */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5 text-primary" />
+          App / Event Lists
+        </h3>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            Loading...
           </div>
+        ) : appEvents.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No lists yet. Create one above.</p>
+        ) : (
+          <div className="space-y-2">
+            {appEvents.map((app) => (
+              <div
+                key={app.name}
+                className="flex items-center justify-between bg-background/50 border border-border rounded-lg px-4 py-3"
+              >
+                {editingApp === app.name ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
+                      className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleRenameConfirm}
+                      disabled={renameAppEvent.isPending}
+                      className="text-primary hover:text-primary/80 p-1"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setEditingApp(null)}
+                      className="text-muted-foreground hover:text-foreground p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="font-medium text-foreground">{app.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {app.usernames.length} username{app.usernames.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRenameStart(app.name)}
+                        className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                        title="Rename"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(app.name)}
+                        disabled={deleteAppEvent.isPending}
+                        className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button
+      {/* Add Usernames */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Upload className="w-5 h-5 text-primary" />
+          Add Usernames
+        </h3>
+        <div className="space-y-3">
+          <select
+            value={selectedApp}
+            onChange={(e) => {
+              setSelectedApp(e.target.value);
+              setUploadError('');
+              setUploadSuccess('');
+            }}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Select App / Event</option>
+            {appEvents.map((app) => (
+              <option key={app.name} value={app.name}>{app.name}</option>
+            ))}
+          </select>
+          <textarea
+            value={usernamesText}
+            onChange={(e) => setUsernamesText(e.target.value)}
+            placeholder="Enter one username per line (or comma-separated)..."
+            rows={5}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          />
+          <div className="flex gap-3 flex-wrap">
+            <button
               onClick={handleAddUsernames}
-              disabled={
-                !selectedAppForAdd ||
-                !usernamesText.trim() ||
-                addUsernamesMutation.isPending
-              }
-              size="sm"
+              disabled={addUsernames.isPending || !selectedApp || !usernamesText.trim()}
+              className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
             >
-              <UserPlus className="h-4 w-4 mr-2" />
-              {addUsernamesMutation.isPending ? "Adding…" : "Add Usernames"}
-            </Button>
-
-            {/* Bulk upload */}
-            <Button
-              variant="outline"
-              size="sm"
+              {addUsernames.isPending ? (
+                <><RefreshCw className="w-4 h-4 animate-spin" /> Adding...</>
+              ) : (
+                'Add Usernames'
+              )}
+            </button>
+            <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={!selectedAppForAdd || addUsernamesMutation.isPending}
+              disabled={addUsernames.isPending || !selectedApp}
+              className="border border-border px-5 py-2 rounded-lg font-medium text-foreground hover:bg-muted/30 disabled:opacity-50 flex items-center gap-2 transition-colors"
             >
-              <Upload className="h-4 w-4 mr-2" />
-              Bulk Upload (.txt / .csv)
-            </Button>
+              <Upload className="w-4 h-4" />
+              Upload .txt / .csv
+            </button>
             <input
               ref={fileInputRef}
               type="file"
               accept=".txt,.csv"
+              onChange={handleFileUpload}
               className="hidden"
-              onChange={handleBulkUpload}
             />
           </div>
+          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+          {uploadSuccess && <p className="text-sm text-green-400">{uploadSuccess}</p>}
+        </div>
+      </div>
 
-          {addUsernamesMutation.isSuccess && (
-            <p className="text-sm text-green-600 dark:text-green-400">
-              ✓ Usernames added successfully.
-            </p>
+      {/* Auto Import & Save */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary" />
+          Auto Import &amp; Save
+        </h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          Paste a "REVIEWS WORLD Reports" formatted text to automatically extract and import app/event lists with usernames.
+        </p>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          placeholder="Paste Report..."
+          rows={8}
+          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
+        />
+        <button
+          onClick={handleImportAndSave}
+          disabled={importLiveList.isPending || !importText.trim()}
+          className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+        >
+          {importLiveList.isPending ? (
+            <><RefreshCw className="w-4 h-4 animate-spin" /> Importing...</>
+          ) : (
+            'Import & Save'
           )}
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      {/* Username Checker Section */}
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Search className="h-4 w-4 text-primary" />
-            Username Checker
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Username input */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Username to check</label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter username…"
-                value={checkerUsername}
-                onChange={(e) => {
-                  setCheckerUsername(e.target.value);
-                  setCheckResults(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && handleCheck()}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleCheck}
-                disabled={!checkerUsername.trim() || selectedAppsForCheck.size === 0}
-                size="sm"
-              >
-                <Search className="h-4 w-4 mr-1" />
-                Check
-              </Button>
-            </div>
+        </button>
+        {importError && <p className="mt-2 text-sm text-destructive">{importError}</p>}
+        {importSummary && (
+          <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-400 space-y-1">
+            <p className="font-semibold">Import successful!</p>
+            <p>Apps detected: {Number(importSummary.totalAppsDetected)}</p>
+            <p>Usernames added: {Number(importSummary.totalUsernamesAdded)}</p>
+            <p>Duplicates skipped: {Number(importSummary.totalDuplicatesSkipped)}</p>
           </div>
-
-          {/* Multi-select apps */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Select apps/events to search</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={selectAllApps}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Select all
-                </button>
-                <span className="text-xs text-muted-foreground">·</span>
-                <button
-                  onClick={clearAllApps}
-                  className="text-xs text-muted-foreground hover:underline"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2].map((i) => (
-                  <Skeleton key={i} className="h-8 w-full" />
-                ))}
-              </div>
-            ) : (appsEvents ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No apps/events available.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(appsEvents ?? []).map((app) => (
-                  <label
-                    key={app.name}
-                    className="flex items-center gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-accent transition-colors"
-                  >
-                    <Checkbox
-                      checked={selectedAppsForCheck.has(app.name)}
-                      onCheckedChange={() => toggleAppForCheck(app.name)}
-                    />
-                    <span className="text-sm flex-1">{app.name}</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {app.usernames.length}
-                    </Badge>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Results */}
-          {checkResults && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-              {/* Found in */}
-              <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                    Found in ({checkResults.foundIn.length})
-                  </span>
-                </div>
-                {checkResults.foundIn.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Not found in any selected app.
-                  </p>
-                ) : (
-                  <ul className="space-y-1">
-                    {checkResults.foundIn.map((name) => (
-                      <li key={name} className="text-sm text-green-700 dark:text-green-400 font-medium">
-                        ✓ {name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Not found in */}
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <XCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-semibold text-destructive">
-                    Not found in ({checkResults.notFoundIn.length})
-                  </span>
-                </div>
-                {checkResults.notFoundIn.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    Found in all selected apps.
-                  </p>
-                ) : (
-                  <ul className="space-y-1">
-                    {checkResults.notFoundIn.map((name) => (
-                      <li key={name} className="text-sm text-destructive font-medium">
-                        ✗ {name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   );
 }

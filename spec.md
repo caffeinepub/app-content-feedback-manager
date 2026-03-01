@@ -1,13 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Add a Top-Down Shooter game card to the User View, above the Single Comment Generator section.
+**Goal:** Fix the admin authorization error ("Unauthorized: Only admins can add comment lists") for all comment list mutation operations in the Admin Panel.
 
 **Planned changes:**
-- Add a dark rounded glass-card in `UserView.tsx` above the Single Comment Generator section
-- Card includes a "Top-Down Shooter" title styled in cyan/teal gradient text
-- Card includes instruction text: "Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!"
-- Card includes a "Start Game" button that launches the existing `TopDownShooter` canvas game inside or below the card
-- No other tabs (Upload, Live Checker, Admin) or existing features are modified
+- Fix the `addCommentList` backend authorization check in `backend/main.mo` to use the same admin principal check pattern applied to other admin-gated functions (e.g., `addAppEvent`, `setAccessKey`)
+- Update `AdminComments.tsx` to retrieve and use the authenticated admin actor for all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.), matching the pattern used in `AdminLiveList.tsx` and `AdminSettings.tsx`
 
-**User-visible outcome:** Users on the User View tab see a styled game card and can click "Start Game" to play the Top-Down Shooter mini-game directly within the page, above the Single Comment Generator.
+**User-visible outcome:** Admin users can create, rename, delete, and modify comment lists from the Admin Panel without receiving authorization errors.

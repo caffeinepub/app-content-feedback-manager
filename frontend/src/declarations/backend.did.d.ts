@@ -10,7 +10,25 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AllEarningsSummary {
+  'totalAppsWithPrices' : bigint,
+  'totalValidEntries' : bigint,
+  'appEarnings' : Array<AppEarnings>,
+  'totalEarnings' : number,
+}
+export interface AppEarnings {
+  'totalUsernamesFound' : bigint,
+  'pricePerEntry' : number,
+  'appName' : string,
+  'isActive' : boolean,
+  'totalAmount' : number,
+}
 export interface AppEvent { 'name' : string, 'usernames' : Array<string> }
+export interface AppImport {
+  'appName' : string,
+  'importDate' : [] | [string],
+  'usernames' : Array<string>,
+}
 export interface BulkCommentsResult {
   'commentListId' : string,
   'templateCount' : bigint,
@@ -22,16 +40,13 @@ export interface ChatMessage {
   'text' : string,
   'timestamp' : Time,
 }
-export interface CommentAssignmentResponse {
-  'comment' : string,
-  'alreadyGenerated' : boolean,
-}
+export type ClaimCommentResult = { 'noCommentsRemaining' : null } |
+  { 'claimSuccess' : string };
 export interface CommentList {
   'id' : string,
   'templates' : Array<string>,
   'displayName' : string,
   'locked' : boolean,
-  'availableCount' : bigint,
   'suffix' : string,
 }
 export interface ExportData {
@@ -49,6 +64,11 @@ export interface ImageMeta {
   'name' : string,
   'tags' : Array<string>,
 }
+export interface ImportSummary {
+  'totalUsernamesAdded' : bigint,
+  'totalDuplicatesSkipped' : bigint,
+  'totalAppsDetected' : bigint,
+}
 export interface ListMetrics {
   'usedTemplates' : bigint,
   'listName' : string,
@@ -57,10 +77,10 @@ export interface ListMetrics {
   'totalTemplates' : bigint,
   'listId' : string,
 }
-export interface OnePerListResult {
-  'listName' : string,
-  'comment' : string,
-  'listId' : string,
+export interface PriceEntry {
+  'pricePerEntry' : number,
+  'appName' : string,
+  'isActive' : boolean,
 }
 export interface Settings {
   'accessKey' : [] | [string],
@@ -68,6 +88,10 @@ export interface Settings {
   'musicFile' : [] | [ExternalBlob],
 }
 export type Time = bigint;
+export interface UserProfile { 'name' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -95,6 +119,7 @@ export interface _SERVICE {
     _CaffeineStorageRefillResult
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addAppEvent' : ActorMethod<[string], boolean>,
   'addChatMessage' : ActorMethod<[string], undefined>,
   'addCommentList' : ActorMethod<[string, string, string], boolean>,
@@ -104,21 +129,35 @@ export interface _SERVICE {
   >,
   'addTemplatesToList' : ActorMethod<[string, Array<string>], boolean>,
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
-  'assignNextCommentFromList' : ActorMethod<
-    [string, string],
-    CommentAssignmentResponse
-  >,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'bulkSetPrices' : ActorMethod<[Array<[string, number, boolean]>], undefined>,
+  'calculateAllEarnings' : ActorMethod<[], AllEarningsSummary>,
+  'calculateEarnings' : ActorMethod<[string], [] | [AppEarnings]>,
+  'claimComment' : ActorMethod<[string], ClaimCommentResult>,
   'deleteAppEvent' : ActorMethod<[string], boolean>,
   'deleteCommentList' : ActorMethod<[string], boolean>,
-  'editListName' : ActorMethod<[string, string], boolean>,
+  'deletePriceEntry' : ActorMethod<[string], undefined>,
   'exportAllData' : ActorMethod<[], ExportData>,
   'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
-  'generateOnePerList' : ActorMethod<[string], Array<OnePerListResult>>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
+  'getAvailableComments' : ActorMethod<
+    [string],
+    { 'count' : bigint, 'comments' : Array<string> }
+  >,
   'getAvailableCount' : ActorMethod<[string], bigint>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCommentListsOrder' : ActorMethod<[], Array<string>>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
+  'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'importLiveList' : ActorMethod<[Array<AppImport>], ImportSummary>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
   'renameAppEvent' : ActorMethod<[string, string], boolean>,
+  'renameCommentList' : ActorMethod<[string, string, string], boolean>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string], undefined>,
+  'setPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
   'toggleListLock' : ActorMethod<[string], boolean>,
   'updateSettings' : ActorMethod<[boolean, [] | [ExternalBlob]], undefined>,
 }

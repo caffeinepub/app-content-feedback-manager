@@ -1,25 +1,108 @@
 import { useState } from 'react';
-import { useAppsEvents } from '../hooks/useQueries';
+import { useAppsEvents, usePriceList } from '../hooks/useQueries';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, CheckCircle, XCircle, ClipboardList, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, CheckCircle, XCircle, ClipboardList, Users, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
+import type { PriceEntry } from '../backend';
 
-interface UsernameResult {
-  username: string;
-  foundIn: string[];
-  notFoundIn: string[];
+interface AppCheckResult {
+  appName: string;
+  found: boolean;
+  position: number | null; // sequential position (1-based) if found
+  priceEntry?: PriceEntry;
 }
 
 export function LiveChecker() {
   const { data: appsEvents, isLoading } = useAppsEvents();
+  const { data: priceList } = usePriceList();
 
+  // ── Multi-app checker state ──
+  const [multiUsername, setMultiUsername] = useState('');
+  const [selectedApps, setSelectedApps] = useState<Set<string>>(new Set());
+  const [multiResults, setMultiResults] = useState<AppCheckResult[]>([]);
+  const [hasMultiChecked, setHasMultiChecked] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  // ── Legacy single-app checker state ──
   const [selectedApp, setSelectedApp] = useState<string>('__all');
   const [usernamesText, setUsernamesText] = useState('');
-  const [results, setResults] = useState<UsernameResult[]>([]);
+  const [results, setResults] = useState<{ username: string; foundIn: string[]; notFoundIn: string[] }[]>([]);
   const [hasChecked, setHasChecked] = useState(false);
   const [expandedApps, setExpandedApps] = useState<Record<string, boolean>>({});
 
   const appList = appsEvents ?? [];
+  const priceMap = new Map<string, PriceEntry>((priceList ?? []).map((p) => [p.appName, p]));
 
+  // ── Multi-app checker handlers ──
+  function toggleApp(appName: string) {
+    setSelectedApps((prev) => {
+      const next = new Set(prev);
+      if (next.has(appName)) {
+        next.delete(appName);
+      } else {
+        next.add(appName);
+      }
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedApps(new Set(appList.map((a) => a.name)));
+  }
+
+  function clearAll() {
+    setSelectedApps(new Set());
+  }
+
+  function handleMultiCheck() {
+    const username = multiUsername.trim();
+    if (!username) return;
+
+    setIsChecking(true);
+    const appsToCheck = selectedApps.size === 0 ? appList : appList.filter((a) => selectedApps.has(a.name));
+
+    const results: AppCheckResult[] = appsToCheck.map((app) => {
+      const lowerUsername = username.toLowerCase();
+      // Find sequential position among all usernames in this app
+      let position: number | null = null;
+      let matchCount = 0;
+      for (let i = 0; i < app.usernames.length; i++) {
+        if (app.usernames[i].toLowerCase() === lowerUsername) {
+          matchCount++;
+          position = matchCount;
+          break;
+        }
+        // Count all entries to get sequential position
+      }
+      // Actually find the exact sequential position (1-based index of the match)
+      const idx = app.usernames.findIndex((u) => u.toLowerCase() === lowerUsername);
+      if (idx !== -1) {
+        position = idx + 1;
+      }
+
+      const priceEntry = priceMap.get(app.name);
+      return {
+        appName: app.name,
+        found: idx !== -1,
+        position: idx !== -1 ? idx + 1 : null,
+        priceEntry: priceEntry?.isActive ? priceEntry : undefined,
+      };
+    });
+
+    setMultiResults(results);
+    setHasMultiChecked(true);
+    setIsChecking(false);
+  }
+
+  // ── Earnings calculation ──
+  const foundResults = multiResults.filter((r) => r.found);
+  const totalEarnings = foundResults.reduce((sum, r) => {
+    if (r.priceEntry?.isActive) {
+      return sum + r.priceEntry.pricePerEntry;
+    }
+    return sum;
+  }, 0);
+
+  // ── Legacy checker handlers ──
   function handleCheck() {
     const usernames = usernamesText
       .split('\n')
@@ -33,15 +116,13 @@ export function LiveChecker() {
         ? appList
         : appList.filter((a) => a.name === selectedApp);
 
-    const newResults: UsernameResult[] = usernames.map((username) => {
+    const newResults = usernames.map((username) => {
       const lowerUsername = username.toLowerCase();
       const foundIn: string[] = [];
       const notFoundIn: string[] = [];
 
       appsToCheck.forEach((app) => {
-        const found = app.usernames.some(
-          (u) => u.toLowerCase() === lowerUsername
-        );
+        const found = app.usernames.some((u) => u.toLowerCase() === lowerUsername);
         if (found) {
           foundIn.push(app.name);
         } else {
@@ -68,16 +149,296 @@ export function LiveChecker() {
         <p className="text-muted-foreground mt-1">Check if usernames exist in app/event lists</p>
       </div>
 
-      {/* Username Checker Card */}
+      {/* ── NEW: Multi-App Username Checker ── */}
       <div className="space-card p-0 overflow-hidden">
         {/* Card Header */}
-        <div className="px-5 pt-5 pb-4 flex items-center gap-3" style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}>
-            <ClipboardList className="w-5 h-5 text-white" />
+        <div
+          className="px-5 pt-5 pb-4 flex items-center gap-3"
+          style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}
+          >
+            <Search className="w-5 h-5 text-white" />
           </div>
           <div>
             <h3 className="font-display font-semibold text-base text-foreground">Username Checker</h3>
-            <p className="text-xs text-muted-foreground">Select an app/event and enter usernames to check</p>
+            <p className="text-xs text-muted-foreground">Check a username across multiple app lists at once</p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-14 w-full bg-secondary" />
+              <Skeleton className="h-32 w-full bg-secondary" />
+              <Skeleton className="h-12 w-full bg-secondary" />
+            </div>
+          ) : (
+            <>
+              {/* Username Input */}
+              <input
+                type="text"
+                value={multiUsername}
+                onChange={(e) => setMultiUsername(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleMultiCheck()}
+                placeholder="Enter username to check..."
+                className="w-full rounded-2xl px-5 py-4 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                style={{
+                  background: 'oklch(0.97 0.005 240)',
+                  color: 'oklch(0.15 0.02 240)',
+                  border: 'none',
+                }}
+              />
+
+              {/* App Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Check in specific lists (leave empty for all):
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={selectAll}
+                      className="text-sm font-semibold"
+                      style={{ color: 'oklch(0.72 0.18 175)' }}
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={clearAll}
+                      className="text-sm font-medium underline text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pill-style app checkboxes */}
+                {appList.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No app lists available yet.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {appList.map((app) => {
+                      const isSelected = selectedApps.has(app.name);
+                      return (
+                        <button
+                          key={app.name}
+                          onClick={() => toggleApp(app.name)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all"
+                          style={{
+                            border: isSelected
+                              ? '1.5px solid oklch(0.72 0.18 175)'
+                              : '1.5px solid oklch(0.35 0.05 240 / 0.8)',
+                            background: isSelected
+                              ? 'oklch(0.72 0.18 175 / 0.12)'
+                              : 'oklch(0.18 0.04 240 / 0.6)',
+                            color: isSelected ? 'oklch(0.72 0.18 175)' : 'oklch(0.75 0.03 240)',
+                          }}
+                        >
+                          {/* Checkbox icon */}
+                          <span
+                            className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                            style={{
+                              border: isSelected
+                                ? '1.5px solid oklch(0.72 0.18 175)'
+                                : '1.5px solid oklch(0.45 0.05 240)',
+                              background: isSelected ? 'oklch(0.72 0.18 175)' : 'transparent',
+                            }}
+                          >
+                            {isSelected && (
+                              <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                          {app.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Check Username Button */}
+              <button
+                onClick={handleMultiCheck}
+                disabled={!multiUsername.trim() || appList.length === 0 || isChecking}
+                className="w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-3 transition-all disabled:opacity-50"
+                style={{
+                  background: 'linear-gradient(135deg, oklch(0.65 0.2 175), oklch(0.55 0.18 200))',
+                  color: 'white',
+                  boxShadow: '0 4px 20px oklch(0.65 0.2 175 / 0.3)',
+                }}
+              >
+                <Search className="w-5 h-5" />
+                {isChecking ? 'Checking...' : 'Check Username'}
+              </button>
+
+              {/* Results */}
+              {hasMultiChecked && (
+                <div className="space-y-3 mt-2">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Results for{' '}
+                    <span style={{ color: 'oklch(0.72 0.18 175)' }}>"{multiUsername}"</span>
+                  </h4>
+
+                  {multiResults.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic text-center py-3">
+                      No apps were checked.
+                    </p>
+                  ) : (
+                    <>
+                      {/* Per-app result rows */}
+                      <div className="space-y-2">
+                        {multiResults.map((result) => (
+                          <div
+                            key={result.appName}
+                            className="flex items-center justify-between px-4 py-3 rounded-xl"
+                            style={{
+                              background: result.found
+                                ? 'oklch(0.75 0.22 155 / 0.08)'
+                                : 'oklch(0.22 0.04 240 / 0.6)',
+                              border: result.found
+                                ? '1px solid oklch(0.75 0.22 155 / 0.3)'
+                                : '1px solid oklch(0.3 0.04 240 / 0.5)',
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              {result.found ? (
+                                <CheckCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'oklch(0.75 0.22 155)' }} />
+                              ) : (
+                                <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: 'oklch(0.6 0.22 25)' }} />
+                              )}
+                              <span className="text-sm font-medium text-foreground">{result.appName}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {result.found && result.position !== null && (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                  style={{
+                                    background: 'oklch(0.55 0.18 200 / 0.15)',
+                                    color: 'oklch(0.72 0.18 175)',
+                                  }}
+                                >
+                                  #{result.position}
+                                </span>
+                              )}
+                              {result.found && result.priceEntry && (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                  style={{
+                                    background: 'oklch(0.75 0.22 155 / 0.12)',
+                                    color: 'oklch(0.75 0.22 155)',
+                                  }}
+                                >
+                                  ₹{result.priceEntry.pricePerEntry.toFixed(2)}
+                                </span>
+                              )}
+                              <span
+                                className="text-xs font-semibold"
+                                style={{
+                                  color: result.found ? 'oklch(0.75 0.22 155)' : 'oklch(0.6 0.22 25)',
+                                }}
+                              >
+                                {result.found ? 'Found' : 'Not Found'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Earnings Summary */}
+                      {foundResults.length > 0 && (
+                        <div
+                          className="rounded-xl p-4 space-y-3 mt-2"
+                          style={{
+                            background: 'linear-gradient(135deg, oklch(0.55 0.18 200 / 0.1), oklch(0.65 0.2 160 / 0.1))',
+                            border: '1px solid oklch(0.55 0.18 200 / 0.3)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <DollarSign className="w-4 h-4" style={{ color: 'oklch(0.72 0.18 175)' }} />
+                            <span className="text-sm font-semibold text-foreground">Earnings Summary</span>
+                          </div>
+
+                          {/* Per-app earnings rows */}
+                          <div className="space-y-1.5">
+                            {foundResults.map((r) => (
+                              <div key={r.appName} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">{r.appName}</span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-muted-foreground">Pos #{r.position}</span>
+                                  {r.priceEntry ? (
+                                    <span style={{ color: 'oklch(0.75 0.22 155)' }}>
+                                      ₹{r.priceEntry.pricePerEntry.toFixed(2)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground italic">No price set</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Divider */}
+                          <div style={{ borderTop: '1px solid oklch(0.35 0.05 240 / 0.4)' }} className="pt-2 space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Total Apps Found In</span>
+                              <span className="font-semibold text-foreground">{foundResults.length}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Total Entries Matched</span>
+                              <span className="font-semibold text-foreground">{foundResults.length}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-bold mt-1">
+                              <span style={{ color: 'oklch(0.72 0.18 175)' }}>Total Earnings</span>
+                              <span style={{ color: 'oklch(0.75 0.22 155)' }}>
+                                ₹{totalEarnings.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Summary badge */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                        <span>
+                          Checked {multiResults.length} app{multiResults.length !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          Found in{' '}
+                          <span style={{ color: 'oklch(0.75 0.22 155)' }} className="font-semibold">
+                            {foundResults.length}
+                          </span>{' '}
+                          / {multiResults.length}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── EXISTING: Multi-Username Checker (legacy) ── */}
+      <div className="space-card p-0 overflow-hidden">
+        <div
+          className="px-5 pt-5 pb-4 flex items-center gap-3"
+          style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}
+          >
+            <ClipboardList className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-display font-semibold text-base text-foreground">Bulk Username Checker</h3>
+            <p className="text-xs text-muted-foreground">Check multiple usernames at once across selected app</p>
           </div>
         </div>
 
@@ -165,21 +526,25 @@ export function LiveChecker() {
 
                       {result.foundIn.length > 0 && (
                         <div className="flex items-start gap-2">
-                          <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'oklch(0.75 0.22 155)' }} />
+                          <CheckCircle
+                            className="w-4 h-4 mt-0.5 flex-shrink-0"
+                            style={{ color: 'oklch(0.75 0.22 155)' }}
+                          />
                           <div>
                             <span className="text-xs font-medium" style={{ color: 'oklch(0.75 0.22 155)' }}>
                               Found in:{' '}
                             </span>
-                            <span className="text-xs text-foreground">
-                              {result.foundIn.join(', ')}
-                            </span>
+                            <span className="text-xs text-foreground">{result.foundIn.join(', ')}</span>
                           </div>
                         </div>
                       )}
 
                       {result.notFoundIn.length > 0 && (
                         <div className="flex items-start gap-2">
-                          <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'oklch(0.6 0.22 25)' }} />
+                          <XCircle
+                            className="w-4 h-4 mt-0.5 flex-shrink-0"
+                            style={{ color: 'oklch(0.6 0.22 25)' }}
+                          />
                           <div>
                             <span className="text-xs font-medium" style={{ color: 'oklch(0.6 0.22 25)' }}>
                               Not found in:{' '}
@@ -205,10 +570,16 @@ export function LiveChecker() {
         </div>
       </div>
 
-      {/* Live List for All Users */}
+      {/* ── Live List for All Users ── */}
       <div className="space-card p-0 overflow-hidden">
-        <div className="px-5 pt-5 pb-4 flex items-center gap-3" style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}>
+        <div
+          className="px-5 pt-5 pb-4 flex items-center gap-3"
+          style={{ borderBottom: '1px solid oklch(0.28 0.04 240 / 0.5)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}
+          >
             <Users className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -245,7 +616,10 @@ export function LiveChecker() {
                         <span className="font-medium text-sm text-foreground">{app.name}</span>
                         <span
                           className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: 'oklch(0.72 0.18 175 / 0.15)', color: 'oklch(0.72 0.18 175)' }}
+                          style={{
+                            background: 'oklch(0.72 0.18 175 / 0.15)',
+                            color: 'oklch(0.72 0.18 175)',
+                          }}
                         >
                           {app.usernames.length} user{app.usernames.length !== 1 ? 's' : ''}
                         </span>
@@ -267,7 +641,11 @@ export function LiveChecker() {
                               <span
                                 key={idx}
                                 className="text-xs px-2 py-1 rounded-lg font-mono"
-                                style={{ background: 'oklch(0.22 0.04 240)', border: '1px solid oklch(0.3 0.05 220 / 0.5)', color: 'oklch(0.85 0.02 240)' }}
+                                style={{
+                                  background: 'oklch(0.22 0.04 240)',
+                                  border: '1px solid oklch(0.3 0.05 220 / 0.5)',
+                                  color: 'oklch(0.85 0.02 240)',
+                                }}
                               >
                                 {username}
                               </span>

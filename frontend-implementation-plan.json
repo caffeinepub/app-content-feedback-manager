@@ -1,25 +1,21 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add Top-Down Shooter game card to User View",
+  "title": "Fix Admin Authorization for Comment List Creation",
   "requirements": [
     {
-      "id": "REQ-1",
-      "summary": "Add a dark rounded card box containing a Top-Down Shooter game launcher above the Single Comment Generator section in UserView.tsx",
+      "id": "REQ-24",
+      "summary": "Fix AdminComments.tsx to use authenticated actor for all comment list mutations",
       "acceptanceCriteria": [
-        "User View displays a dark rounded card box with 'Top-Down Shooter' as the title in cyan/teal gradient text",
-        "The card shows instruction text: 'Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'",
-        "A 'Start Game' button is visible inside the card and launches the TopDownShooter game when clicked",
-        "The game card appears above the Single Comment Generator section",
-        "No other tabs (Upload, Live Checker, Admin) are modified",
-        "No existing features are broken or changed",
-        "The card styling matches the dark space theme with rounded corners consistent with the screenshot"
+        "AdminComments.tsx retrieves and uses the authenticated actor for all mutation calls",
+        "Creating, renaming, deleting, and modifying comment lists from the Admin Panel completes without authorization errors",
+        "The pattern matches how AdminLiveList.tsx and AdminSettings.tsx obtain and pass the authenticated actor"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/views/UserView.tsx",
+          "path": "frontend/src/views/admin/AdminComments.tsx",
           "operation": "modify",
-          "description": "Add a dark rounded card box above the Single Comment Generator section. The card contains: a 'Top-Down Shooter' title styled with cyan/teal gradient text (using existing gradient-heading or neon-text utility classes), instruction text 'Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!', and a 'Start Game' button. Use the existing glass-card styling for consistency with the dark space theme. Add state to toggle the TopDownShooter component visibility when the button is clicked. Import and conditionally render the TopDownShooter component (from frontend/src/components/TopDownShooter.tsx) inside or below the card when the game is active. Ensure the card is positioned directly above the existing Single Comment Generator section without altering any other layout or functionality."
+          "description": "Update AdminComments.tsx to use the authenticated actor from useActor hook for all comment list mutation operations (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, toggleListLock). Follow the same pattern used in AdminLiveList.tsx and AdminSettings.tsx where the authenticated actor is retrieved via useActor and passed to mutation hooks. Ensure all mutation calls that interact with admin-gated backend functions use the authenticated actor rather than the anonymous identity. This resolves the 'Unauthorized: Only admins can add comment lists' error by ensuring proper authentication credentials are sent with all admin operations."
         }
       ]
     }

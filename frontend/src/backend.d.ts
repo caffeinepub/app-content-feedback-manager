@@ -14,10 +14,6 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface CommentAssignmentResponse {
-    comment: string;
-    alreadyGenerated: boolean;
-}
 export interface ExportData {
     chatMessages: Array<ChatMessage>;
     settings: Settings;
@@ -26,12 +22,17 @@ export interface ExportData {
     images: Array<ImageMeta>;
 }
 export type Time = bigint;
+export interface AllEarningsSummary {
+    totalAppsWithPrices: bigint;
+    totalValidEntries: bigint;
+    appEarnings: Array<AppEarnings>;
+    totalEarnings: number;
+}
 export interface CommentList {
     id: string;
     templates: Array<string>;
     displayName: string;
     locked: boolean;
-    availableCount: bigint;
     suffix: string;
 }
 export interface ListMetrics {
@@ -41,6 +42,16 @@ export interface ListMetrics {
     percentUsed: number;
     totalTemplates: bigint;
     listId: string;
+}
+export interface PriceEntry {
+    pricePerEntry: number;
+    appName: string;
+    isActive: boolean;
+}
+export interface AppImport {
+    appName: string;
+    importDate?: string;
+    usernames: Array<string>;
 }
 export interface Settings {
     accessKey?: string;
@@ -57,15 +68,29 @@ export interface AppEvent {
     name: string;
     usernames: Array<string>;
 }
+export interface ImportSummary {
+    totalUsernamesAdded: bigint;
+    totalDuplicatesSkipped: bigint;
+    totalAppsDetected: bigint;
+}
+export type ClaimCommentResult = {
+    __kind__: "noCommentsRemaining";
+    noCommentsRemaining: null;
+} | {
+    __kind__: "claimSuccess";
+    claimSuccess: string;
+};
 export interface ChatMessage {
     id: bigint;
     text: string;
     timestamp: Time;
 }
-export interface OnePerListResult {
-    listName: string;
-    comment: string;
-    listId: string;
+export interface AppEarnings {
+    totalUsernamesFound: bigint;
+    pricePerEntry: number;
+    appName: string;
+    isActive: boolean;
+    totalAmount: number;
 }
 export interface ImageMeta {
     id: bigint;
@@ -74,6 +99,14 @@ export interface ImageMeta {
     name: string;
     tags: Array<string>;
 }
+export interface UserProfile {
+    name: string;
+}
+export enum UserRole {
+    admin = "admin",
+    user = "user",
+    guest = "guest"
+}
 export interface backendInterface {
     addAppEvent(name: string): Promise<boolean>;
     addChatMessage(text: string): Promise<void>;
@@ -81,18 +114,35 @@ export interface backendInterface {
     addImage(name: string, tags: Array<string>, dataUrl: string, data: ExternalBlob | null): Promise<void>;
     addTemplatesToList(listId: string, templates: Array<string>): Promise<boolean>;
     addUsernamesToAppEvent(name: string, usernames: Array<string>): Promise<boolean>;
-    assignNextCommentFromList(listId: string, deviceId: string): Promise<CommentAssignmentResponse>;
-    deleteAppEvent(id: string): Promise<boolean>;
-    deleteCommentList(id: string): Promise<boolean>;
-    editListName(id: string, newName: string): Promise<boolean>;
+    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    bulkSetPrices(entries: Array<[string, number, boolean]>): Promise<void>;
+    calculateAllEarnings(): Promise<AllEarningsSummary>;
+    calculateEarnings(appName: string): Promise<AppEarnings | null>;
+    claimComment(listId: string): Promise<ClaimCommentResult>;
+    deleteAppEvent(name: string): Promise<boolean>;
+    deleteCommentList(listId: string): Promise<boolean>;
+    deletePriceEntry(appName: string): Promise<void>;
     exportAllData(): Promise<ExportData>;
-    generateBulkComments(listId: string, count: bigint): Promise<BulkCommentsResult>;
-    generateOnePerList(deviceId: string): Promise<Array<OnePerListResult>>;
+    generateBulkComments(arg0: string, arg1: bigint): Promise<BulkCommentsResult>;
     getAccessKey(): Promise<string | null>;
+    getAvailableComments(listId: string): Promise<{
+        count: bigint;
+        comments: Array<string>;
+    }>;
     getAvailableCount(listId: string): Promise<bigint>;
+    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserRole(): Promise<UserRole>;
+    getCommentListsOrder(): Promise<Array<string>>;
     getListMetrics(): Promise<Array<ListMetrics>>;
-    renameAppEvent(id: string, newName: string): Promise<boolean>;
+    getPriceList(): Promise<Array<PriceEntry>>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    importLiveList(imports: Array<AppImport>): Promise<ImportSummary>;
+    isCallerAdmin(): Promise<boolean>;
+    renameAppEvent(oldName: string, newName: string): Promise<boolean>;
+    renameCommentList(oldId: string, newId: string, newDisplayName: string): Promise<boolean>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setAccessKey(key: string): Promise<void>;
+    setPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
     toggleListLock(listId: string): Promise<boolean>;
     updateSettings(bgMusicEnabled: boolean, musicFile: ExternalBlob | null): Promise<void>;
 }

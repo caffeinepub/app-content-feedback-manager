@@ -1,545 +1,378 @@
-import { useState } from "react";
-import { toast } from "sonner";
-import { Pencil, Trash2, Check, X, Plus, Lock, Unlock, RotateCcw, BarChart2, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import React, { useState } from 'react';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MetricsDonutChart } from "@/components/MetricsDonutChart";
+  Plus, Trash2, Edit2, Check, X, Lock, Unlock, RefreshCw,
+  List, BarChart2,
+} from 'lucide-react';
+import { useActor } from '../../hooks/useActor';
 import {
-  useCommentLists,
+  useGetCommentListsOrdered,
   useAddCommentList,
+  useRenameCommentList,
+  useDeleteCommentList,
   useAddTemplatesToList,
   useToggleListLock,
-  useListMetrics,
-  useDeleteCommentList,
-  useEditListName,
-} from "@/hooks/useQueries";
+  useGetListMetrics,
+  useAvailableComments,
+} from '../../hooks/useQueries';
+import { MetricsDonutChart } from '../../components/MetricsDonutChart';
 
-export function AdminComments() {
-  const { data: commentLists = [], isLoading } = useCommentLists();
-  const { data: listMetrics = [], isLoading: metricsLoading, refetch: refetchMetrics } = useListMetrics();
-  const addCommentListMutation = useAddCommentList();
-  const addTemplatesMutation = useAddTemplatesToList();
-  const toggleLockMutation = useToggleListLock();
-  const deleteListMutation = useDeleteCommentList();
-  const editListNameMutation = useEditListName();
-
-  const [newListName, setNewListName] = useState("");
-  const [newListSuffix, setNewListSuffix] = useState("");
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
-  const [newTemplates, setNewTemplates] = useState("");
-
-  // Inline editing state
-  const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [editedName, setEditedName] = useState("");
-  const [editNameError, setEditNameError] = useState("");
-
-  const handleCreateList = async () => {
-    if (!newListName.trim()) {
-      toast.error("List name cannot be empty");
-      return;
-    }
-    const id = `list_${Date.now()}`;
-    await addCommentListMutation.mutateAsync({
-      id,
-      displayName: newListName.trim(),
-      suffix: newListSuffix.trim(),
-    });
-    toast.success("Comment list created!");
-    setNewListName("");
-    setNewListSuffix("");
-  };
-
-  const handleAddTemplates = async (listId: string) => {
-    if (!newTemplates.trim()) {
-      toast.error("Templates cannot be empty");
-      return;
-    }
-    const templates = newTemplates
-      .split("\n")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-    if (templates.length === 0) {
-      toast.error("No valid templates found");
-      return;
-    }
-    await addTemplatesMutation.mutateAsync({ listId, templates });
-    toast.success(`Added ${templates.length} template(s)!`);
-    setNewTemplates("");
-    setSelectedListId(null);
-  };
-
-  const handleToggleLock = async (listId: string) => {
-    await toggleLockMutation.mutateAsync(listId);
-    toast.success("Lock status updated!");
-  };
-
-  const handleDeleteList = async (id: string) => {
-    await deleteListMutation.mutateAsync(id);
-    toast.success("List deleted successfully!");
-  };
-
-  const startEditName = (id: string, currentName: string) => {
-    setEditingListId(id);
-    setEditedName(currentName);
-    setEditNameError("");
-  };
-
-  const cancelEditName = () => {
-    setEditingListId(null);
-    setEditedName("");
-    setEditNameError("");
-  };
-
-  const saveEditName = async (id: string) => {
-    if (!editedName.trim()) {
-      setEditNameError("Name cannot be empty");
-      return;
-    }
-    await editListNameMutation.mutateAsync({ id, newName: editedName.trim() });
-    toast.success("List name updated!");
-    setEditingListId(null);
-    setEditedName("");
-    setEditNameError("");
-  };
-
-  const handleEditKeyDown = (e: React.KeyboardEvent, id: string) => {
-    if (e.key === "Enter") {
-      saveEditName(id);
-    } else if (e.key === "Escape") {
-      cancelEditName();
-    }
-  };
+// Sub-component to show available comments for a list
+function AvailableCommentsPanel({ listId }: { listId: string }) {
+  const { data, isLoading } = useAvailableComments(listId);
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-24 bg-secondary rounded-xl" />
-        ))}
+      <div className="flex items-center gap-2 text-muted-foreground text-sm p-3">
+        <RefreshCw className="w-3 h-3 animate-spin" /> Loading...
       </div>
     );
   }
 
+  const comments = data?.comments ?? [];
+
+  if (comments.length === 0) {
+    return <p className="text-sm text-muted-foreground p-3">No available comments in pool.</p>;
+  }
+
+  return (
+    <div className="p-3 space-y-1 max-h-48 overflow-y-auto">
+      {comments.map((c, i) => (
+        <div key={i} className="text-xs text-foreground/80 bg-background/40 rounded px-2 py-1 border border-border/50">
+          {c}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function AdminComments() {
+  const { actor } = useActor();
+  const { data: commentLists = [], isLoading } = useGetCommentListsOrdered();
+  const { data: metrics = [] } = useGetListMetrics();
+
+  const addCommentList = useAddCommentList();
+  const renameCommentList = useRenameCommentList();
+  const deleteCommentList = useDeleteCommentList();
+  const addTemplatesToList = useAddTemplatesToList();
+  const toggleListLock = useToggleListLock();
+
+  // Create form — NO List ID field; auto-generate from display name
+  const [newDisplayName, setNewDisplayName] = useState('');
+  const [newSuffix, setNewSuffix] = useState('');
+  const [createError, setCreateError] = useState('');
+
+  // Rename
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState('');
+
+  // Add templates
+  const [addingTemplatesTo, setAddingTemplatesTo] = useState<string | null>(null);
+  const [templatesText, setTemplatesText] = useState('');
+
+  // Available comments panel
+  const [expandedAvailable, setExpandedAvailable] = useState<string | null>(null);
+
+  // Slugify helper: convert display name to a valid list ID
+  const slugify = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
+  const handleCreateList = async () => {
+    const displayName = newDisplayName.trim();
+    if (!displayName) {
+      setCreateError('Please enter a display name');
+      return;
+    }
+    if (!actor) {
+      setCreateError('Not connected. Please refresh and try again.');
+      return;
+    }
+    const id = slugify(displayName);
+    if (!id) {
+      setCreateError('Display name must contain at least one letter or number');
+      return;
+    }
+    setCreateError('');
+    try {
+      await addCommentList.mutateAsync({ id, displayName, suffix: newSuffix.trim() });
+      setNewDisplayName('');
+      setNewSuffix('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCreateError(`Failed to create list: ${msg}`);
+    }
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!editingId || !editDisplayName.trim()) return;
+    if (!actor) return;
+    const newId = slugify(editDisplayName.trim());
+    try {
+      await renameCommentList.mutateAsync({
+        oldId: editingId,
+        newId: newId || editingId,
+        newDisplayName: editDisplayName.trim(),
+      });
+      setEditingId(null);
+      setEditDisplayName('');
+    } catch (err: unknown) {
+      console.error('Rename failed:', err);
+    }
+  };
+
+  const handleDelete = async (listId: string) => {
+    if (!actor) return;
+    if (!window.confirm('Delete this comment list and all its templates?')) return;
+    try {
+      await deleteCommentList.mutateAsync(listId);
+    } catch (err: unknown) {
+      console.error('Delete failed:', err);
+    }
+  };
+
+  const handleAddTemplates = async (listId: string) => {
+    if (!templatesText.trim()) return;
+    if (!actor) return;
+    const templates = templatesText
+      .split('\n')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    try {
+      await addTemplatesToList.mutateAsync({ listId, templates });
+      setTemplatesText('');
+      setAddingTemplatesTo(null);
+    } catch (err: unknown) {
+      console.error('Add templates failed:', err);
+    }
+  };
+
+  const handleToggleLock = async (listId: string) => {
+    if (!actor) return;
+    try {
+      await toggleListLock.mutateAsync(listId);
+    } catch (err: unknown) {
+      console.error('Toggle lock failed:', err);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Create New List */}
-      <div className="glass-card rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Plus className="w-5 h-5 text-neon-teal" />
-          <h3 className="font-display font-semibold text-lg">Create New Comment List</h3>
-        </div>
+      {/* Create Comment List */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Plus className="w-5 h-5 text-primary" />
+          Create Comment List
+        </h3>
         <div className="space-y-3">
-          <div>
-            <label className="text-sm text-muted-foreground mb-1 block">List Name</label>
-            <Input
-              placeholder="e.g. Motivational Comments"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-1 block">Suffix (optional)</label>
-            <Input
-              placeholder="e.g. 🔥 or #hashtag"
-              value={newListSuffix}
-              onChange={(e) => setNewListSuffix(e.target.value)}
-              className="bg-secondary border-border"
-            />
-          </div>
-          <Button
+          {/* NO List ID field — auto-generated from display name */}
+          <input
+            type="text"
+            value={newDisplayName}
+            onChange={(e) => setNewDisplayName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateList()}
+            placeholder="Display Name"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            type="text"
+            value={newSuffix}
+            onChange={(e) => setNewSuffix(e.target.value)}
+            placeholder="Suffix (optional)"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          {newDisplayName.trim() && (
+            <p className="text-xs text-muted-foreground">
+              List ID will be: <span className="font-mono text-primary">{slugify(newDisplayName)}</span>
+            </p>
+          )}
+          <button
             onClick={handleCreateList}
-            disabled={addCommentListMutation.isPending || !newListName.trim()}
-            className="gradient-btn text-white font-semibold w-full"
+            disabled={addCommentList.isPending || !newDisplayName.trim()}
+            className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
           >
-            {addCommentListMutation.isPending ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creating...
-              </span>
+            {addCommentList.isPending ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
             ) : (
-              <span className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Create List
-              </span>
+              'Create List'
             )}
-          </Button>
+          </button>
+          {createError && <p className="text-sm text-destructive">{createError}</p>}
         </div>
       </div>
 
-      {/* Usage Metrics */}
-      <div className="glass-card rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-neon-teal" />
-            <h3 className="font-display font-semibold text-lg">Usage Metrics</h3>
+      {/* Comment Lists */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4">Comment Lists</h3>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
           </div>
-          <button
-            onClick={() => refetchMetrics()}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-            title="Refresh metrics"
-          >
-            <RefreshCw className={`w-4 h-4 ${metricsLoading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-
-        {metricsLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-20 bg-secondary rounded-xl" />
-            ))}
-          </div>
-        ) : listMetrics.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-4">No lists to show metrics for.</p>
+        ) : commentLists.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No comment lists yet. Create one above.</p>
         ) : (
           <div className="space-y-3">
-            {listMetrics.map((metric) => {
-              const total = Number(metric.totalTemplates);
-              const used = Number(metric.usedTemplates);
-              const available = Number(metric.availableTemplates);
-              const pct = total > 0 ? (used / total) * 100 : 0;
-              return (
-                <div
-                  key={metric.listId}
-                  className="rounded-xl p-4 space-y-3"
-                  style={{
-                    background: "oklch(0.18 0.035 240 / 0.8)",
-                    border: "1px solid oklch(0.3 0.05 220 / 0.5)",
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-foreground text-sm">{metric.listName}</span>
-                    <span className="text-xs text-muted-foreground">{Math.round(pct)}% used</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0">
-                      <MetricsDonutChart usedTemplates={used} totalTemplates={total} size={64} strokeWidth={8} />
+            {commentLists.map((list) => (
+              <div key={list.id} className="border border-border rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between bg-background/50 px-4 py-3">
+                  {editingId === list.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={editDisplayName}
+                        onChange={(e) => setEditDisplayName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
+                        className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        autoFocus
+                      />
+                      <button onClick={handleRenameConfirm} className="text-primary p-1">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="text-muted-foreground p-1">
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="flex-1 grid grid-cols-3 gap-2 text-center">
+                  ) : (
+                    <>
                       <div>
-                        <div className="text-base font-bold text-foreground">{total}</div>
-                        <div className="text-xs text-muted-foreground">Total</div>
+                        <p className="font-medium text-foreground">{list.displayName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ID: {list.id} · {list.templates.length} templates
+                          {list.suffix && ` · Suffix: "${list.suffix}"`}
+                          {list.locked && ' · 🔒 Locked'}
+                        </p>
                       </div>
-                      <div>
-                        <div className="text-base font-bold" style={{ color: "oklch(0.65 0.2 220)" }}>{used}</div>
-                        <div className="text-xs text-muted-foreground">Used</div>
-                      </div>
-                      <div>
-                        <div className="text-base font-bold" style={{ color: "oklch(0.72 0.2 155)" }}>{available}</div>
-                        <div className="text-xs text-muted-foreground">Left</div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Reset Pool Buttons */}
-                  <div className="flex gap-2 pt-1">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                      <div className="flex items-center gap-1">
                         <button
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                          style={{
-                            background: "oklch(0.22 0.06 220 / 0.5)",
-                            border: "1px solid oklch(0.4 0.1 220 / 0.4)",
-                            color: "oklch(0.75 0.15 220)",
-                          }}
+                          onClick={() => setExpandedAvailable(expandedAvailable === list.id ? null : list.id)}
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                          title="View available comments"
                         >
-                          <RotateCcw className="w-3 h-3" />
-                          Reset Pool
+                          <List className="w-4 h-4" />
                         </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Reset Pool</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will reset the used template pool for "{metric.listName}", making all templates available again. Device claims will be preserved.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => toast.success("Pool reset!")}>Reset Pool</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
                         <button
-                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                          style={{
-                            background: "oklch(0.22 0.06 25 / 0.4)",
-                            border: "1px solid oklch(0.4 0.12 25 / 0.4)",
-                            color: "oklch(0.72 0.18 25)",
-                          }}
+                          onClick={() => setAddingTemplatesTo(addingTemplatesTo === list.id ? null : list.id)}
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                          title="Add templates"
                         >
-                          <RotateCcw className="w-3 h-3" />
-                          Reset + Clear Claims
+                          <Plus className="w-4 h-4" />
                         </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Reset Pool & Clear Claims</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will reset the used template pool AND clear all device claims for "{metric.listName}". All devices will be able to generate comments again.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => toast.success("Pool reset and claims cleared!")}
-                          >
-                            Reset + Clear Claims
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                        <button
+                          onClick={() => handleToggleLock(list.id)}
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                          title={list.locked ? 'Unlock' : 'Lock'}
+                        >
+                          {list.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => { setEditingId(list.id); setEditDisplayName(list.displayName); }}
+                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(list.id)}
+                          className="text-muted-foreground hover:text-destructive p-1 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              );
-            })}
+
+                {/* Add Templates Panel */}
+                {addingTemplatesTo === list.id && (
+                  <div className="border-t border-border p-3 bg-background/30">
+                    <textarea
+                      value={templatesText}
+                      onChange={(e) => setTemplatesText(e.target.value)}
+                      placeholder="Enter one template per line..."
+                      rows={4}
+                      className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAddTemplates(list.id)}
+                        disabled={addTemplatesToList.isPending || !templatesText.trim()}
+                        className="gradient-button px-3 py-1 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {addTemplatesToList.isPending ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          'Add Templates'
+                        )}
+                      </button>
+                      <button
+                        onClick={() => { setAddingTemplatesTo(null); setTemplatesText(''); }}
+                        className="border border-border px-3 py-1 rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Available Comments Panel */}
+                {expandedAvailable === list.id && (
+                  <div className="border-t border-border bg-background/20">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
+                      <span className="text-xs font-medium text-muted-foreground">Available Comments Pool</span>
+                      <button
+                        onClick={() => setExpandedAvailable(null)}
+                        className="text-muted-foreground hover:text-foreground p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <AvailableCommentsPanel listId={list.id} />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Comment Lists */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Comment Lists ({commentLists.length})
+      {/* Usage Metrics */}
+      <div className="space-card p-5">
+        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <BarChart2 className="w-5 h-5 text-primary" />
+          Usage Metrics
         </h3>
-
-        {commentLists.length === 0 ? (
-          <div className="glass-card p-8 rounded-xl text-center text-muted-foreground">
-            No comment lists yet. Create one above.
-          </div>
+        {metrics.length === 0 ? (
+          <p className="text-muted-foreground text-sm">No metrics available yet.</p>
         ) : (
-          commentLists.map((list) => {
-            const isEditing = editingListId === list.id;
-
-            return (
-              <div key={list.id} className="glass-card rounded-2xl p-5 space-y-3">
-                {/* List Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <div className="flex-1">
-                          <Input
-                            value={editedName}
-                            onChange={(e) => {
-                              setEditedName(e.target.value);
-                              setEditNameError("");
-                            }}
-                            onKeyDown={(e) => handleEditKeyDown(e, list.id)}
-                            className="bg-secondary border-border h-8 text-sm"
-                            autoFocus
-                          />
-                          {editNameError && (
-                            <p className="text-destructive text-xs mt-1">{editNameError}</p>
-                          )}
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-green-400 hover:text-green-300 hover:bg-green-400/10 shrink-0"
-                          onClick={() => saveEditName(list.id)}
-                          disabled={editListNameMutation.isPending}
-                        >
-                          {editListNameMutation.isPending ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-400" />
-                          ) : (
-                            <Check className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
-                          onClick={cancelEditName}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <h4 className="font-semibold text-foreground truncate">{list.displayName}</h4>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary shrink-0"
-                          onClick={() => startEditName(list.id, list.displayName)}
-                          title="Edit list name"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-
-                  {!isEditing && (
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <Badge variant={list.locked ? "destructive" : "secondary"} className="text-xs">
-                        {list.locked ? "Locked" : "Unlocked"}
-                      </Badge>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-muted-foreground hover:text-yellow-400"
-                        onClick={() => handleToggleLock(list.id)}
-                        disabled={toggleLockMutation.isPending}
-                        title={list.locked ? "Unlock list" : "Lock list"}
-                      >
-                        {list.locked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
-                      </Button>
-
-                      {/* Delete Button with Confirmation */}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            title="Delete list"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Comment List</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete <strong>"{list.displayName}"</strong>? This will permanently remove the list and all {list.templates.length} template(s) inside it. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteList(list.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              {deleteListMutation.isPending ? (
-                                <span className="flex items-center gap-2">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                                  Deleting...
-                                </span>
-                              ) : (
-                                "Delete List"
-                              )}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {metrics.map((m) => (
+              <div key={m.listId} className="bg-background/50 border border-border rounded-lg p-4 flex items-center gap-4">
+                <MetricsDonutChart
+                  usedTemplates={Number(m.usedTemplates)}
+                  totalTemplates={Number(m.totalTemplates)}
+                  size={64}
+                  strokeWidth={8}
+                />
+                <div>
+                  <p className="font-medium text-foreground text-sm">{m.listName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {Number(m.usedTemplates)}/{Number(m.totalTemplates)} used ({m.percentUsed.toFixed(1)}%)
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {Number(m.availableTemplates)} available
+                  </p>
                 </div>
-
-                {/* List Info */}
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>{list.templates.length} templates</span>
-                  {list.suffix && (
-                    <span>
-                      Suffix: <code className="bg-secondary px-1 rounded">{list.suffix}</code>
-                    </span>
-                  )}
-                </div>
-
-                <Separator className="opacity-30" />
-
-                {/* Add Templates */}
-                {!list.locked && (
-                  <div>
-                    {selectedListId === list.id ? (
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Add templates (one per line)</label>
-                        <textarea
-                          className="w-full bg-secondary border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
-                          rows={5}
-                          placeholder={"Template 1\nTemplate 2\nTemplate 3"}
-                          value={newTemplates}
-                          onChange={(e) => setNewTemplates(e.target.value)}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddTemplates(list.id)}
-                            disabled={addTemplatesMutation.isPending}
-                            className="gradient-btn text-white"
-                          >
-                            {addTemplatesMutation.isPending ? (
-                              <span className="flex items-center gap-1">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                                Adding...
-                              </span>
-                            ) : (
-                              "Add Templates"
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedListId(null);
-                              setNewTemplates("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs border-border"
-                        onClick={() => setSelectedListId(list.id)}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add Templates
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Templates Preview */}
-                {list.templates.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-2">Templates preview:</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {list.templates.slice(0, 5).map((template, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs bg-secondary rounded px-2 py-1 text-foreground/80 truncate"
-                        >
-                          {idx + 1}. {template}
-                        </div>
-                      ))}
-                      {list.templates.length > 5 && (
-                        <div className="text-xs text-muted-foreground px-2">
-                          +{list.templates.length - 5} more templates...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
-
-export default AdminComments;

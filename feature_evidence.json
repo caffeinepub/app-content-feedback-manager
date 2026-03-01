@@ -1,24 +1,4 @@
 {
   "kind": "feature_evidence_report",
-  "features": [
-    {
-      "featureId": "feature-in-the-user-view-userview-tsx-add-a-dark-rounded-card-box-above-the-single-comment-generator-section-that-contains-a-top-down-shooter-title-styled-in-cyan-teal-gradient-text-instruction-text-use-wasd-or-arrow-keys-to-move-click-to-shoot-survive-as-long-as-you-can-and-a-start-game-button-the-card-should-use-the-existing-dark-glass-card-style-consistent-with-the-app-s-dark-space-theme-clicking-start-game-should-launch-the-existing-topdownshooter-canvas-game-inside-or-below-the-card",
-      "featureTitle": "In the User View (UserView.tsx), add a dark rounded card box above the Single Comment Generator section that contains: a 'Top-Down Shooter' title (styled in cyan/teal gradient text), instruction text ('Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'), and a 'Start Game' button. The card should use the existing dark glass-card style consistent with the app's dark space theme. Clicking 'Start Game' should launch the existing TopDownShooter canvas game inside or below the card.",
-      "files": [
-        "frontend/src/views/UserView.tsx"
-      ],
-      "components": [
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-1"
-      ],
-      "confidence": "high"
-    }
-  ]
+  "features": []
 }

@@ -9,13 +9,50 @@ import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Float "mo:core/Float";
-import MixinStorage "blob-storage/Mixin";
-
+import Int "mo:core/Int";
 import Runtime "mo:core/Runtime";
+import Principal "mo:core/Principal";
 
+
+import MixinStorage "blob-storage/Mixin";
+import MixinAuthorization "authorization/MixinAuthorization";
+import AccessControl "authorization/access-control";
+
+// Specify the data migration function in with-clause
 
 actor {
   include MixinStorage();
+
+  let accessControlState = AccessControl.initState();
+  include MixinAuthorization(accessControlState);
+
+  type UserProfile = {
+    name : Text;
+    // Other user metadata if needed
+  };
+
+  let userProfiles = Map.empty<Principal, UserProfile>();
+
+  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
+    userProfiles.get(caller);
+  };
+
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own profile");
+    };
+    userProfiles.get(user);
+  };
+
+  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
+    };
+    userProfiles.add(caller, profile);
+  };
 
   type CommentList = {
     id : Text;
@@ -23,7 +60,6 @@ actor {
     templates : [Text];
     locked : Bool;
     suffix : Text;
-    availableCount : Nat;
   };
 
   type AppEvent = {
@@ -51,6 +87,12 @@ actor {
     accessKey : ?Text;
   };
 
+  type ImportSummary = {
+    totalAppsDetected : Nat;
+    totalUsernamesAdded : Nat;
+    totalDuplicatesSkipped : Nat;
+  };
+
   type ExportData = {
     commentLists : [CommentList];
     appsEvents : [AppEvent];
@@ -75,23 +117,29 @@ actor {
     templateCount : Nat;
   };
 
-  type OnePerListResult = {
-    listId : Text;
-    listName : Text;
-    comment : Text;
+  type ClaimCommentResult = {
+    #noCommentsRemaining;
+    #claimSuccess : Text;
   };
 
-  type CommentAssignmentResponse = {
-    comment : Text;
-    alreadyGenerated : Bool;
+  type AppImport = {
+    appName : Text;
+    usernames : [Text];
+    importDate : ?Text;
+  };
+
+  type AppEventWithImportDate = {
+    appEvent : AppEvent;
+    importDate : ?Text;
   };
 
   let commentLists = Map.empty<Text, CommentList>();
-  let appsEvents = Map.empty<Text, AppEvent>();
+  let commentListsOrder = List.empty<Text>();
+  let appsEvents = Map.empty<Text, AppEventWithImportDate>();
   let chatMessages = List.empty<ChatMessage>();
   let images = Map.empty<Nat, ImageMeta>();
   let usedTemplateIndices = Map.empty<Text, Set.Set<Nat>>();
-  let deviceClaims = Map.empty<Text, [Text]>();
+  let priceList = Map.empty<Text, { pricePerEntry : Float; isActive : Bool }>();
 
   var nextImageId = 1;
   var nextMessageId = 1;
@@ -100,6 +148,8 @@ actor {
     musicFile = null;
     accessKey = null;
   };
+
+  var priceListInitialized = false;
 
   module CommentList {
     public func compare(a : CommentList, b : CommentList) : Order.Order {
@@ -113,60 +163,149 @@ actor {
     };
   };
 
+  // Reordered functions: App import logic is now first
+
+  public shared ({ caller }) func importLiveList(imports : [AppImport]) : async ImportSummary {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can import live lists");
+    };
+
+    var totalUsernamesAdded = 0;
+    var totalDuplicatesSkipped = 0;
+
+    for (imp in imports.values()) {
+      let currentUsers = switch (appsEvents.get(imp.appName)) {
+        case (?existing) { existing.appEvent.usernames };
+        case (null) {
+          let app = { name = imp.appName; usernames = [] };
+          appsEvents.add(
+            imp.appName,
+            {
+              appEvent = app;
+              importDate = imp.importDate;
+            },
+          );
+          [];
+        };
+      };
+
+      let filteredNewUsernames = imp.usernames.filter(
+        func(u) {
+          not currentUsers.values().any(func(v) { v == u });
+        }
+      );
+
+      let combinedUsernames = currentUsers.concat(filteredNewUsernames);
+      let newSize = combinedUsernames.size();
+
+      if (newSize > 0) {
+        totalUsernamesAdded += filteredNewUsernames.size();
+        totalDuplicatesSkipped += (imp.usernames.size() - filteredNewUsernames.size());
+
+        appsEvents.add(
+          imp.appName,
+          {
+            appEvent = {
+              name = imp.appName;
+              usernames = combinedUsernames;
+            };
+            importDate = imp.importDate;
+          },
+        );
+      } else {
+        totalDuplicatesSkipped += imp.usernames.size();
+      };
+    };
+
+    {
+      totalAppsDetected = imports.size();
+      totalUsernamesAdded;
+      totalDuplicatesSkipped;
+    };
+  };
+
+  // Comment list administration
+  public shared ({ caller }) func deleteCommentList(listId : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete comment lists");
+    };
+    switch (commentLists.get(listId)) {
+      case (null) { false };
+      case (_) {
+        commentLists.remove(listId);
+        usedTemplateIndices.remove(listId);
+
+        let filteredList = commentListsOrder.filter(func(id) { id != listId });
+        commentListsOrder.clear();
+        for (id in filteredList.values()) {
+          commentListsOrder.add(id);
+        };
+        true;
+      };
+    };
+  };
+
   public shared ({ caller }) func addCommentList(id : Text, displayName : Text, suffix : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add comment lists");
+    };
     let list : CommentList = {
       id;
       displayName;
       templates = [];
       locked = false;
       suffix;
-      availableCount = 0;
     };
     commentLists.add(id, list);
+    commentListsOrder.add(id);
     true;
   };
 
-  public shared ({ caller }) func deleteCommentList(id : Text) : async Bool {
-    switch (commentLists.get(id)) {
-      case (null) { false };
-      case (_) {
-        commentLists.remove(id);
-        true;
-      };
+  public shared ({ caller }) func renameCommentList(oldId : Text, newId : Text, newDisplayName : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can rename comment lists");
     };
-  };
-
-  public shared ({ caller }) func editListName(id : Text, newName : Text) : async Bool {
-    switch (commentLists.get(id)) {
+    switch (commentLists.get(oldId)) {
       case (null) { false };
-      case (?list) {
+      case (?oldList) {
         let newList : CommentList = {
-          id = list.id;
-          displayName = newName;
-          templates = list.templates;
-          locked = list.locked;
-          suffix = list.suffix;
-          availableCount = list.availableCount;
+          id = newId;
+          displayName = newDisplayName;
+          templates = oldList.templates;
+          locked = oldList.locked;
+          suffix = oldList.suffix;
         };
-        commentLists.add(id, newList);
+        commentLists.remove(oldId);
+        commentLists.add(newId, newList);
+
+        let orderArray = commentListsOrder.toArray();
+        commentListsOrder.clear();
+        for (id in orderArray.values()) {
+          if (id != oldId) {
+            commentListsOrder.add(id);
+          } else {
+            commentListsOrder.add(newId);
+          };
+        };
         true;
       };
     };
   };
 
   public shared ({ caller }) func addTemplatesToList(listId : Text, templates : [Text]) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add templates to lists");
+    };
     switch (commentLists.get(listId)) {
       case (null) { false };
       case (?list) {
         if (list.locked) { return false };
-        let newTemplates = list.templates.concat(templates);
         let newList : CommentList = {
           id = list.id;
           displayName = list.displayName;
-          templates = newTemplates;
+          templates = list.templates.concat(templates);
           locked = list.locked;
           suffix = list.suffix;
-          availableCount = newTemplates.size();
         };
         commentLists.add(listId, newList);
         true;
@@ -175,6 +314,9 @@ actor {
   };
 
   public shared ({ caller }) func toggleListLock(listId : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can toggle list lock");
+    };
     switch (commentLists.get(listId)) {
       case (null) { false };
       case (?list) {
@@ -184,7 +326,6 @@ actor {
           templates = list.templates;
           locked = not list.locked;
           suffix = list.suffix;
-          availableCount = list.availableCount;
         };
         commentLists.add(listId, newList);
         true;
@@ -192,30 +333,88 @@ actor {
     };
   };
 
+  public shared ({ caller }) func deleteAppEvent(name : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete app events");
+    };
+    switch (appsEvents.get(name)) {
+      case (null) { false };
+      case (_) {
+        appsEvents.remove(name);
+        true;
+      };
+    };
+  };
+
+  public shared ({ caller }) func renameAppEvent(oldName : Text, newName : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can rename app events");
+    };
+    switch (appsEvents.get(oldName)) {
+      case (null) { false };
+      case (?oldApp) {
+        let newApp : AppEvent = {
+          name = newName;
+          usernames = oldApp.appEvent.usernames;
+        };
+        appsEvents.remove(oldName);
+        appsEvents.add(
+          newName,
+          {
+            appEvent = newApp;
+            importDate = oldApp.importDate;
+          },
+        );
+        true;
+      };
+    };
+  };
+
   public shared ({ caller }) func addAppEvent(name : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add app events");
+    };
     let app : AppEvent = {
       name;
       usernames = [];
     };
-    appsEvents.add(name, app);
+    appsEvents.add(
+      name,
+      {
+        appEvent = app;
+        importDate = null;
+      },
+    );
     true;
   };
 
   public shared ({ caller }) func addUsernamesToAppEvent(name : Text, usernames : [Text]) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add usernames to app events");
+    };
     switch (appsEvents.get(name)) {
       case (null) { false };
       case (?app) {
         let newApp : AppEvent = {
-          name = app.name;
-          usernames = app.usernames.concat(usernames);
+          name = app.appEvent.name;
+          usernames = app.appEvent.usernames.concat(usernames);
         };
-        appsEvents.add(name, newApp);
+        appsEvents.add(
+          name,
+          {
+            appEvent = newApp;
+            importDate = app.importDate;
+          },
+        );
         true;
       };
     };
   };
 
   public shared ({ caller }) func addChatMessage(text : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add chat messages");
+    };
     let message : ChatMessage = {
       id = nextMessageId;
       text;
@@ -226,6 +425,9 @@ actor {
   };
 
   public shared ({ caller }) func addImage(name : Text, tags : [Text], dataUrl : Text, data : ?Storage.ExternalBlob) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add images");
+    };
     let image : ImageMeta = {
       id = nextImageId;
       name;
@@ -238,6 +440,9 @@ actor {
   };
 
   public shared ({ caller }) func updateSettings(bgMusicEnabled : Bool, musicFile : ?Storage.ExternalBlob) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update settings");
+    };
     settings := {
       bgMusicEnabled;
       musicFile;
@@ -246,48 +451,148 @@ actor {
   };
 
   public shared ({ caller }) func setAccessKey(key : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can set the access key");
+    };
     settings := {
       settings with accessKey = ?key;
     };
   };
 
   public query ({ caller }) func getAccessKey() : async ?Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view the access key");
+    };
     settings.accessKey;
   };
 
-  public shared ({ caller }) func renameAppEvent(id : Text, newName : Text) : async Bool {
-    switch (appsEvents.get(id)) {
-      case (null) { false };
-      case (?app) {
-        let newApp : AppEvent = {
-          name = newName;
-          usernames = app.usernames;
+  public shared ({ caller }) func claimComment(listId : Text) : async ClaimCommentResult {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can claim comments");
+    };
+    switch (commentLists.get(listId)) {
+      case (null) {
+        #noCommentsRemaining; // If list doesn't exist, treat as no comments remaining
+      };
+      case (?list) {
+        if (list.templates.size() == 0) {
+          return #noCommentsRemaining;
         };
-        appsEvents.remove(id);
-        appsEvents.add(newName, newApp);
-        true;
+
+        let usedIndices = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+
+        let usedCount = usedIndices.size();
+
+        if (usedCount >= list.templates.size()) {
+          return #noCommentsRemaining;
+        };
+
+        var availableIndex : ?Nat = null;
+
+        var attempts = 0;
+        let maxAttempts = 100; // Increased max attempts for better randomness
+
+        while (attempts < maxAttempts) {
+          let randomIndex = Int.abs(Time.now()) % list.templates.size();
+          if (not usedIndices.contains(randomIndex)) {
+            availableIndex := ?randomIndex;
+            attempts := maxAttempts;
+          };
+          attempts += 1;
+        };
+
+        let finalIndex = switch (availableIndex) {
+          case (?index) { index };
+          case (null) {
+            var firstAvailable = 0;
+            while (firstAvailable < list.templates.size() and usedIndices.contains(firstAvailable)) {
+              firstAvailable += 1;
+            };
+            firstAvailable;
+          };
+        };
+
+        let updatedUsedIndices = Set.empty<Nat>();
+        updatedUsedIndices.addAll(usedIndices.values());
+        updatedUsedIndices.add(finalIndex);
+
+        usedTemplateIndices.add(listId, updatedUsedIndices);
+
+        #claimSuccess(list.templates[finalIndex]);
       };
     };
   };
 
-  public shared ({ caller }) func deleteAppEvent(id : Text) : async Bool {
-    switch (appsEvents.get(id)) {
-      case (null) { false };
-      case (_) {
-        appsEvents.remove(id);
-        true;
+  public query ({ caller }) func getAvailableComments(listId : Text) : async {
+    comments : [Text];
+    count : Nat;
+  } {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view available comments");
+    };
+    switch (commentLists.get(listId)) {
+      case (null) {
+        { comments = []; count = 0 };
+      };
+      case (?list) {
+        let usedIndices = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+
+        let availableComments = Array.tabulate(
+          list.templates.size(),
+          func(i) {
+            if (not usedIndices.contains(i)) {
+              list.templates[i];
+            } else {
+              "";
+            };
+          },
+        ).filter(
+          func(comment) {
+            comment != "";
+          }
+        );
+
+        {
+          comments = availableComments;
+          count = availableComments.size();
+        };
       };
     };
   };
 
   public query ({ caller }) func getAvailableCount(listId : Text) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view available count");
+    };
     switch (commentLists.get(listId)) {
       case (null) { 0 };
-      case (?list) { list.availableCount };
+      case (?list) {
+        let usedIndices = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?set) { set };
+        };
+        let usedCount = usedIndices.size();
+        if (list.templates.size() > 0 and usedCount > 0) {
+          let size = list.templates.size() - usedCount;
+          assert (size >= 0); // Ensure non-negative
+          size;
+        } else {
+          list.templates.size();
+        };
+      };
     };
   };
 
   public query ({ caller }) func getListMetrics() : async [ListMetrics] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view list metrics");
+    };
     commentLists.values().toArray().map(
       func(list) {
         let usedIndices = switch (usedTemplateIndices.get(list.id)) {
@@ -317,179 +622,192 @@ actor {
     );
   };
 
-  public shared ({ caller }) func generateBulkComments(listId : Text, count : Nat) : async BulkCommentsResult {
-    Runtime.trap("Function not implemented yet. This will take place in the next generated iteration.");
-  };
-
-  public shared ({ caller }) func generateOnePerList(deviceId : Text) : async [OnePerListResult] {
-    let results = List.empty<OnePerListResult>();
-    let usedTemplatesMap = Map.empty<Text, Set.Set<Nat>>();
-    let deviceClaimsMap = Map.empty<Text, [Text]>();
-
-    for ((id, list) in commentLists.entries()) {
-      if (not list.locked) {
-        if (list.templates.size() > 0) {
-          let usedIndices = switch (usedTemplatesMap.get(id)) {
-            case (null) { Set.empty<Nat>() };
-            case (?set) { set };
-          };
-
-          if (usedIndices.size() < list.templates.size()) {
-            let availableTemplates = Array.tabulate(
-              list.templates.size(),
-              func(i) { if (usedIndices.contains(i)) { false } else { true } },
-            );
-
-            let availableValues = availableTemplates.values();
-
-            var found = false;
-            var pickedTemplate : ?Text = null;
-            var counter = 0;
-
-            for (isAvailable in availableValues) {
-              if (isAvailable and not found) {
-                if (counter < list.templates.size()) {
-                  pickedTemplate := ?list.templates[counter];
-                  found := true;
-                };
-              };
-              counter += 1;
-            };
-
-            switch (pickedTemplate) {
-              case (null) { () };
-              case (?template) {
-                results.add({
-                  listId = id;
-                  listName = list.displayName;
-                  comment = template;
-                });
-
-                let updatedUsedIndices = Set.empty<Nat>();
-                for (idx in usedIndices.values()) {
-                  updatedUsedIndices.add(idx);
-                };
-                usedTemplatesMap.add(id, updatedUsedIndices);
-
-                let deviceClaimsArray = switch (deviceClaimsMap.get(id)) {
-                  case (null) { [] };
-                  case (?existing) { existing };
-                };
-                deviceClaimsMap.add(id, deviceClaimsArray.concat([id]));
-              };
-            };
-          };
-        };
-      };
+  public shared ({ caller }) func generateBulkComments(_ : Text, _ : Nat) : async BulkCommentsResult {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can generate bulk comments");
     };
-
-    usedTemplateIndices.clear();
-    for ((k, v) in usedTemplatesMap.entries()) {
-      usedTemplateIndices.add(k, v);
-    };
-
-    deviceClaims.clear();
-    for ((k, v) in deviceClaimsMap.entries()) {
-      deviceClaims.add(k, v);
-    };
-
-    results.toArray();
-  };
-
-  public shared ({ caller }) func assignNextCommentFromList(listId : Text, deviceId : Text) : async CommentAssignmentResponse {
-    switch (commentLists.get(listId)) {
-      case (null) {
-        Runtime.trap("Comment list not found. ");
-      };
-      case (?list) {
-        let deviceClaimsArray = switch (deviceClaims.get(listId)) {
-          case (null) { [] };
-          case (?claims) { claims };
-        };
-
-        let claimsFromDevice = deviceClaimsArray.filter(
-          func(claimedId) { claimedId == deviceId }
-        );
-
-        if (claimsFromDevice.size() > 0) {
-          let comment = switch (claimsFromDevice.values().next()) {
-            case (?firstClaim) { firstClaim };
-            case (null) {
-              Runtime.trap("Unexpected error: Device claims not found. ");
-            };
-          };
-          return {
-            comment;
-            alreadyGenerated = true;
-          };
-        };
-
-        let usedIndices = switch (usedTemplateIndices.get(listId)) {
-          case (null) { Set.empty<Nat>() };
-          case (?set) { set };
-        };
-
-        let usedCount = usedIndices.size();
-        if (usedCount >= list.templates.size()) {
-          Runtime.trap("No available comments left for this list. ");
-        };
-
-        var found = false;
-        var pickedTemplate : ?Text = null;
-        var counter = 0;
-
-        for (template in list.templates.values()) {
-          if (not found) {
-            if (not usedIndices.contains(counter)) {
-              pickedTemplate := ?template;
-              found := true;
-            };
-          };
-          counter += 1;
-        };
-
-        switch (pickedTemplate) {
-          case (null) {
-            Runtime.trap("Failed to find an available template. ");
-          };
-          case (?template) {
-            let newClaim = deviceClaimsArray.concat([deviceId]);
-            deviceClaims.add(listId, newClaim);
-
-            let updatedUsedIndices = Set.empty<Nat>();
-            for (idx in usedIndices.values()) {
-              updatedUsedIndices.add(idx);
-            };
-            usedTemplateIndices.add(listId, updatedUsedIndices);
-
-            let updatedList = {
-              list with availableCount = if (list.availableCount > 1) {
-                list.availableCount - 1;
-              } else {
-                0;
-              };
-            };
-            if (updatedList.availableCount > 0) {
-              commentLists.add(listId, updatedList);
-            };
-
-            {
-              comment = template;
-              alreadyGenerated = false;
-            };
-          };
-        };
-      };
-    };
+    Runtime.trap("Function not implemented yet. This will take place in the next generated iteration. ");
   };
 
   public shared ({ caller }) func exportAllData() : async ExportData {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can export all data");
+    };
     {
       commentLists = commentLists.values().toArray();
-      appsEvents = appsEvents.values().toArray();
+      appsEvents = appsEvents.values().toArray().map(func(appWithDate) { appWithDate.appEvent });
       chatMessages = chatMessages.toArray();
       images = images.values().toArray();
       settings;
+    };
+  };
+
+  public query ({ caller }) func getCommentListsOrder() : async [Text] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view comment lists order");
+    };
+    commentListsOrder.toArray();
+  };
+
+  // Price list functionality
+  type PriceEntry = {
+    appName : Text;
+    pricePerEntry : Float;
+    isActive : Bool;
+  };
+
+  public shared ({ caller }) func setPriceEntry(appName : Text, pricePerEntry : Float, isActive : Bool) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can set price entries");
+    };
+    priceList.add(appName, { pricePerEntry; isActive });
+  };
+
+  public query ({ caller }) func getPriceList() : async [PriceEntry] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view the price list");
+    };
+    priceList.toArray().map(
+      func((appName, entry)) {
+        {
+          appName;
+          pricePerEntry = entry.pricePerEntry;
+          isActive = entry.isActive;
+        };
+      }
+    );
+  };
+
+  public shared ({ caller }) func deletePriceEntry(appName : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete price entries");
+    };
+    priceList.remove(appName);
+  };
+
+  public shared ({ caller }) func bulkSetPrices(entries : [(Text, Float, Bool)]) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can bulk set prices");
+    };
+    for ((appName, pricePerEntry, isActive) in entries.values()) {
+      priceList.add(appName, { pricePerEntry; isActive });
+    };
+  };
+
+  type AppEarnings = {
+    appName : Text;
+    totalUsernamesFound : Nat;
+    pricePerEntry : Float;
+    totalAmount : Float;
+    isActive : Bool;
+  };
+
+  type AllEarningsSummary = {
+    appEarnings : [AppEarnings];
+    totalAppsWithPrices : Nat;
+    totalValidEntries : Nat;
+    totalEarnings : Float;
+  };
+
+  public query ({ caller }) func calculateEarnings(appName : Text) : async ?AppEarnings {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate earnings");
+    };
+    let appsEventsWithoutImportDate = appsEvents.toArray().filter(
+      func((_, appWithDate)) {
+        appWithDate.appEvent.name == appName;
+      }
+    );
+
+    switch (priceList.get(appName)) {
+      case (?priceEntry) {
+        let accounts = appsEventsWithoutImportDate.filter(
+          func((name, _)) {
+            name == appName;
+          }
+        );
+
+        var totalEarnings = 0.0;
+        var totalUsernames = 0;
+
+        for ((_name, appWithDate) in accounts.values()) {
+          let count = appWithDate.appEvent.usernames.size();
+          totalEarnings += count.toFloat() * priceEntry.pricePerEntry;
+          totalUsernames += count;
+        };
+
+        ?{
+          appName;
+          totalUsernamesFound = totalUsernames;
+          pricePerEntry = priceEntry.pricePerEntry;
+          totalAmount = totalEarnings;
+          isActive = priceEntry.isActive;
+        };
+      };
+      case (null) { null };
+    };
+  };
+
+  public query ({ caller }) func calculateAllEarnings() : async AllEarningsSummary {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate all earnings");
+    };
+    var totalUsernames = 0;
+    var totalEarnings = 0.0;
+    var appsWithPricesCount = 0;
+
+    let priceListToArray = priceList.toArray();
+    let appsEventsWithoutImportDate = appsEvents.toArray();
+
+    let appEarningsArr = priceListToArray.foldRight<(Text, { pricePerEntry : Float; isActive : Bool }), [AppEarnings]>(
+      [],
+      func((appName, entry), acc) {
+        if (entry.isActive) {
+          let accounts = appsEventsWithoutImportDate.filter(
+            func((name, _)) {
+              name == appName;
+            }
+          );
+
+          switch (priceList.get(appName)) {
+            case (?priceEntry_) {
+              var appTotal = 0.0;
+              var usernames = 0;
+              for ((_name, appWithDate) in accounts.values()) {
+                let count = appWithDate.appEvent.usernames.size();
+                appTotal += count.toFloat() * entry.pricePerEntry;
+                usernames += count;
+              };
+
+              if (usernames > 0) {
+                let newEarning : AppEarnings = {
+                  appName;
+                  totalUsernamesFound = usernames;
+                  pricePerEntry = entry.pricePerEntry;
+                  totalAmount = appTotal;
+                  isActive = entry.isActive;
+                };
+                appsWithPricesCount += 1;
+                totalEarnings += appTotal;
+                totalUsernames += usernames;
+                [newEarning].concat(acc);
+              } else {
+                acc;
+              };
+            };
+            case (null) { acc };
+          };
+        } else {
+          acc;
+        };
+      },
+    );
+
+    {
+      appEarnings = appEarningsArr;
+      totalAppsWithPrices = appsWithPricesCount;
+      totalValidEntries = totalUsernames;
+      totalEarnings;
     };
   };
 };

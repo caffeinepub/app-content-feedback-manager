@@ -1,45 +1,55 @@
 {
   "kind": "build_request",
-  "title": "Add Top-Down Shooter game card to User View",
-  "projectName": "App Review Comment Management",
-  "priority": "normal",
+  "title": "Fix admin authorization for addCommentList (Create Comment List)",
+  "priority": "high",
   "requirements": [
     {
-      "id": "REQ-1",
-      "text": "In the User View (UserView.tsx), add a dark rounded card box above the Single Comment Generator section that contains: a 'Top-Down Shooter' title (styled in cyan/teal gradient text), instruction text ('Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'), and a 'Start Game' button. The card should use the existing dark glass-card style consistent with the app's dark space theme. Clicking 'Start Game' should launch the existing TopDownShooter canvas game inside or below the card.",
-      "target": "frontend",
+      "id": "REQ-23",
+      "text": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix that was used to resolve the Live List and Settings authorization issues — ensure the admin identity/principal check is consistent across all admin-gated functions.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-8",
-          "msg-10"
+          "msg-1"
         ],
         "quotes": [
-          "make changes in user view only don't change any features just add game and make a box like in screenshot",
-          "Build it"
+          "Unauthorized: Only admins can add comment lists"
         ]
       },
       "acceptanceCriteria": [
-        "User View displays a dark rounded card box with 'Top-Down Shooter' as the title in cyan/teal gradient text",
-        "The card shows instruction text: 'Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'",
-        "A 'Start Game' button is visible inside the card and launches the TopDownShooter game when clicked",
-        "The game card appears above the Single Comment Generator section",
-        "No other tabs (Upload, Live Checker, Admin) are modified",
-        "No existing features are broken or changed",
-        "The card styling matches the dark space theme with rounded corners consistent with the screenshot"
+        "Calling `addCommentList` from the Admin Panel no longer returns 'Unauthorized: Only admins can add comment lists'",
+        "A new comment list can be created successfully from AdminComments.tsx using the authenticated admin actor",
+        "The authorization check in `addCommentList` uses the same admin principal check pattern as other fixed admin-gated functions (e.g., addAppEvent, setAccessKey)",
+        "Other admin-gated functions are not broken by this change"
+      ]
+    },
+    {
+      "id": "REQ-24",
+      "text": "Fix the frontend actor construction in AdminComments.tsx so that all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.) use the authenticated admin actor rather than the anonymous identity, consistent with the fix applied to AdminLiveList.tsx and AdminSettings.tsx.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Unauthorized: Only admins can add comment lists"
+        ]
+      },
+      "acceptanceCriteria": [
+        "AdminComments.tsx retrieves and uses the authenticated actor for all mutation calls",
+        "Creating, renaming, deleting, and modifying comment lists from the Admin Panel completes without authorization errors",
+        "The pattern matches how AdminLiveList.tsx and AdminSettings.tsx obtain and pass the authenticated actor"
       ]
     }
   ],
   "constraints": [
-    "Only modify the User View (UserView.tsx) — do not change Upload, Live Checker, or Admin tabs",
-    "Do not remove or alter any existing features in UserView",
-    "Use the existing TopDownShooter component (TopDownShooter.tsx) — do not rewrite it",
-    "Card styling must match the dark rounded glass-card aesthetic shown in the screenshot"
+    "Do not change any existing comment list UI layout or behavior beyond what is needed to fix the authorization error",
+    "The admin principal check fix must be consistent with the pattern already applied to Live List and Settings authorization fixes",
+    "Do not modify any immutable frontend paths"
   ],
   "nonGoals": [
-    "Adding game history or retrieving past games",
-    "Modifying backend logic",
-    "Changing any other view or tab",
-    "Redesigning the existing Single Comment Generator section"
+    "Adding new comment list features",
+    "Changing the comment list data model",
+    "Modifying other admin tabs beyond AdminComments.tsx"
   ],
   "imageRequirements": {
     "required": [],

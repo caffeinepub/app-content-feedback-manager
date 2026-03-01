@@ -1,331 +1,342 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Copy, Sparkles, AlertCircle, CheckCircle2, Gamepad2, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
-  Copy,
-  Sparkles,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  RefreshCcw,
-  MessageSquare,
-  Hash,
-  Gamepad2,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { useCommentLists, useAssignComment, useAvailableCountsForLists } from "@/hooks/useQueries";
-import { useDeviceId } from "@/hooks/useDeviceId";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCommentLists, useClaimComment } from "@/hooks/useQueries";
+import { useClaimedComments } from "@/hooks/useClaimedComments";
 import { TopDownShooter } from "@/components/TopDownShooter";
-
-// localStorage key prefix for storing generated comments per device per list
-const STORAGE_PREFIX = "generated_comment_";
-
-interface GeneratedState {
-  comment: string;
-  isAlreadyGenerated: boolean;
-  error?: string;
-}
+import { toast } from "sonner";
+import type { CommentList } from "@/backend";
 
 export default function UserView() {
-  const deviceId = useDeviceId();
   const { data: commentLists = [], isLoading: listsLoading } = useCommentLists();
-  const assignMutation = useAssignComment();
+  const claimComment = useClaimComment();
+  const { getClaimedComment, storeClaimedComment, hasClaimedComment } = useClaimedComments();
 
-  const unlockedLists = commentLists.filter((l) => !l.locked);
-  const unlockedListIds = unlockedLists.map((l) => l.id);
+  const [selectedListId, setSelectedListId] = useState<string>("");
+  const [generatedComment, setGeneratedComment] = useState<string>("");
+  const [noCommentsLeft, setNoCommentsLeft] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isPreviousClaim, setIsPreviousClaim] = useState(false);
 
-  // Poll available counts for all unlocked lists every 5 seconds
-  const { data: availableCounts = {} } = useAvailableCountsForLists(unlockedListIds);
+  const selectedList: CommentList | null =
+    commentLists.find((l) => l.id === selectedListId) ?? null;
 
-  // Game visibility state
-  const [gameStarted, setGameStarted] = useState(false);
+  const availableLists = commentLists.filter((l) => !l.locked);
 
-  // Map of listId -> GeneratedState (persisted in localStorage)
-  const [generatedMap, setGeneratedMap] = useState<Record<string, GeneratedState>>(() => {
-    // Restore any previously generated comments from localStorage on mount
-    const restored: Record<string, GeneratedState> = {};
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(STORAGE_PREFIX)) {
-          const listId = key.slice(STORAGE_PREFIX.length);
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            restored[listId] = JSON.parse(raw);
-          }
-        }
-      }
-    } catch {
-      // ignore parse errors
+  // When list selection changes, check localStorage for a previously claimed comment
+  function handleSelectList(listId: string) {
+    setSelectedListId(listId);
+    setNoCommentsLeft(false);
+    setCopied(false);
+
+    const existing = getClaimedComment(listId);
+    if (existing) {
+      setGeneratedComment(existing.comment);
+      setIsPreviousClaim(true);
+    } else {
+      setGeneratedComment("");
+      setIsPreviousClaim(false);
     }
-    return restored;
-  });
+  }
 
-  // Track which list is currently loading
-  const [loadingListId, setLoadingListId] = useState<string | null>(null);
+  // On mount or when lists load, restore previously claimed comment if a list was already selected
+  useEffect(() => {
+    if (selectedListId) {
+      const existing = getClaimedComment(selectedListId);
+      if (existing) {
+        setGeneratedComment(existing.comment);
+        setIsPreviousClaim(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedListId]);
 
-  // Track copied state per list
-  const [copiedListId, setCopiedListId] = useState<string | null>(null);
-
-  const handleGenerate = async (listId: string) => {
-    // If already generated, show the stored result (no new request needed)
-    if (generatedMap[listId]) {
-      toast.info("You've already generated a comment from this list.");
+  const handleGenerate = async () => {
+    if (!selectedList) {
+      toast.error("Please select a comment list first.");
       return;
     }
 
-    setLoadingListId(listId);
+    // Check if this device already claimed a comment from this list
+    const existing = getClaimedComment(selectedList.id);
+    if (existing) {
+      setGeneratedComment(existing.comment);
+      setIsPreviousClaim(true);
+      toast.info("You already claimed a comment from this list.");
+      return;
+    }
+
     try {
-      const result = await assignMutation.mutateAsync({ listId, deviceId });
+      const result = await claimComment.mutateAsync(selectedList.id);
 
-      const state: GeneratedState = {
-        comment: result.comment,
-        isAlreadyGenerated: result.isAlreadyGenerated,
-      };
-
-      // Persist to localStorage
-      try {
-        localStorage.setItem(STORAGE_PREFIX + listId, JSON.stringify(state));
-      } catch {
-        // ignore storage errors
-      }
-
-      setGeneratedMap((prev) => ({ ...prev, [listId]: state }));
-
-      if (result.isAlreadyGenerated) {
-        toast.info("You've already generated a comment from this list.");
+      if (result.__kind__ === "claimSuccess") {
+        const comment = result.claimSuccess;
+        // Store in localStorage so this device always sees the same comment
+        storeClaimedComment(selectedList.id, comment);
+        setGeneratedComment(comment);
+        setNoCommentsLeft(false);
+        setIsPreviousClaim(false);
+        toast.success("Comment generated successfully!");
       } else {
-        toast.success("Comment generated!");
+        // noCommentsRemaining
+        setGeneratedComment("");
+        setNoCommentsLeft(true);
+        toast.error("No more comments left in this list.");
       }
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to generate comment.";
-
-      let userMessage = "Failed to generate comment. Please try again.";
-      if (message.includes("No available comments left")) {
-        userMessage = "No comments available in this list. Please check back later.";
-      } else if (message.includes("not found")) {
-        userMessage = "This comment list could not be found.";
-      }
-
-      const errorState: GeneratedState = {
-        comment: "",
-        isAlreadyGenerated: false,
-        error: userMessage,
-      };
-
-      setGeneratedMap((prev) => ({ ...prev, [listId]: errorState }));
-      toast.error(userMessage);
-    } finally {
-      setLoadingListId(null);
-    }
-  };
-
-  const handleCopy = async (text: string, listId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedListId(listId);
-      toast.success("Comment copied!");
-      setTimeout(() => setCopiedListId(null), 2000);
     } catch {
-      toast.error("Failed to copy");
+      toast.error("Failed to generate comment. Please try again.");
     }
   };
 
-  if (listsLoading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleCopy = () => {
+    if (!generatedComment) return;
+    navigator.clipboard.writeText(generatedComment).then(() => {
+      setCopied(true);
+      toast.success("Comment copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const isGenerating = claimComment.isPending;
+  const alreadyClaimed = selectedListId ? hasClaimedComment(selectedListId) : false;
 
   return (
-    <div className="space-y-4">
-      {/* Top-Down Shooter Game Card */}
-      <div className="space-card rounded-xl overflow-hidden">
-        {!gameStarted ? (
-          /* Pre-game card — matches screenshot layout */
-          <div className="p-6 flex flex-col items-center text-center gap-4">
-            <div className="flex items-center gap-2">
-              <Gamepad2 className="h-5 w-5 text-primary" />
-              <h3 className="gradient-heading text-xl font-bold">Top-Down Shooter</h3>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Use WASD or Arrow keys to move. Click to shoot.<br />
-              Survive as long as you can!
-            </p>
-            <Button
-              className="gradient-button px-8 py-2 font-semibold text-white rounded-full"
-              onClick={() => setGameStarted(true)}
-            >
-              Start Game
-            </Button>
+    <div className="space-y-6 animate-fade-in">
+      {/* Page Title */}
+      <div className="text-center pt-2">
+        <h2 className="text-3xl font-display font-bold gradient-heading">Customer View</h2>
+        <p className="text-muted-foreground mt-1">Generate comments, upload images, and view your activity</p>
+      </div>
+
+      {/* Top-Down Shooter Game */}
+      <div className="space-card p-0 overflow-hidden">
+        <div
+          className="px-5 pt-5 pb-4 flex items-center gap-3"
+          style={{ borderBottom: "1px solid oklch(0.28 0.04 240 / 0.5)" }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))" }}
+          >
+            <Gamepad2 className="w-5 h-5 text-white" />
           </div>
-        ) : (
-          /* Active game */
-          <div className="p-3">
+          <div>
+            <h3 className="font-display font-semibold text-base gradient-heading">Top-Down Shooter</h3>
+            <p className="text-xs text-muted-foreground">
+              Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!
+            </p>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="w-full overflow-hidden rounded-xl">
             <TopDownShooter />
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Single Comment Generator header */}
-      <div className="space-card p-4 rounded-xl">
-        <div className="flex items-center gap-2 mb-1">
-          <MessageSquare className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Comment Generator</h3>
+      {/* Single Comment Generator */}
+      <div className="space-card p-0 overflow-hidden">
+        {/* Card Header */}
+        <div
+          className="px-5 pt-5 pb-4 flex items-center gap-3"
+          style={{ borderBottom: "1px solid oklch(0.28 0.04 240 / 0.5)" }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.55 0.2 220), oklch(0.65 0.2 175))",
+              boxShadow: "0 0 16px oklch(0.55 0.2 220 / 0.4)",
+            }}
+          >
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-lg text-foreground">Single Comment Generator</h3>
+            <p className="text-sm text-muted-foreground">Each comment is a one-time treasure — first come, first served</p>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Each list gives you one unique comment per device. Generate once and it's yours to keep.
-        </p>
-      </div>
 
-      {unlockedLists.length === 0 ? (
-        <div className="space-card p-8 rounded-xl text-center">
-          <AlertCircle className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">No comment lists are available yet.</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">Check back later!</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {unlockedLists.map((list) => {
-            const state = generatedMap[list.id];
-            const isLoading = loadingListId === list.id;
-            const hasGenerated = !!state && !state.error;
-            const hasError = !!state?.error;
-            const isCopied = copiedListId === list.id;
-
-            // Available count from polling (falls back to list.availableCount from initial load)
-            const availableCount =
-              list.id in availableCounts
-                ? availableCounts[list.id]
-                : Number(list.availableCount);
-
-            const isExhausted = availableCount === 0;
-
-            return (
-              <div key={list.id} className="space-card rounded-xl overflow-hidden">
-                {/* List Header */}
-                <div className="p-4 flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-semibold text-foreground truncate">
-                        {list.displayName}
-                      </h4>
-                      {/* Available count badge */}
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
-                          isExhausted
-                            ? "bg-destructive/10 border-destructive/30 text-destructive"
-                            : "bg-primary/10 border-primary/30 text-primary"
-                        }`}
-                      >
-                        <Hash className="h-2.5 w-2.5" />
-                        {availableCount} left
-                      </span>
-                    </div>
-                    {state?.isAlreadyGenerated && (
-                      <p className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
-                        <RefreshCcw className="h-3 w-3" />
-                        Already generated from this list
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {hasGenerated && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={`h-8 w-8 transition-colors ${
-                          isCopied
-                            ? "text-green-400 hover:text-green-300"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                        onClick={() => handleCopy(state.comment, list.id)}
-                        title="Copy comment"
-                      >
-                        {isCopied ? (
-                          <CheckCircle2 className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-
-                    <Button
-                      size="sm"
-                      onClick={() => handleGenerate(list.id)}
-                      disabled={isLoading || (!hasGenerated && isExhausted)}
-                      className={`gap-1.5 text-xs ${
-                        hasGenerated
-                          ? "variant-outline border border-border bg-transparent text-muted-foreground hover:text-foreground"
-                          : isExhausted
-                          ? "opacity-50 cursor-not-allowed"
-                          : "gradient-button"
-                      }`}
-                      variant={hasGenerated ? "outline" : "default"}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Generating...
-                        </>
-                      ) : hasGenerated ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                          Generated
-                        </>
-                      ) : isExhausted ? (
-                        <>
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          Unavailable
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Generate
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Generated Comment */}
-                {hasGenerated && (
-                  <div className="px-4 pb-4">
-                    <div
-                      className="rounded-lg p-3 text-sm text-foreground leading-relaxed break-words"
-                      style={{
-                        background: "oklch(0.18 0.03 240 / 0.6)",
-                        border: "1px solid oklch(0.35 0.08 220 / 0.4)",
-                      }}
-                    >
-                      {state.comment}
-                    </div>
-                  </div>
-                )}
-
-                {/* Error State */}
-                {hasError && (
-                  <div className="px-4 pb-4">
-                    <div
-                      className="rounded-lg p-3 flex items-start gap-2 text-sm"
-                      style={{
-                        background: "oklch(0.18 0.04 25 / 0.4)",
-                        border: "1px solid oklch(0.4 0.12 25 / 0.4)",
-                      }}
-                    >
-                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                      <span className="text-destructive">{state.error}</span>
-                    </div>
-                  </div>
+        <div className="p-5 space-y-4">
+          {listsLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full bg-secondary" />
+              <Skeleton className="h-14 w-full bg-secondary" />
+              <Skeleton className="h-12 w-full bg-secondary" />
+            </div>
+          ) : (
+            <>
+              {/* Comment List Selector */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-foreground">Select Comment List</label>
+                {availableLists.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No comment lists available.</p>
+                ) : (
+                  <Select value={selectedListId} onValueChange={handleSelectList}>
+                    <SelectTrigger className="w-full bg-secondary border-border">
+                      <SelectValue placeholder="Choose a list..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableLists.map((list) => (
+                        <SelectItem key={list.id} value={list.id}>
+                          {list.displayName}
+                          {hasClaimedComment(list.id) && (
+                            <span className="ml-2 text-xs opacity-60">✓ claimed</span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
-            );
-          })}
+
+              {/* Previously claimed badge */}
+              {alreadyClaimed && selectedListId && !noCommentsLeft && (
+                <div
+                  className="flex items-center gap-2 rounded-xl px-4 py-2.5"
+                  style={{
+                    background: "oklch(0.2 0.05 200 / 0.4)",
+                    border: "1px solid oklch(0.45 0.12 200 / 0.5)",
+                  }}
+                >
+                  <History className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
+                  <p className="text-xs text-primary/90 font-medium">
+                    You've already claimed a comment from this list — showing your saved comment below.
+                  </p>
+                </div>
+              )}
+
+              {/* Status badges */}
+              {selectedList && !noCommentsLeft && !alreadyClaimed && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    Ready to claim
+                  </Badge>
+                </div>
+              )}
+
+              {/* No Comments Left Notice */}
+              {noCommentsLeft && selectedListId && (
+                <div
+                  className="flex items-center gap-3 rounded-xl px-4 py-3"
+                  style={{
+                    background: "oklch(0.2 0.06 25 / 0.4)",
+                    border: "1px solid oklch(0.5 0.15 25 / 0.5)",
+                  }}
+                >
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-destructive" />
+                  <p className="text-sm font-medium text-destructive">
+                    No more comments left — all comments in this list have been claimed.
+                  </p>
+                </div>
+              )}
+
+              {/* Generate Button — hidden if already claimed and comment is shown */}
+              {!alreadyClaimed && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={!selectedList || isGenerating || noCommentsLeft}
+                  className="w-full py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                  style={{
+                    background:
+                      !selectedList || noCommentsLeft
+                        ? "oklch(0.25 0.04 240)"
+                        : "linear-gradient(135deg, oklch(0.55 0.2 220) 0%, oklch(0.65 0.2 175) 50%, oklch(0.68 0.2 155) 100%)",
+                    color:
+                      !selectedList || noCommentsLeft
+                        ? "oklch(0.5 0.04 240)"
+                        : "oklch(0.98 0.005 240)",
+                    cursor:
+                      !selectedList || isGenerating || noCommentsLeft
+                        ? "not-allowed"
+                        : "pointer",
+                    boxShadow:
+                      !selectedList || noCommentsLeft
+                        ? "none"
+                        : "0 4px 20px oklch(0.55 0.2 220 / 0.4)",
+                    opacity: isGenerating ? 0.8 : 1,
+                  }}
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Claiming...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Generate Comment
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Generated Comment Output */}
+              {generatedComment && (
+                <div
+                  className="rounded-xl p-4 relative animate-fade-in"
+                  style={{
+                    background: "oklch(0.18 0.04 220 / 0.5)",
+                    border: isPreviousClaim
+                      ? "1px solid oklch(0.45 0.12 200 / 0.6)"
+                      : "1px solid oklch(0.4 0.1 175 / 0.5)",
+                  }}
+                >
+                  {isPreviousClaim && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <History className="w-3 h-3 text-primary/70" />
+                      <span className="text-xs text-primary/70 font-medium">Your saved comment</span>
+                    </div>
+                  )}
+                  <p className="text-sm text-foreground pr-10 whitespace-pre-wrap break-words leading-relaxed">
+                    {generatedComment}
+                  </p>
+                  <button
+                    onClick={handleCopy}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg transition-colors"
+                    style={{
+                      background: copied
+                        ? "oklch(0.65 0.2 155 / 0.2)"
+                        : "oklch(0.25 0.04 240 / 0.8)",
+                    }}
+                    title="Copy to clipboard"
+                  >
+                    {copied ? (
+                      <CheckCircle2 className="h-4 w-4" style={{ color: "oklch(0.75 0.22 155)" }} />
+                    ) : (
+                      <Copy className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                  <div className="mt-3 pt-3" style={{ borderTop: "1px solid oklch(0.3 0.05 220 / 0.4)" }}>
+                    <button
+                      onClick={handleCopy}
+                      className="w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.55 0.2 220) 0%, oklch(0.65 0.2 175) 100%)",
+                        color: "oklch(0.98 0.005 240)",
+                      }}
+                    >
+                      {copied ? (
+                        <><CheckCircle2 className="w-4 h-4" /> Copied!</>
+                      ) : (
+                        <><Copy className="w-4 h-4" /> Copy to Clipboard</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

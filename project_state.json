@@ -1,34 +1,250 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 3,
-  "summary": "Comment Management app with User View (Top-Down Shooter game in styled dark card box, Single Comment Generator), Upload, Live Checker, and Admin tabs. Dark space-themed background with floating geometric shapes and Time Until Midnight countdown.",
+  "projectStateVersion": 13,
+  "summary": "App review/rating platform with user-facing features (Single Comment Generator, Top-Down Shooter game, Upload tab, Live Checker tab) and an Admin Panel (password: 7898). Features include: Auto Import Live List (paste report, preview/import/save/clear, auto-detect app names, extract usernames, prevent duplicates, import summary, Motoko backend). New enhancements: (1) Public Live List Checker redesign with pill-style app checkboxes, Select All/Clear, single username input, results showing app name + Found/Not Found + sequential match position, added alongside existing checker; (2) App Price List stored permanently in Motoko backend, editable by admin, auto-calculates total matches × price = earnings per app + overall totals, shown in both public results and a dedicated Admin earnings section; (3) Admin Panel enhancements: manage apps, upload lists, set/update prices, bulk price upload, separate earnings section with per-app and grand total breakdown; (4) Fully public access, no login required, admin protected with code 7898.",
   "architectural_notes": [
-    "User View contains: Top-Down Shooter game card + Single Comment Generator section",
-    "Navigation tabs: User View, Upload, Live Checker, Admin",
-    "Do not modify Upload, Live Checker, or Admin tabs when making User View changes"
+    "Admin panel protected by hardcoded password: 7898",
+    "Data stored in Motoko canister backend (not localStorage) for global cross-device sync",
+    "Existing features to preserve: Single Comment Generator, Top-Down Shooter game, Upload tab, Live Checker tab, full Admin panel",
+    "App Price List stored permanently in Motoko backend, editable by admin anytime",
+    "Earnings calculation: total matches × price per entry per app, shown in both public results and admin earnings section"
   ],
-  "known_issues": [],
-  "isFixRequest": false,
+  "known_issues": [
+    "List creation failing in Admin Panel → Live List tab; List ID field needs removal from Create List form only",
+    "Upload function broken in Admin Panel → Live List tab (bulk username upload and Auto Import & Save)",
+    "Save Access Key failing in Admin Panel → Settings tab (backend authorization error)",
+    "List ID field still showing in Comments tab → Create Comment List form (needs removal)",
+    "Create Comment List failing with 'Unauthorized: Only admins can add comment lists' — admin principal check broken in Comments backend"
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-in-the-user-view-userview-tsx-add-a-dark-rounded-card-box-above-the-single-comment-generator-section-that-contains-a-top-down-shooter-title-styled-in-cyan-teal-gradient-text-instruction-text-use-wasd-or-arrow-keys-to-move-click-to-shoot-survive-as-long-as-you-can-and-a-start-game-button-the-card-should-use-the-existing-dark-glass-card-style-consistent-with-the-app-s-dark-space-theme-clicking-start-game-should-launch-the-existing-topdownshooter-canvas-game-inside-or-below-the-card",
-      "title": "In the User View (UserView.tsx), add a dark rounded card box above the Single Comment Generator section that contains: a 'Top-Down Shooter' title (styled in cyan/teal gradient text), instruction text ('Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'), and a 'Start Game' button. The card should use the existing dark glass-card style consistent with the app's dark space theme. Clicking 'Start Game' should launch the existing TopDownShooter canvas game inside or below the card.",
+      "id": "feature-add-a-new-auto-import-section-inside-the-admin-panel-live-list-tab-adminlivelist-tsx-this-section-must-include-a-large-textarea-labeled-paste-report-and-three-buttons-preview-import-import-save-and-clear-all-existing-live-list-functionality-create-rename-delete-app-lists-bulk-username-upload-via-text-or-file-username-checker-must-remain-fully-intact-and-unchanged",
+      "title": "Add a new 'Auto Import' section inside the Admin Panel → Live List tab (AdminLiveList.tsx). This section must include: a large textarea labeled 'Paste Report', and three buttons: 'Preview Import', 'Import & Save', and 'Clear'. All existing Live List functionality (create/rename/delete app lists, bulk username upload via text or file, username checker) must remain fully intact and unchanged.",
       "reqIds": [
         "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-client-side-parsing-logic-for-the-preview-import-button-when-clicked-parse-the-pasted-text-using-these-rules-1-detect-app-event-names-as-text-enclosed-between-asterisks-e-g-mstock-or-docx-editor-but-skip-date-lines-matching-a-date-pattern-like-14-02-2026-2-group-all-username-lines-that-appear-under-each-detected-app-block-3-strip-leading-numbering-from-usernames-e-g-10-abhi-aru-abhi-aru-4-trim-whitespace-preserve-original-casing-5-ignore-separator-lines-like-6-extract-optional-date-metadata-from-lines-matching-dd-mm-yyyy-pattern-display-a-preview-table-showing-detected-app-names-their-grouped-usernames-and-the-detected-date-if-any-if-no-app-blocks-are-detected-show-a-clear-error-message",
+      "title": "Implement client-side parsing logic for the 'Preview Import' button. When clicked, parse the pasted text using these rules: (1) Detect app/event names as text enclosed between asterisks, e.g. *Mstock* or *Docx editor* — but skip date lines matching a date pattern like *14/02/2026 :-*; (2) Group all username lines that appear under each detected app block; (3) Strip leading numbering from usernames (e.g. '10. Abhi Aru' → 'Abhi Aru'); (4) Trim whitespace, preserve original casing; (5) Ignore separator lines like '----------'; (6) Extract optional date metadata from lines matching *DD/MM/YYYY :-* pattern. Display a preview table showing detected app names, their grouped usernames, and the detected date (if any). If no app blocks are detected, show a clear error message.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-react-query-mutation-hook-useimportlivelist-in-usequeries-ts-that-calls-the-backend-importlivelist-function-and-invalidates-the-live-list-queries-on-success-wire-this-hook-to-the-import-save-button-in-adminlivelist-tsx-after-a-successful-import-display-a-summary-message-showing-total-apps-detected-total-usernames-added-and-total-duplicates-skipped-the-app-event-lists-ui-must-update-immediately-after-import-without-a-full-page-refresh",
+      "title": "Add a React Query mutation hook `useImportLiveList` in useQueries.ts that calls the backend `importLiveList` function and invalidates the live list queries on success. Wire this hook to the 'Import & Save' button in AdminLiveList.tsx. After a successful import, display a summary message showing: total apps detected, total usernames added, and total duplicates skipped. The App/Event Lists UI must update immediately after import without a full page refresh.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-the-clear-button-in-the-auto-import-section-must-reset-the-paste-report-textarea-and-remove-any-preview-or-summary-output-currently-displayed-returning-the-section-to-its-empty-initial-state",
+      "title": "The 'Clear' button in the Auto Import section must reset the 'Paste Report' textarea and remove any preview or summary output currently displayed, returning the section to its empty initial state.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-redesign-the-public-live-checker-tab-livechecker-tsx-to-match-the-uploaded-screenshot-dark-card-background-a-prominent-white-rounded-input-field-with-placeholder-enter-username-to-check-a-label-check-in-specific-lists-leave-empty-for-all-pill-style-checkbox-buttons-for-each-app-event-list-dark-outline-pills-with-checkbox-icon-app-name-select-all-teal-and-clear-white-underline-controls-and-a-full-width-teal-gradient-check-username-button-with-a-search-icon-when-no-apps-are-selected-checking-runs-against-all-lists-display-results-per-app-showing-app-name-found-not-found-status-and-sequential-match-position-if-found-add-this-new-multi-app-checker-above-or-alongside-the-existing-single-list-checker-without-removing-it",
+      "title": "Redesign the public Live Checker tab (LiveChecker.tsx) to match the uploaded screenshot: dark card background, a prominent white rounded input field with placeholder 'Enter username to check...', a label 'Check in specific lists (leave empty for all):', pill-style checkbox buttons for each app/event list (dark outline pills with checkbox icon + app name), 'Select All' (teal) and 'Clear' (white underline) controls, and a full-width teal gradient 'Check Username' button with a search icon. When no apps are selected, checking runs against all lists. Display results per app showing: App Name, Found/Not Found status (✅/❌), and sequential match position if found. Add this new multi-app checker above or alongside the existing single-list checker without removing it.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-react-query-hooks-in-frontend-src-hooks-usequeries-ts-for-the-new-price-list-and-earnings-backend-functions-usepricelist-query-usesetpriceentry-mutation-usedeletepriceentry-mutation-usebulksetprices-mutation-usecalculateallearnings-query-all-mutations-must-invalidate-pricelist-and-allearnings-query-caches-on-success",
+      "title": "Add React Query hooks in frontend/src/hooks/useQueries.ts for the new price list and earnings backend functions: `usePriceList` (query), `useSetPriceEntry` (mutation), `useDeletePriceEntry` (mutation), `useBulkSetPrices` (mutation), `useCalculateAllEarnings` (query). All mutations must invalidate `priceList` and `allEarnings` query caches on success.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-dedicated-app-pricing-tab-inside-the-admin-panel-adminview-tsx-this-tab-must-include-1-a-table-listing-all-current-price-entries-app-name-price-per-entry-active-inactive-status-with-edit-and-delete-actions-per-row-2-an-inline-form-to-add-or-edit-a-price-entry-app-name-input-price-input-active-toggle-save-button-3-a-bulk-upload-section-where-admin-can-paste-multiple-lines-in-format-appname-price-active-and-click-bulk-save-to-upsert-all-entries-at-once",
+      "title": "Add a dedicated 'App Pricing' tab inside the Admin Panel (AdminView.tsx). This tab must include: (1) A table listing all current price entries (App Name, Price per Entry, Active/Inactive status) with Edit and Delete actions per row; (2) An inline form to add or edit a price entry (app name input, price input, active toggle, Save button); (3) A bulk upload section where admin can paste multiple lines in format 'AppName,Price,Active' and click 'Bulk Save' to upsert all entries at once.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-dedicated-earnings-tab-inside-the-admin-panel-adminview-tsx-that-displays-the-auto-calculated-earnings-breakdown-show-a-per-app-table-with-columns-app-name-total-usernames-price-per-entry-total-amount-show-an-overall-summary-row-at-the-bottom-total-apps-total-valid-entries-total-earnings-include-a-refresh-button-to-re-fetch-the-latest-earnings-only-active-apps-appear-in-the-breakdown",
+      "title": "Add a dedicated 'Earnings' tab inside the Admin Panel (AdminView.tsx) that displays the auto-calculated earnings breakdown. Show a per-app table with columns: App Name, Total Usernames, Price per Entry, Total Amount. Show an overall summary row at the bottom: Total Apps, Total Valid Entries, Total Earnings. Include a 'Refresh' button to re-fetch the latest earnings. Only active apps appear in the breakdown.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-a-user-submits-a-username-check-in-the-public-live-checker-tab-display-an-earnings-summary-section-below-the-per-app-results-for-each-app-where-the-username-was-found-show-app-name-match-position-price-per-entry-if-a-price-is-configured-and-active-at-the-bottom-of-results-show-overall-totals-total-apps-found-in-total-entries-matched-total-earnings-amount-if-no-price-is-configured-for-an-app-omit-the-price-columns-for-that-app-but-still-show-the-found-result",
+      "title": "After a user submits a username check in the public Live Checker tab, display an earnings summary section below the per-app results. For each app where the username was found, show: App Name, match position, price per entry (if a price is configured and active). At the bottom of results, show overall totals: Total Apps Found In, Total Entries Matched, Total Earnings Amount. If no price is configured for an app, omit the price columns for that app but still show the found result.",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-create-list-function-in-the-admin-panel-live-list-tab-adminlivelist-tsx-so-that-new-app-event-lists-can-be-created-successfully-diagnose-and-resolve-any-backend-call-errors-incorrect-parameter-passing-or-state-mismatches-that-are-preventing-list-creation-from-completing",
+      "title": "Fix the Create List function in the Admin Panel → Live List tab (AdminLiveList.tsx) so that new app/event lists can be created successfully. Diagnose and resolve any backend call errors, incorrect parameter passing, or state mismatches that are preventing list creation from completing.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-the-list-id-input-field-from-the-create-list-form-dialog-only-in-adminlivelist-tsx-the-list-id-must-not-appear-in-the-create-list-form-or-dialog-all-other-places-in-the-live-list-ui-where-a-list-id-is-displayed-e-g-the-list-management-table-upload-forms-checker-must-remain-completely-unchanged",
+      "title": "Remove the List ID input field from the Create List form/dialog only in AdminLiveList.tsx. The List ID must not appear in the create list form or dialog. All other places in the Live List UI where a List ID is displayed (e.g., the list management table, upload forms, checker) must remain completely unchanged.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bulk-username-upload-function-in-the-admin-panel-live-list-tab-adminlivelist-tsx-so-that-uploading-usernames-via-text-input-and-via-file-upload-both-work-correctly-diagnose-and-resolve-any-backend-call-failures-actor-invocation-errors-or-parameter-mismatches-causing-the-upload-to-fail",
+      "title": "Fix the bulk username upload function in the Admin Panel → Live List tab (AdminLiveList.tsx) so that uploading usernames via text input and via file upload both work correctly. Diagnose and resolve any backend call failures, actor invocation errors, or parameter mismatches causing the upload to fail.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-auto-import-save-function-in-the-admin-panel-live-list-tab-adminlivelist-tsx-so-that-parsed-app-username-data-from-the-paste-report-textarea-is-correctly-sent-to-the-backend-importlivelist-function-and-saved-diagnose-and-resolve-any-mutation-errors-incorrect-argument-shapes-or-actor-call-failures-preventing-the-import-from-completing",
+      "title": "Fix the Auto Import & Save function in the Admin Panel → Live List tab (AdminLiveList.tsx) so that parsed app/username data from the 'Paste Report' textarea is correctly sent to the backend `importLiveList` function and saved. Diagnose and resolve any mutation errors, incorrect argument shapes, or actor call failures preventing the import from completing.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-frontend-actor-construction-in-adminsettings-tsx-and-adminlivelist-tsx-and-any-other-admin-sub-views-that-call-mutation-functions-so-that-the-actor-passed-to-backend-mutation-calls-uses-an-authenticated-identity-rather-than-the-anonymous-identity-all-admin-mutations-createlist-addusernames-importlivelist-setaccesskey-etc-must-be-invoked-with-the-admin-authenticated-actor-so-authorization-checks-pass",
+      "title": "Fix the frontend actor construction in AdminSettings.tsx and AdminLiveList.tsx (and any other admin sub-views that call mutation functions) so that the actor passed to backend mutation calls uses an authenticated identity rather than the anonymous identity. All admin mutations (createList, addUsernames, importLiveList, setAccessKey, etc.) must be invoked with the admin-authenticated actor so authorization checks pass.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bulk-username-upload-in-adminlivelist-tsx-both-text-input-and-file-upload-paths-so-that-usernames-are-correctly-passed-to-the-backend-addusernamestoevent-function-diagnose-and-resolve-any-incorrect-argument-shapes-parameter-mismatches-or-actor-invocation-errors-preventing-the-upload-from-completing-successfully",
+      "title": "Fix the bulk username upload in AdminLiveList.tsx (both text input and file upload paths) so that usernames are correctly passed to the backend `addUsernamesToEvent` function. Diagnose and resolve any incorrect argument shapes, parameter mismatches, or actor invocation errors preventing the upload from completing successfully.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-auto-import-save-function-in-adminlivelist-tsx-so-that-parsed-app-username-data-from-the-paste-report-textarea-is-correctly-sent-to-the-backend-importlivelist-function-ensure-the-mutation-argument-shape-matches-the-backend-function-signature-exactly-and-that-the-authenticated-actor-is-used-for-the-call",
+      "title": "Fix the Auto Import & Save function in AdminLiveList.tsx so that parsed app/username data from the 'Paste Report' textarea is correctly sent to the backend `importLiveList` function. Ensure the mutation argument shape matches the backend function signature exactly, and that the authenticated actor is used for the call.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-remove-the-list-id-e-g-instagram-input-field-from-the-create-comment-list-form-in-admincomments-tsx-the-list-id-field-must-not-appear-in-the-create-form-the-display-name-and-suffix-fields-must-remain-the-backend-list-id-should-be-auto-generated-from-the-display-name-e-g-lowercased-and-slugified-all-other-places-in-the-comments-ui-where-a-list-id-is-displayed-list-management-table-etc-must-remain-unchanged",
+      "title": "Remove the 'List ID (e.g. instagram)' input field from the Create Comment List form in AdminComments.tsx. The List ID field must not appear in the create form. The Display Name and Suffix fields must remain. The backend list ID should be auto-generated from the display name (e.g., lowercased and slugified). All other places in the Comments UI where a list ID is displayed (list management table, etc.) must remain unchanged.",
+      "reqIds": [
+        "REQ-22"
       ],
       "version": 1
     }
   ],
   "new_feature_requests": [
     {
-      "id": "AR-1",
-      "summary": "Add Top-Down Shooter game in a styled dark rounded card box in User View only, with title, instructions, and Start Game button",
+      "id": "AR-2",
+      "summary": "Add Auto Import Live List feature to Admin Panel → Live List tab: paste report textarea, Preview Import / Import & Save / Clear buttons, auto-detect app names between * *, extract/group usernames, strip numbering, save optional date metadata, prevent duplicates, show import summary, store in Motoko backend globally synced across devices. Admin protected with password 7898.",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Add a backend Motoko function `importLiveList` that accepts an array of (appName: Text, usernames: [Text], importDate: ?Text) entries and for each entry: (1) creates the app/event list if it does not already exist; (2) adds usernames to that app's list, skipping any username that already exists in it (duplicate prevention); (3) stores the optional importDate as metadata on the import batch. Return a summary record containing: totalAppsDetected (Nat), totalUsernamesAdded (Nat), totalDuplicatesSkipped (Nat).",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Redesign public Live Checker tab: pill-style app checkboxes, Select All/Clear, single username input, Check Username button. Results show App Name + Found/Not Found + sequential match position. Added alongside existing checker, fully public (no login required).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Add App Price List stored permanently in Motoko backend, editable by admin (App Name, Price per entry, Active/Inactive). Auto-calculate total matches × price = earnings per app. Show earnings summary in both public checker results and a dedicated Admin Panel earnings section (per-app breakdown + grand total).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Admin Panel enhancements: manage apps, upload username lists per app, set/update price per app, bulk price list upload, edit/enable/disable apps. Add dedicated separate earnings section showing per-app summary (app name, total found, price/entry, total amount) and overall totals (total apps, total valid entries, total earnings).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Add an App Price List data model to the Motoko backend (backend/main.mo). Each price entry contains: appName (Text), pricePerEntry (Float), isActive (Bool). Implement the following functions: (1) `setPriceEntry(appName: Text, pricePerEntry: Float, isActive: Bool)` — creates or updates the price entry for an app; (2) `getPriceList()` — returns all price entries; (3) `deletePriceEntry(appName: Text)` — removes a price entry; (4) `bulkSetPrices(entries: [(Text, Float, Bool)])` — upserts multiple price entries in one call. Persist price entries in stable storage so they survive upgrades.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Add a `calculateEarnings(appName: Text)` and `calculateAllEarnings()` backend function in backend/main.mo. `calculateEarnings` returns for a single app: totalUsernamesFound (Nat, total usernames in that app's list), pricePerEntry (Float), totalAmount (Float), isActive (Bool). `calculateAllEarnings` returns an array of per-app earnings records plus an overall summary: totalAppsWithPrices (Nat), totalValidEntries (Nat), totalEarnings (Float). Only Active apps are included in calculations.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Fix the backend authorization check for the `addAppEvent` (Create App/Event List) function in backend/main.mo so that it correctly recognizes the admin caller and allows list creation. The current error is 'Unauthorized: Only admins can add app events' even when called from the Admin Panel. Ensure the admin identity/principal check is correctly implemented and matches how the frontend actor is constructed.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Fix the backend authorization check for the `setAccessKey` (Save Access Key) function in backend/main.mo so that it correctly recognizes the admin caller and allows saving the access key. The current error is 'Failed to save access key'. Ensure the admin identity/principal check works the same way as other admin-gated functions.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix used for Live List authorization.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix that was used to resolve the Live List and Settings authorization issues — ensure the admin identity/principal check is consistent across all admin-gated functions.",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Fix the frontend actor construction in AdminComments.tsx so that all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.) use the authenticated admin actor rather than the anonymous identity, consistent with the fix applied to AdminLiveList.tsx and AdminSettings.tsx.",
+      "reqIds": [
+        "REQ-24"
+      ],
       "status": "pending"
     }
   ],
-  "gameProjectType": "2d",
-  "projectName": "Comment Management",
+  "gameProjectType": "none",
+  "projectName": "Promote version 22 to live",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

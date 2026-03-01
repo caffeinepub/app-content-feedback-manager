@@ -1,25 +1,30 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-28T11:55:27.433Z",
+  "generatedAt": "2026-03-01T10:01:46.574Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 2,
+    "implemented": 0,
     "items": [
       {
-        "id": "REQ-1",
-        "summary": "In the User View (UserView.tsx), add a dark rounded card box above the Single Comment Generator section that contains: a 'Top-Down Shooter' title (styled in cyan/teal gradient text), instruction text ('Use WASD or Arrow keys to move. Click to shoot. Survive as long as you can!'), and a 'Start Game' button. The card should use the existing dark glass-card style consistent with the app's dark space theme. Clicking 'Start Game' should launch the existing TopDownShooter canvas game inside or below the card.",
-        "status": "implemented",
+        "id": "REQ-23",
+        "summary": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix that was used to resolve the Live List and Settings authorization issues — ensure the admin identity/principal check is consistent across all admin-gated functions.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-24",
+        "summary": "Fix the frontend actor construction in AdminComments.tsx so that all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.) use the authenticated admin actor rather than the anonymous identity, consistent with the fix applied to AdminLiveList.tsx and AdminSettings.tsx.",
+        "status": "missing",
         "plannedFiles": [
-          "frontend/src/views/UserView.tsx"
+          "frontend/src/views/admin/AdminComments.tsx"
         ],
-        "matchedFiles": [
-          "frontend/src/views/UserView.tsx"
-        ]
+        "matchedFiles": []
       }
     ]
   },
@@ -28,7 +33,7 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/views/UserView.tsx",
+    "frontend/src/hooks/useQueries.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

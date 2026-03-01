@@ -7,9 +7,11 @@ import { AdminImages } from './AdminImages';
 import { AdminChat } from './AdminChat';
 import AdminLiveList from './AdminLiveList';
 import AdminSettings from './AdminSettings';
-import { MessageSquare, Sparkles, ImageIcon, MessagesSquare, Users, Settings } from 'lucide-react';
+import AdminPricing from './AdminPricing';
+import AdminEarnings from './AdminEarnings';
+import { MessageSquare, Sparkles, ImageIcon, MessagesSquare, Users, Settings, DollarSign, TrendingUp } from 'lucide-react';
 
-type AdminTab = 'comments' | 'ai' | 'images' | 'chat' | 'livelist' | 'settings';
+type AdminTab = 'comments' | 'ai' | 'images' | 'chat' | 'livelist' | 'pricing' | 'earnings' | 'settings';
 
 const adminTabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'comments', label: 'Comments', icon: <MessageSquare className="w-4 h-4" /> },
@@ -17,6 +19,8 @@ const adminTabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
   { id: 'images', label: 'Images', icon: <ImageIcon className="w-4 h-4" /> },
   { id: 'chat', label: 'Chat', icon: <MessagesSquare className="w-4 h-4" /> },
   { id: 'livelist', label: 'Live List', icon: <Users className="w-4 h-4" /> },
+  { id: 'pricing', label: 'App Pricing', icon: <DollarSign className="w-4 h-4" /> },
+  { id: 'earnings', label: 'Earnings', icon: <TrendingUp className="w-4 h-4" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
 ];
 
@@ -37,7 +41,7 @@ export function AdminView() {
 
       {/* Sub-tabs */}
       <div className="flex overflow-x-auto gap-1 pb-1" style={{ scrollbarWidth: 'none' }}>
-        {adminTabs.map(tab => (
+        {adminTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -46,7 +50,11 @@ export function AdminView() {
                 ? 'text-white shadow-neon'
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
             }`}
-            style={activeTab === tab.id ? { background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' } : {}}
+            style={
+              activeTab === tab.id
+                ? { background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }
+                : {}
+            }
           >
             {tab.icon}
             <span>{tab.label}</span>
@@ -61,6 +69,8 @@ export function AdminView() {
         {activeTab === 'images' && <AdminImages />}
         {activeTab === 'chat' && <AdminChat />}
         {activeTab === 'livelist' && <AdminLiveList />}
+        {activeTab === 'pricing' && <AdminPricing />}
+        {activeTab === 'earnings' && <AdminEarnings />}
         {activeTab === 'settings' && <AdminSettings />}
       </div>
     </div>
