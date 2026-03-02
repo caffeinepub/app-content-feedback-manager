@@ -1,27 +1,129 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Admin Authorization Error & Merge Earnings into Live List Tab",
+  "title": "Add Internet Identity admin login, music upload, countdown timer, and day/night toggle",
   "requirements": [
     {
-      "id": "REQ-2",
-      "summary": "Remove the separate 'Earnings' tab from the main navigation and merge the EarningsChecker view directly into the Live Checker tab",
+      "id": "REQ-1",
+      "summary": "Replace password-based admin unlock with Internet Identity authentication and principal-based access control",
       "acceptanceCriteria": [
-        "The standalone 'Earnings' tab is no longer visible in the main navigation.",
-        "The EarningsChecker content (username lookup, wallet entry, payout request) is accessible from within the Live Checker tab.",
-        "No earnings functionality is lost — all EarningsChecker features remain fully functional after the merge.",
-        "The Live Checker tab layout is coherent with the merged earnings section (e.g., as a sub-section or secondary tab within Live Checker)."
+        "Clicking 'Admin' tab shows an Internet Identity login prompt instead of a password form",
+        "After II login, only principals on the admin allowlist can view the admin panel",
+        "Non-allowlisted principals see an 'Access Denied' message",
+        "Admin can log out and the panel returns to the login prompt",
+        "The useAdminAuth hook or AdminUnlock component is replaced/updated to use useInternetIdentity"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/components/AdminUnlock.tsx",
           "operation": "modify",
-          "description": "Remove the 'Earnings' tab from the main navigation. Update the tab list to only include: User View, Upload, Live Checker, and Admin. Remove the TabPanel for Earnings and its associated imports."
+          "description": "Replace the password-based unlock screen with Internet Identity authentication. Remove the password input form and localStorage-based validation. Instead, use the useInternetIdentity hook to check if the user is authenticated. After authentication, call the backend's isCallerAdmin() method via useQueries to verify the principal is on the admin allowlist. Display an 'Access Denied' message if the principal is not an admin. Add a logout button that calls clear() from useInternetIdentity and clears the React Query cache. Use the authorization component's access control pattern: check authentication state, then check admin status, and gate content accordingly."
         },
         {
-          "path": "frontend/src/views/LiveChecker.tsx",
+          "path": "frontend/src/hooks/useAdminAuth.ts",
           "operation": "modify",
-          "description": "Add the EarningsChecker view as a secondary tab or accordion section within the Live Checker view. Implement a sub-navigation or toggle mechanism (e.g., tabs within the view) to allow users to switch between 'Username Checker' and 'Earnings Lookup'. Import and embed the EarningsChecker component so users can access earnings lookup, wallet entry, and payout request functionality without leaving the Live Checker tab. Ensure the layout is coherent and both features are accessible."
+          "description": "Convert the useAdminAuth hook to use Internet Identity instead of localStorage-based password validation. Replace the unlock/lock functions with login/logout functions that delegate to useInternetIdentity. Add a check using the backend's isCallerAdmin() query (from useQueries) to determine admin status. Return isAuthenticated (from II), isAdmin (from backend query), and login/logout functions. Remove all references to the hardcoded password code and localStorage admin state."
+        },
+        {
+          "path": "frontend/src/views/admin/AdminView.tsx",
+          "operation": "modify",
+          "description": "Update AdminView to use the revised useAdminAuth hook. Remove any references to the old password-based unlock flow. Ensure that the AdminUnlock component is rendered when the user is not authenticated or not an admin. Pass the authentication and admin status from useAdminAuth to AdminUnlock as props if needed, or let AdminUnlock read them directly from the hook."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Add admin music upload feature and global play/pause toggle in top navigation bar",
+      "acceptanceCriteria": [
+        "AdminSettings has a file input to upload an audio file; the file is saved to the backend",
+        "All users' clients automatically load and loop the uploaded track",
+        "A music play/pause button appears in the top-right corner of the top nav bar",
+        "Clicking the button toggles playback on/off for that user",
+        "If no music has been uploaded, the button is hidden or disabled",
+        "The existing useBackgroundMusic hook is wired to the backend-stored music URL"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/views/admin/AdminSettings.tsx",
+          "operation": "modify",
+          "description": "Add a file input field for uploading an audio file (accept='audio/*'). Use the blob-storage component's ExternalBlob.fromBytes() to wrap the selected file. Call the backend's updateSettings mutation (from useQueries) with the ExternalBlob as the musicFile parameter. Display upload progress using withUploadProgress if desired. Show a success message after the upload completes. Verify the blob-storage component's usage instructions before implementing. Add a note that the backend will store the ExternalBlob reference and return it via getPublicSettings."
+        },
+        {
+          "path": "frontend/src/hooks/useBackgroundMusic.ts",
+          "operation": "modify",
+          "description": "Update the hook to accept a musicFile parameter of type ExternalBlob | undefined (from the backend's PublicSettings). If musicFile is present, call musicFile.getDirectURL() to retrieve the streaming URL and set it as the audio element's src. If musicFile is undefined, do not play anything. Keep the existing play/pause toggle logic. Ensure the audio element is set to loop."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Add a useQuery hook to fetch the backend's getPublicSettings() (from useQueries). Pass the returned musicFile and bgMusicEnabled to the useBackgroundMusic hook. Add a play/pause button in the top-right corner of the top navigation bar (next to any existing controls). The button should call the play/pause functions from useBackgroundMusic. Show a play icon when paused and a pause icon when playing. If musicFile is undefined, hide or disable the button. Ensure the button is visible to all users regardless of login state."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a useQuery hook named useGetPublicSettings that calls actor.getPublicSettings() and returns the PublicSettings object containing bgMusicEnabled and musicFile (ExternalBlob | undefined). Set a reasonable staleTime to avoid excessive polling. Ensure the query is enabled even when the user is not authenticated (use an anonymous actor if needed)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Implement configurable countdown timer visible to all users with admin controls",
+      "acceptanceCriteria": [
+        "A countdown timer (HH:MM:SS) is visible on the main UI for all users",
+        "Admin panel includes a form to set a new countdown duration or target datetime",
+        "Admin can reset or update the timer at any time",
+        "The countdown target is stored in the backend and fetched by all clients",
+        "When the timer reaches zero it displays '00:00:00' and does not go negative",
+        "The existing useCountdown hook is replaced or extended to use the backend-stored target time"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useCountdown.ts",
+          "operation": "modify",
+          "description": "Replace the hardcoded midnight countdown logic with a query to the backend's getCountdownState() method (from useQueries). The backend returns a CountdownState with isActive and targetTime (Time/bigint). Convert the targetTime to a JavaScript Date and calculate the remaining hours, minutes, and seconds. Update the countdown every second using setInterval. When the timer reaches zero, display '00:00:00' and stop decrementing. Return the countdown values and the isActive flag."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Update the countdown timer display to use the revised useCountdown hook. Ensure the timer is visible on the main UI for all users (not gated by authentication). Display the countdown in HH:MM:SS format. If the countdown is not active (isActive is false), display '00:00:00' or a placeholder message."
+        },
+        {
+          "path": "frontend/src/views/admin/AdminSettings.tsx",
+          "operation": "modify",
+          "description": "Add a countdown timer configuration section to the AdminSettings panel. Include a datetime-local input or a duration input (e.g., number of hours/minutes) for the admin to set the target time. Add a 'Set Countdown' button that calls the backend's setCountdown(targetTime) mutation (from useQueries) with the selected timestamp converted to a bigint (nanoseconds since epoch). Add a 'Reset Countdown' button that calls the backend's resetCountdown() mutation. Display the current countdown target time from getCountdownState() for reference. Show success/error feedback after each action."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a useQuery hook named useGetCountdownState that calls actor.getCountdownState() and returns the CountdownState object. Add mutation hooks for setCountdown, resetCountdown, pauseCountdown, and resumeCountdown that call the corresponding backend methods. Invalidate the countdown state query after each mutation completes."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Add day/night (light/dark mode) toggle button to the top navigation bar",
+      "acceptanceCriteria": [
+        "A sun/moon icon button appears in the top navigation bar",
+        "Clicking the button toggles between light and dark themes app-wide",
+        "The selected theme is persisted in localStorage and restored on page reload",
+        "Both light and dark themes use the existing CSS custom properties defined in index.css",
+        "The toggle is visible and functional without any login"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useTheme.ts",
+          "operation": "create",
+          "description": "Create a custom hook that manages the light/dark theme state. Use useState to track the current theme (default to 'dark' to match the existing design). On mount, read the saved theme from localStorage ('theme' key) and apply it. Expose a toggleTheme function that switches between 'light' and 'dark', saves the new value to localStorage, and updates the document root's data-theme attribute or a class (e.g., document.documentElement.classList). Return the current theme and the toggleTheme function."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Import and call the useTheme hook at the top of the App component. Add a sun/moon icon button in the top-right corner of the top navigation bar (next to the music toggle). The button should call toggleTheme from useTheme when clicked. Display a sun icon when in dark mode (to indicate switching to light) and a moon icon when in light mode (to indicate switching to dark). Ensure the button is visible and functional without any login. Position the button alongside other top-bar controls."
+        },
+        {
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Add a light theme variant by defining CSS custom properties for light mode under a [data-theme='light'] or .light selector. Override the existing --background, --foreground, --card, --primary, --secondary, --muted, --accent, --border, and other color tokens with light-appropriate OKLCH values. Ensure the dark theme remains the default when no data-theme attribute is present. Keep all existing custom properties and utility classes intact."
         }
       ]
     }

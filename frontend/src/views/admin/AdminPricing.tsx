@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Upload, DollarSign, Edit2, Save, X } from 'lucide-react';
 import {
-  useGetPriceList,
+  usePriceList,
   useSetPriceEntry,
   useDeletePriceEntry,
   useBulkSetPrices,
@@ -9,7 +9,7 @@ import {
 import type { PriceEntry } from '../../backend';
 
 export default function AdminPricing() {
-  const { data: priceList = [], isLoading } = useGetPriceList();
+  const { data: priceList = [], isLoading } = usePriceList();
   const setPriceEntry = useSetPriceEntry();
   const deletePriceEntry = useDeletePriceEntry();
   const bulkSetPrices = useBulkSetPrices();
@@ -60,11 +60,11 @@ export default function AdminPricing() {
     }
   };
 
-  const handleDelete = async (appName: string) => {
+  const handleDelete = async (name: string) => {
     setError(null);
-    if (!confirm(`Delete price entry for "${appName}"?`)) return;
+    if (!confirm(`Delete price entry for "${name}"?`)) return;
     try {
-      await deletePriceEntry.mutateAsync(appName);
+      await deletePriceEntry.mutateAsync(name);
     } catch (err: any) {
       setError(err.message || 'Failed to delete price entry');
     }
@@ -104,22 +104,22 @@ export default function AdminPricing() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fadeInUp">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.65 0.18 145 / 0.12)', border: '1px solid oklch(0.65 0.18 145 / 0.3)', color: 'oklch(0.72 0.20 145)' }}>
           {success}
         </div>
       )}
 
       {/* Add Price Entry */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary" />
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 gradient-heading flex items-center gap-2">
+          <Plus className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
           Add Price Entry
         </h3>
         <form onSubmit={handleAdd} className="space-y-3">
@@ -128,7 +128,7 @@ export default function AdminPricing() {
             value={appName}
             onChange={e => setAppName(e.target.value)}
             placeholder="App name"
-            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input w-full px-3 py-2.5 text-sm"
           />
           <div className="flex gap-2">
             <input
@@ -138,9 +138,16 @@ export default function AdminPricing() {
               placeholder="Price per entry"
               step="0.01"
               min="0"
-              className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="glass-input flex-1 px-3 py-2.5 text-sm"
             />
-            <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/30 border border-border text-sm text-foreground cursor-pointer">
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-rajdhani cursor-pointer transition-all duration-200"
+              style={{
+                background: isActive ? 'oklch(0.65 0.18 145 / 0.15)' : 'oklch(0.14 0.03 260 / 0.6)',
+                border: `1px solid ${isActive ? 'oklch(0.65 0.18 145 / 0.3)' : 'oklch(0.28 0.06 260 / 0.4)'}`,
+                color: isActive ? 'oklch(0.72 0.20 145)' : 'oklch(0.55 0.04 260)',
+              }}
+            >
               <input
                 type="checkbox"
                 checked={isActive}
@@ -153,10 +160,15 @@ export default function AdminPricing() {
           <button
             type="submit"
             disabled={setPriceEntry.isPending || !appName.trim() || !price}
-            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              opacity: (setPriceEntry.isPending || !appName.trim() || !price) ? 0.5 : 1,
+            }}
           >
             {setPriceEntry.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Plus className="w-3.5 h-3.5" />
             )}
@@ -166,49 +178,54 @@ export default function AdminPricing() {
       </div>
 
       {/* Price List Table */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-primary" />
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <DollarSign className="w-4 h-4" />
           Price List ({priceList.length} entries)
         </h3>
         {isLoading ? (
-          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>Loading...</div>
         ) : priceList.length === 0 ? (
-          <div className="text-muted-foreground text-sm text-center py-4">No price entries yet</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>No price entries yet</div>
         ) : (
           <div className="space-y-2">
             {priceList.map(entry => (
-              <div key={entry.appName} className="flex items-center gap-2 p-3 bg-background/30 rounded-xl border border-border/50">
+              <div
+                key={entry.appName}
+                className="flex items-center gap-2 p-3 rounded-xl"
+                style={{ background: 'oklch(0.10 0.025 260 / 0.6)', border: '1px solid oklch(0.22 0.05 260 / 0.4)' }}
+              >
                 {editingApp === entry.appName ? (
                   <>
-                    <div className="flex-1 font-medium text-foreground text-sm">{entry.appName}</div>
+                    <div className="flex-1 font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.85 0.05 80)' }}>{entry.appName}</div>
                     <input
                       type="number"
                       value={editPrice}
                       onChange={e => setEditPrice(e.target.value)}
                       step="0.01"
                       min="0"
-                      className="w-24 px-2 py-1 rounded bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      className="glass-input w-24 px-2 py-1 text-sm"
                     />
-                    <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
+                    <label className="flex items-center gap-1 text-xs font-rajdhani cursor-pointer" style={{ color: 'oklch(0.60 0.04 260)' }}>
                       <input
                         type="checkbox"
                         checked={editActive}
                         onChange={e => setEditActive(e.target.checked)}
-                        className="rounded"
                       />
                       Active
                     </label>
                     <button
                       onClick={() => handleEdit(entry)}
                       disabled={setPriceEntry.isPending}
-                      className="p-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)' }}
                     >
                       <Save className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setEditingApp(null)}
-                      className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      style={{ color: 'oklch(0.55 0.04 260)' }}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -216,22 +233,33 @@ export default function AdminPricing() {
                 ) : (
                   <>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground text-sm truncate">{entry.appName}</div>
-                      <div className="text-xs text-muted-foreground">₹{entry.pricePerEntry.toFixed(2)} per entry</div>
+                      <div className="font-rajdhani font-600 text-sm truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>{entry.appName}</div>
+                      <div className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>
+                        ₹{entry.pricePerEntry.toFixed(2)} per entry
+                      </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${entry.isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    <span
+                      className="text-xs font-orbitron font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: entry.isActive ? 'oklch(0.65 0.18 145 / 0.15)' : 'oklch(0.55 0.22 25 / 0.15)',
+                        color: entry.isActive ? 'oklch(0.72 0.20 145)' : 'oklch(0.65 0.22 25)',
+                        border: `1px solid ${entry.isActive ? 'oklch(0.65 0.18 145 / 0.3)' : 'oklch(0.55 0.22 25 / 0.3)'}`,
+                      }}
+                    >
                       {entry.isActive ? 'Active' : 'Inactive'}
                     </span>
                     <button
-                      onClick={() => { setEditingApp(entry.appName); setEditPrice(entry.pricePerEntry.toString()); setEditActive(entry.isActive); }}
-                      className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                      onClick={() => { setEditingApp(entry.appName); setEditPrice(String(entry.pricePerEntry)); setEditActive(entry.isActive); }}
+                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)' }}
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(entry.appName)}
                       disabled={deletePriceEntry.isPending}
-                      className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      style={{ background: 'oklch(0.55 0.22 25 / 0.12)', color: 'oklch(0.65 0.22 25)' }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -244,28 +272,33 @@ export default function AdminPricing() {
       </div>
 
       {/* Bulk Upload */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Upload className="w-4 h-4 text-primary" />
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <Upload className="w-4 h-4" />
           Bulk Upload Prices
         </h3>
-        <p className="text-xs text-muted-foreground mb-3">
-          Format: <code className="bg-background/50 px-1 rounded">AppName, Price, Active(true/false)</code> — one per line
+        <p className="text-xs font-rajdhani mb-3" style={{ color: 'oklch(0.50 0.04 260)' }}>
+          Format: AppName, Price, [true/false] — one per line
         </p>
         <textarea
           value={bulkText}
           onChange={e => setBulkText(e.target.value)}
-          placeholder="Instagram, 2.50, true&#10;YouTube, 3.00, true&#10;TikTok, 1.50, false"
+          placeholder="AppName1, 10.00, true&#10;AppName2, 5.50, false"
           rows={5}
-          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-3"
+          className="glass-input w-full px-3 py-2.5 text-sm resize-none mb-3"
         />
         <button
           onClick={handleBulkUpload}
           disabled={bulkSetPrices.isPending || !bulkText.trim()}
-          className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+          style={{
+            background: 'linear-gradient(135deg, oklch(0.70 0.20 185), oklch(0.75 0.18 65))',
+            color: 'oklch(0.08 0.02 260)',
+            opacity: (bulkSetPrices.isPending || !bulkText.trim()) ? 0.5 : 1,
+          }}
         >
           {bulkSetPrices.isPending ? (
-            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
           ) : (
             <Upload className="w-3.5 h-3.5" />
           )}

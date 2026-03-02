@@ -27,9 +27,9 @@ export default function UserView() {
   const [isPreviousClaim, setIsPreviousClaim] = useState(false);
 
   const selectedList: CommentList | null =
-    commentLists.find((l) => l.id === selectedListId) ?? null;
+    commentLists.find((l: CommentList) => l.id === selectedListId) ?? null;
 
-  const availableLists = commentLists.filter((l) => !l.locked);
+  const availableLists: CommentList[] = commentLists.filter((l: CommentList) => !l.locked);
 
   // When list selection changes, check localStorage for a previously claimed comment
   function handleSelectList(listId: string) {
@@ -184,7 +184,7 @@ export default function UserView() {
                       <SelectValue placeholder="Choose a list..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableLists.map((list) => (
+                      {availableLists.map((list: CommentList) => (
                         <SelectItem key={list.id} value={list.id}>
                           {list.displayName}
                           {hasClaimedComment(list.id) && (
@@ -324,11 +324,8 @@ export default function UserView() {
                         color: "oklch(0.98 0.005 240)",
                       }}
                     >
-                      {copied ? (
-                        <><CheckCircle2 className="w-4 h-4" /> Copied!</>
-                      ) : (
-                        <><Copy className="w-4 h-4" /> Copy to Clipboard</>
-                      )}
+                      <Copy className="w-4 h-4" />
+                      {copied ? "Copied!" : "Copy Comment"}
                     </button>
                   </div>
                 </div>

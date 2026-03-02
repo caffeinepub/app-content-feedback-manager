@@ -84,19 +84,24 @@ export const BulkCommentsResult = IDL.Record({
   'generatedCount' : IDL.Nat,
   'comments' : IDL.Vec(IDL.Text),
 });
-export const Earning = IDL.Record({
-  'walletPhone' : IDL.Opt(IDL.Text),
-  'username' : IDL.Text,
-  'totalAmount' : IDL.Nat,
+export const WithdrawalStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'completed' : IDL.Null,
+  'rejected' : IDL.Null,
 });
-export const PayoutRequest = IDL.Record({
-  'walletPhone' : IDL.Text,
-  'status' : IDL.Variant({ 'pending' : IDL.Null, 'approved' : IDL.Null }),
+export const WithdrawalRequest = IDL.Record({
+  'status' : WithdrawalStatus,
   'username' : IDL.Text,
-  'totalAmount' : IDL.Nat,
-  'timestamp' : IDL.Int,
+  'timestamp' : Time,
+  'walletNumber' : IDL.Text,
+  'amount' : IDL.Float64,
 });
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const CountdownState = IDL.Record({
+  'startedBy' : IDL.Opt(IDL.Principal),
+  'isActive' : IDL.Bool,
+  'targetTime' : IDL.Opt(Time),
+});
 export const ListMetrics = IDL.Record({
   'usedTemplates' : IDL.Nat,
   'listName' : IDL.Text,
@@ -109,6 +114,10 @@ export const PriceEntry = IDL.Record({
   'pricePerEntry' : IDL.Float64,
   'appName' : IDL.Text,
   'isActive' : IDL.Bool,
+});
+export const PublicSettings = IDL.Record({
+  'bgMusicEnabled' : IDL.Bool,
+  'musicFile' : IDL.Opt(ExternalBlob),
 });
 export const AppImport = IDL.Record({
   'appName' : IDL.Text,
@@ -157,7 +166,6 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
-  'addOrUpdateEarning' : IDL.Func([IDL.Text, IDL.Nat], [], []),
   'addTemplatesToList' : IDL.Func(
       [IDL.Text, IDL.Vec(IDL.Text)],
       [IDL.Bool],
@@ -168,10 +176,7 @@ export const idlService = IDL.Service({
       [IDL.Bool],
       [],
     ),
-  'approvePayoutRequest' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'bulkDeleteCommentLists' : IDL.Func([], [], []),
-  'bulkDeleteLiveLists' : IDL.Func([], [], []),
   'bulkSetPrices' : IDL.Func(
       [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
       [],
@@ -179,11 +184,14 @@ export const idlService = IDL.Service({
     ),
   'calculateAllEarnings' : IDL.Func([], [AllEarningsSummary], ['query']),
   'calculateEarnings' : IDL.Func([IDL.Text], [IDL.Opt(AppEarnings)], ['query']),
+  'checkAndRequestWithdrawal' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Opt(IDL.Float64)],
+      [],
+    ),
   'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
-  'deleteAllPayoutRequests' : IDL.Func([], [], []),
   'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'deleteEarningsRecords' : IDL.Func([], [], []),
   'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
   'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
   'generateBulkComments' : IDL.Func(
@@ -192,8 +200,16 @@ export const idlService = IDL.Service({
       [],
     ),
   'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
-  'getAllEarnings' : IDL.Func([], [IDL.Vec(Earning)], ['query']),
-  'getAllPayoutRequests' : IDL.Func([], [IDL.Vec(PayoutRequest)], ['query']),
+  'getAllInventory' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat))],
+      ['query'],
+    ),
+  'getAllWithdrawalRequests' : IDL.Func(
+      [],
+      [IDL.Vec(WithdrawalRequest)],
+      ['query'],
+    ),
   'getAvailableComments' : IDL.Func(
       [IDL.Text],
       [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
@@ -203,9 +219,12 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-  'getEarning' : IDL.Func([IDL.Text], [IDL.Opt(Earning)], ['query']),
+  'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+  'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
   'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
+  'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
+  'getSettings' : IDL.Func([], [Settings], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -213,18 +232,22 @@ export const idlService = IDL.Service({
     ),
   'importLiveList' : IDL.Func([IDL.Vec(AppImport)], [ImportSummary], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'pauseCountdown' : IDL.Func([], [], []),
   'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'renameCommentList' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text],
       [IDL.Bool],
       [],
     ),
+  'resetCountdown' : IDL.Func([], [], []),
+  'resumeCountdown' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setAccessKey' : IDL.Func([IDL.Text], [], []),
+  'setCountdown' : IDL.Func([Time], [], []),
+  'setInventoryCount' : IDL.Func([IDL.Text, IDL.Nat], [], []),
   'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
-  'setWalletPhone' : IDL.Func([IDL.Text, IDL.Text], [], []),
-  'submitPayoutRequest' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
   'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'updateInventory' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Bool], []),
   'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
 });
 
@@ -307,19 +330,24 @@ export const idlFactory = ({ IDL }) => {
     'generatedCount' : IDL.Nat,
     'comments' : IDL.Vec(IDL.Text),
   });
-  const Earning = IDL.Record({
-    'walletPhone' : IDL.Opt(IDL.Text),
-    'username' : IDL.Text,
-    'totalAmount' : IDL.Nat,
+  const WithdrawalStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'completed' : IDL.Null,
+    'rejected' : IDL.Null,
   });
-  const PayoutRequest = IDL.Record({
-    'walletPhone' : IDL.Text,
-    'status' : IDL.Variant({ 'pending' : IDL.Null, 'approved' : IDL.Null }),
+  const WithdrawalRequest = IDL.Record({
+    'status' : WithdrawalStatus,
     'username' : IDL.Text,
-    'totalAmount' : IDL.Nat,
-    'timestamp' : IDL.Int,
+    'timestamp' : Time,
+    'walletNumber' : IDL.Text,
+    'amount' : IDL.Float64,
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const CountdownState = IDL.Record({
+    'startedBy' : IDL.Opt(IDL.Principal),
+    'isActive' : IDL.Bool,
+    'targetTime' : IDL.Opt(Time),
+  });
   const ListMetrics = IDL.Record({
     'usedTemplates' : IDL.Nat,
     'listName' : IDL.Text,
@@ -332,6 +360,10 @@ export const idlFactory = ({ IDL }) => {
     'pricePerEntry' : IDL.Float64,
     'appName' : IDL.Text,
     'isActive' : IDL.Bool,
+  });
+  const PublicSettings = IDL.Record({
+    'bgMusicEnabled' : IDL.Bool,
+    'musicFile' : IDL.Opt(ExternalBlob),
   });
   const AppImport = IDL.Record({
     'appName' : IDL.Text,
@@ -380,7 +412,6 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
-    'addOrUpdateEarning' : IDL.Func([IDL.Text, IDL.Nat], [], []),
     'addTemplatesToList' : IDL.Func(
         [IDL.Text, IDL.Vec(IDL.Text)],
         [IDL.Bool],
@@ -391,10 +422,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Bool],
         [],
       ),
-    'approvePayoutRequest' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'bulkDeleteCommentLists' : IDL.Func([], [], []),
-    'bulkDeleteLiveLists' : IDL.Func([], [], []),
     'bulkSetPrices' : IDL.Func(
         [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
         [],
@@ -406,11 +434,14 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(AppEarnings)],
         ['query'],
       ),
+    'checkAndRequestWithdrawal' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Opt(IDL.Float64)],
+        [],
+      ),
     'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
-    'deleteAllPayoutRequests' : IDL.Func([], [], []),
     'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'deleteEarningsRecords' : IDL.Func([], [], []),
     'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
     'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
     'generateBulkComments' : IDL.Func(
@@ -419,8 +450,16 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
-    'getAllEarnings' : IDL.Func([], [IDL.Vec(Earning)], ['query']),
-    'getAllPayoutRequests' : IDL.Func([], [IDL.Vec(PayoutRequest)], ['query']),
+    'getAllInventory' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat))],
+        ['query'],
+      ),
+    'getAllWithdrawalRequests' : IDL.Func(
+        [],
+        [IDL.Vec(WithdrawalRequest)],
+        ['query'],
+      ),
     'getAvailableComments' : IDL.Func(
         [IDL.Text],
         [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
@@ -430,9 +469,12 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-    'getEarning' : IDL.Func([IDL.Text], [IDL.Opt(Earning)], ['query']),
+    'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+    'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
     'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
+    'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
+    'getSettings' : IDL.Func([], [Settings], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -440,18 +482,22 @@ export const idlFactory = ({ IDL }) => {
       ),
     'importLiveList' : IDL.Func([IDL.Vec(AppImport)], [ImportSummary], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'pauseCountdown' : IDL.Func([], [], []),
     'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'renameCommentList' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text],
         [IDL.Bool],
         [],
       ),
+    'resetCountdown' : IDL.Func([], [], []),
+    'resumeCountdown' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setAccessKey' : IDL.Func([IDL.Text], [], []),
+    'setCountdown' : IDL.Func([Time], [], []),
+    'setInventoryCount' : IDL.Func([IDL.Text, IDL.Nat], [], []),
     'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
-    'setWalletPhone' : IDL.Func([IDL.Text, IDL.Text], [], []),
-    'submitPayoutRequest' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
     'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'updateInventory' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Bool], []),
     'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
   });
 };

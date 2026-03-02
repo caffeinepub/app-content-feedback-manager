@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Lock, Unlock, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Lock, Unlock, Save, X, Package } from 'lucide-react';
 import {
-  useGetCommentLists,
-  useCreateCommentList,
+  useCommentLists,
+  useAddCommentList,
   useRenameCommentList,
   useDeleteCommentList,
   useAddTemplatesToList,
   useToggleListLock,
   useGetListMetrics,
+  useGetInventoryCount,
+  useSetInventoryCount,
 } from '../../hooks/useQueries';
 import { MetricsDonutChart } from '../../components/MetricsDonutChart';
 import type { CommentList } from '../../backend';
@@ -19,10 +21,71 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+function InventoryRow({ listId }: { listId: string }) {
+  const { data: inventoryCount } = useGetInventoryCount(listId);
+  const setInventory = useSetInventoryCount();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+
+  const current = inventoryCount !== undefined ? Number(inventoryCount) : 0;
+
+  const handleSave = async () => {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 0) return;
+    await setInventory.mutateAsync({ commentListId: listId, count: BigInt(num) });
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)' }}>
+      <Package className="w-3.5 h-3.5" style={{ color: 'oklch(0.70 0.20 185)' }} />
+      <span className="text-xs font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Inventory:</span>
+      {editing ? (
+        <>
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-20 px-2 py-0.5 rounded text-xs glass-input"
+            min={0}
+          />
+          <button onClick={handleSave} className="text-xs px-2 py-0.5 rounded font-rajdhani" style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)', border: '1px solid oklch(0.65 0.18 145 / 0.3)' }}>
+            Save
+          </button>
+          <button onClick={() => setEditing(false)} className="text-xs px-2 py-0.5 rounded font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <span
+            className="font-orbitron font-bold text-xs px-2 py-0.5 rounded-full"
+            style={{
+              background: current > 10 ? 'oklch(0.65 0.18 145 / 0.12)' : current > 0 ? 'oklch(0.75 0.18 65 / 0.12)' : 'oklch(0.55 0.22 25 / 0.12)',
+              color: current > 10 ? 'oklch(0.72 0.20 145)' : current > 0 ? 'oklch(0.82 0.20 70)' : 'oklch(0.65 0.22 25)',
+              border: `1px solid ${current > 10 ? 'oklch(0.65 0.18 145 / 0.3)' : current > 0 ? 'oklch(0.75 0.18 65 / 0.3)' : 'oklch(0.55 0.22 25 / 0.3)'}`,
+            }}
+          >
+            {current} remaining
+          </span>
+          <button
+            onClick={() => { setValue(String(current)); setEditing(true); }}
+            className="text-xs px-2 py-0.5 rounded font-rajdhani transition-all duration-200 hover:scale-105"
+            style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)', border: '1px solid oklch(0.70 0.20 185 / 0.25)' }}
+          >
+            Set
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdminComments() {
-  const { data: commentLists = [], isLoading } = useGetCommentLists();
+  const { data: rawCommentLists = [], isLoading } = useCommentLists();
+  const commentLists: CommentList[] = rawCommentLists as CommentList[];
   const { data: metrics = [] } = useGetListMetrics();
-  const createList = useCreateCommentList();
+  const createList = useAddCommentList();
   const renameList = useRenameCommentList();
   const deleteList = useDeleteCommentList();
   const addTemplates = useAddTemplatesToList();
@@ -46,8 +109,8 @@ export default function AdminComments() {
       await createList.mutateAsync({ id, displayName: newDisplayName.trim(), suffix: newSuffix.trim() });
       setNewDisplayName('');
       setNewSuffix('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to create list');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create list');
     }
   };
 
@@ -59,8 +122,8 @@ export default function AdminComments() {
       await renameList.mutateAsync({ oldId: list.id, newId, newDisplayName: editName.trim() });
       setEditingId(null);
       setEditName('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to rename list');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to rename list');
     }
   };
 
@@ -69,20 +132,20 @@ export default function AdminComments() {
     if (!confirm('Delete this comment list?')) return;
     try {
       await deleteList.mutateAsync(listId);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete list');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete list');
     }
   };
 
   const handleAddTemplates = async (listId: string) => {
     setError(null);
     if (!templateText.trim()) return;
-    const templates = templateText.split('\n').map(t => t.trim()).filter(Boolean);
+    const templates = templateText.split('\n').map((t) => t.trim()).filter(Boolean);
     try {
       await addTemplates.mutateAsync({ listId, templates });
       setTemplateText('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to add templates');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add templates');
     }
   };
 
@@ -90,47 +153,52 @@ export default function AdminComments() {
     setError(null);
     try {
       await toggleLock.mutateAsync(listId);
-    } catch (err: any) {
-      setError(err.message || 'Failed to toggle lock');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to toggle lock');
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fadeInUp">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
           {error}
         </div>
       )}
 
       {/* Create New List */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary" />
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2 gradient-heading">
+          <Plus className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
           Create Comment List
         </h3>
         <form onSubmit={handleCreate} className="space-y-3">
           <input
             type="text"
             value={newDisplayName}
-            onChange={e => setNewDisplayName(e.target.value)}
+            onChange={(e) => setNewDisplayName(e.target.value)}
             placeholder="List display name"
-            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input w-full px-3 py-2.5 text-sm"
           />
           <input
             type="text"
             value={newSuffix}
-            onChange={e => setNewSuffix(e.target.value)}
+            onChange={(e) => setNewSuffix(e.target.value)}
             placeholder="Suffix (optional, e.g. ❤️)"
-            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input w-full px-3 py-2.5 text-sm"
           />
           <button
             type="submit"
             disabled={createList.isPending || !newDisplayName.trim()}
-            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              opacity: (createList.isPending || !newDisplayName.trim()) ? 0.5 : 1,
+            }}
           >
             {createList.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Plus className="w-3.5 h-3.5" />
             )}
@@ -139,37 +207,87 @@ export default function AdminComments() {
         </form>
       </div>
 
+      {/* Metrics Toggle */}
+      <button
+        onClick={() => setShowMetrics((v) => !v)}
+        className="w-full py-2.5 rounded-xl font-rajdhani font-600 text-sm transition-all duration-300 flex items-center justify-center gap-2"
+        style={{
+          background: showMetrics ? 'oklch(0.70 0.20 185 / 0.15)' : 'oklch(0.12 0.03 260 / 0.6)',
+          border: `1px solid ${showMetrics ? 'oklch(0.70 0.20 185 / 0.3)' : 'oklch(0.22 0.05 260 / 0.4)'}`,
+          color: showMetrics ? 'oklch(0.78 0.22 188)' : 'oklch(0.55 0.04 260)',
+        }}
+      >
+        {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        {showMetrics ? 'Hide Metrics' : 'Show Usage Metrics'}
+      </button>
+
+      {/* Metrics */}
+      {showMetrics && metrics.length > 0 && (
+        <div className="glass-card p-5 rounded-2xl animate-fadeInUp">
+          <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'oklch(0.78 0.22 188)' }}>
+            Usage Metrics
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {metrics.map((m) => (
+              <div key={m.listId} className="text-center">
+                <MetricsDonutChart
+                  usedTemplates={Number(m.usedTemplates)}
+                  totalTemplates={Number(m.totalTemplates)}
+                  size={80}
+                  strokeWidth={8}
+                />
+                <p className="text-xs font-rajdhani mt-1 truncate" style={{ color: 'oklch(0.65 0.04 260)' }}>{m.listName}</p>
+                <p className="text-xs font-orbitron font-bold" style={{ color: 'oklch(0.82 0.20 70)' }}>
+                  {Number(m.availableTemplates)} left
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Comment Lists */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4">Comment Lists</h3>
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          Comment Lists ({commentLists.length})
+        </h3>
         {isLoading ? (
-          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>Loading...</div>
         ) : commentLists.length === 0 ? (
-          <div className="text-muted-foreground text-sm text-center py-4">No comment lists yet</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>No comment lists yet</div>
         ) : (
           <div className="space-y-3">
-            {commentLists.map(list => (
-              <div key={list.id} className="border border-border/50 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 p-3 bg-background/30">
+            {commentLists.map((list: CommentList) => (
+              <div
+                key={list.id}
+                className="rounded-xl overflow-hidden"
+                style={{ border: '1px solid oklch(0.22 0.05 260 / 0.5)' }}
+              >
+                <div
+                  className="flex items-center gap-2 p-3"
+                  style={{ background: 'oklch(0.10 0.025 260 / 0.6)' }}
+                >
                   {editingId === list.id ? (
                     <>
                       <input
                         type="text"
                         value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="flex-1 px-2 py-1 rounded bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="glass-input flex-1 px-2 py-1 text-sm"
                         autoFocus
                       />
                       <button
                         onClick={() => handleRename(list)}
                         disabled={renameList.isPending}
-                        className="p-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)' }}
                       >
                         <Save className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => { setEditingId(null); setEditName(''); }}
-                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                        onClick={() => setEditingId(null)}
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ color: 'oklch(0.55 0.04 260)' }}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -177,112 +295,99 @@ export default function AdminComments() {
                   ) : (
                     <>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-foreground text-sm truncate">{list.displayName}</div>
-                        <div className="text-xs text-muted-foreground">{list.templates.length} templates{list.suffix ? ` · suffix: ${list.suffix}` : ''}</div>
+                        <div className="font-rajdhani font-600 text-sm truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>
+                          {list.displayName}
+                          {list.locked && <span className="ml-2 text-xs" style={{ color: 'oklch(0.65 0.22 25)' }}>🔒</span>}
+                        </div>
+                        <div className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>
+                          {list.templates.length} templates
+                          {list.suffix && <span className="ml-2">· suffix: {list.suffix}</span>}
+                        </div>
                       </div>
                       <button
-                        onClick={() => handleToggleLock(list.id)}
-                        disabled={toggleLock.isPending}
-                        className={`p-1.5 rounded-lg transition-colors ${list.locked ? 'bg-warning/20 text-warning hover:bg-warning/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
-                        title={list.locked ? 'Unlock list' : 'Lock list'}
+                        onClick={() => setExpandedList(expandedList === list.id ? null : list.id)}
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ background: 'oklch(0.16 0.03 260 / 0.6)', color: 'oklch(0.55 0.04 260)' }}
                       >
-                        {list.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                        {expandedList === list.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </button>
                       <button
                         onClick={() => { setEditingId(list.id); setEditName(list.displayName); }}
-                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)' }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(list.id)}
-                        disabled={deleteList.isPending}
-                        className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                        onClick={() => handleToggleLock(list.id)}
+                        disabled={toggleLock.isPending}
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ background: 'oklch(0.75 0.18 65 / 0.12)', color: 'oklch(0.82 0.20 70)' }}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {list.locked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                       </button>
                       <button
-                        onClick={() => setExpandedList(expandedList === list.id ? null : list.id)}
-                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                        onClick={() => handleDelete(list.id)}
+                        disabled={deleteList.isPending}
+                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                        style={{ background: 'oklch(0.55 0.22 25 / 0.12)', color: 'oklch(0.65 0.22 25)' }}
                       >
-                        {expandedList === list.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </>
                   )}
                 </div>
 
-                {expandedList === list.id && (
-                  <div className="p-3 border-t border-border/50 bg-background/20 space-y-3">
-                    {/* Add Templates */}
-                    {!list.locked && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground">Add Templates (one per line)</label>
-                        <textarea
-                          value={templateText}
-                          onChange={e => setTemplateText(e.target.value)}
-                          placeholder="Template 1&#10;Template 2&#10;Template 3"
-                          rows={4}
-                          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                        />
-                        <button
-                          onClick={() => handleAddTemplates(list.id)}
-                          disabled={addTemplates.isPending || !templateText.trim()}
-                          className="gradient-button px-3 py-1.5 rounded-lg text-white text-xs font-medium disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {addTemplates.isPending ? (
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          ) : (
-                            <Plus className="w-3 h-3" />
-                          )}
-                          Add Templates
-                        </button>
-                      </div>
-                    )}
+                {/* Inventory row */}
+                <div className="px-3 pb-2" style={{ background: 'oklch(0.10 0.025 260 / 0.6)' }}>
+                  <InventoryRow listId={list.id} />
+                </div>
 
-                    {/* Available Comments */}
+                {/* Expanded: add templates */}
+                {expandedList === list.id && (
+                  <div className="p-3" style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)', background: 'oklch(0.08 0.02 260 / 0.4)' }}>
+                    <textarea
+                      value={templateText}
+                      onChange={(e) => setTemplateText(e.target.value)}
+                      placeholder="One template per line..."
+                      rows={4}
+                      className="glass-input w-full px-3 py-2 text-sm resize-none mb-2"
+                    />
+                    <button
+                      onClick={() => handleAddTemplates(list.id)}
+                      disabled={addTemplates.isPending || !templateText.trim()}
+                      className="px-3 py-2 rounded-lg font-rajdhani font-600 text-xs transition-all duration-300 hover-lift flex items-center gap-1.5"
+                      style={{
+                        background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+                        color: 'oklch(0.08 0.02 260)',
+                        opacity: (addTemplates.isPending || !templateText.trim()) ? 0.5 : 1,
+                      }}
+                    >
+                      {addTemplates.isPending ? (
+                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Plus className="w-3 h-3" />
+                      )}
+                      Add Templates
+                    </button>
+
+                    {/* Template preview */}
                     {list.templates.length > 0 && (
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Templates ({list.templates.length})</label>
-                        <div className="max-h-40 overflow-y-auto space-y-1">
-                          {list.templates.map((t, i) => (
-                            <div key={i} className="text-xs text-foreground/80 bg-background/30 rounded px-2 py-1">
-                              {t}
-                            </div>
-                          ))}
-                        </div>
+                      <div className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                        {list.templates.slice(0, 10).map((t, i) => (
+                          <div key={i} className="text-xs font-rajdhani px-2 py-1 rounded" style={{ background: 'oklch(0.12 0.03 260 / 0.6)', color: 'oklch(0.70 0.04 260)' }}>
+                            {i + 1}. {t}
+                          </div>
+                        ))}
+                        {list.templates.length > 10 && (
+                          <div className="text-xs font-rajdhani text-center" style={{ color: 'oklch(0.45 0.04 260)' }}>
+                            +{list.templates.length - 10} more
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Usage Metrics */}
-      <div className="space-card p-5 rounded-2xl">
-        <button
-          onClick={() => setShowMetrics(!showMetrics)}
-          className="w-full flex items-center justify-between text-foreground font-semibold"
-        >
-          <span>Usage Metrics</span>
-          {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {showMetrics && (
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            {metrics.map(m => (
-              <div key={m.listId} className="flex flex-col items-center gap-2 p-3 bg-background/30 rounded-xl">
-                <MetricsDonutChart
-                  usedTemplates={Number(m.usedTemplates)}
-                  totalTemplates={Number(m.totalTemplates)}
-                  size={80}
-                  strokeWidth={8}
-                />
-                <div className="text-center">
-                  <div className="text-xs font-medium text-foreground">{m.listName}</div>
-                  <div className="text-xs text-muted-foreground">{Number(m.usedTemplates)}/{Number(m.totalTemplates)} used</div>
-                </div>
               </div>
             ))}
           </div>

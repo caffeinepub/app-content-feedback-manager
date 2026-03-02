@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Key, Music, Eye, EyeOff, RefreshCw, Save } from 'lucide-react';
-import { useGetSettings, useUpdateSettings, useSetAccessKey, useGetAccessKey } from '../../hooks/useQueries';
+import { useSettings, useUpdateSettings, useSetAccessKey, useAccessKey } from '../../hooks/useQueries';
 import { ExternalBlob } from '../../backend';
 
 export default function AdminSettings() {
-  const { data: settings } = useGetSettings();
-  const { data: accessKey } = useGetAccessKey();
+  const { data: settings } = useSettings();
+  const { data: accessKey } = useAccessKey();
   const updateSettings = useUpdateSettings();
-  const setAccessKey = useSetAccessKey();
+  const setAccessKeyMutation = useSetAccessKey();
 
   const [newKey, setNewKey] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -20,7 +20,7 @@ export default function AdminSettings() {
     setSuccess(null);
     if (!newKey.trim()) return;
     try {
-      await setAccessKey.mutateAsync(newKey.trim());
+      await setAccessKeyMutation.mutateAsync(newKey.trim());
       setNewKey('');
       setSuccess('Access key updated successfully');
     } catch (err: any) {
@@ -34,7 +34,7 @@ export default function AdminSettings() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const randomKey = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     try {
-      await setAccessKey.mutateAsync(randomKey);
+      await setAccessKeyMutation.mutateAsync(randomKey);
       setSuccess(`New key generated: ${randomKey}`);
     } catch (err: any) {
       setError(err.message || 'Failed to regenerate key');
@@ -71,36 +71,40 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fadeInUp">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.65 0.18 145 / 0.12)', border: '1px solid oklch(0.65 0.18 145 / 0.3)', color: 'oklch(0.72 0.20 145)' }}>
           {success}
         </div>
       )}
 
       {/* Access Key Management */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Key className="w-4 h-4 text-primary" />
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 gradient-heading flex items-center gap-2">
+          <Key className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
           Access Key Management
         </h3>
 
         {/* Current Key */}
-        <div className="mb-4 p-3 bg-background/30 rounded-xl">
-          <div className="text-xs text-muted-foreground mb-1">Current Access Key</div>
+        <div
+          className="mb-4 p-3 rounded-xl"
+          style={{ background: 'oklch(0.10 0.025 260 / 0.8)', border: '1px solid oklch(0.22 0.05 260 / 0.4)' }}
+        >
+          <div className="text-xs font-rajdhani mb-1" style={{ color: 'oklch(0.50 0.04 260)' }}>Current Access Key</div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-sm font-mono text-foreground">
+            <code className="flex-1 text-sm font-orbitron" style={{ color: 'oklch(0.82 0.20 70)' }}>
               {accessKey ? (showKey ? accessKey : '••••••••••••••••') : 'No key set'}
             </code>
             {accessKey && (
               <button
                 onClick={() => setShowKey(!showKey)}
-                className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                style={{ background: 'oklch(0.16 0.03 260 / 0.6)', color: 'oklch(0.55 0.04 260)' }}
               >
                 {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
@@ -115,15 +119,20 @@ export default function AdminSettings() {
             value={newKey}
             onChange={e => setNewKey(e.target.value)}
             placeholder="Enter custom access key"
-            className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input flex-1 px-3 py-2.5 text-sm"
           />
           <button
             type="submit"
-            disabled={setAccessKey.isPending || !newKey.trim()}
-            className="gradient-button px-3 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
+            disabled={setAccessKeyMutation.isPending || !newKey.trim()}
+            className="px-3 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-1.5"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              opacity: (setAccessKeyMutation.isPending || !newKey.trim()) ? 0.5 : 1,
+            }}
           >
-            {setAccessKey.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            {setAccessKeyMutation.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Save className="w-3.5 h-3.5" />
             )}
@@ -133,8 +142,13 @@ export default function AdminSettings() {
 
         <button
           onClick={handleRegenerateKey}
-          disabled={setAccessKey.isPending}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors"
+          disabled={setAccessKeyMutation.isPending}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs transition-all duration-300 hover-lift"
+          style={{
+            background: 'oklch(0.70 0.20 185 / 0.12)',
+            border: '1px solid oklch(0.70 0.20 185 / 0.25)',
+            color: 'oklch(0.78 0.22 188)',
+          }}
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Regenerate Random Key
@@ -142,31 +156,49 @@ export default function AdminSettings() {
       </div>
 
       {/* Background Music */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Music className="w-4 h-4 text-primary" />
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <Music className="w-4 h-4" />
           Background Music
         </h3>
 
         <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-foreground">Music Enabled</span>
+          <span className="font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.75 0.04 260)' }}>Music Enabled</span>
           <button
             onClick={handleMusicToggle}
             disabled={updateSettings.isPending}
-            className={`relative w-12 h-6 rounded-full transition-colors ${settings?.bgMusicEnabled ? 'bg-primary' : 'bg-muted'}`}
+            className="relative w-12 h-6 rounded-full transition-all duration-300"
+            style={{
+              background: settings?.bgMusicEnabled
+                ? 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))'
+                : 'oklch(0.22 0.05 260)',
+            }}
           >
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${settings?.bgMusicEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+            <div
+              className="absolute top-1 w-4 h-4 rounded-full transition-transform duration-300"
+              style={{
+                background: 'oklch(0.95 0.02 80)',
+                transform: settings?.bgMusicEnabled ? 'translateX(28px)' : 'translateX(4px)',
+              }}
+            />
           </button>
         </div>
 
-        <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm cursor-pointer transition-colors w-fit">
+        <label
+          className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs cursor-pointer transition-all duration-200 hover:scale-105 w-fit"
+          style={{
+            background: 'oklch(0.70 0.20 185 / 0.12)',
+            border: '1px solid oklch(0.70 0.20 185 / 0.25)',
+            color: 'oklch(0.78 0.22 188)',
+          }}
+        >
           <Music className="w-3.5 h-3.5" />
           Upload Music File
           <input type="file" accept="audio/*" onChange={handleMusicUpload} className="hidden" />
         </label>
 
         {settings?.musicFile && (
-          <div className="mt-3 text-xs text-muted-foreground">
+          <div className="mt-3 text-xs font-rajdhani" style={{ color: 'oklch(0.72 0.20 145)' }}>
             ✓ Music file uploaded
           </div>
         )}

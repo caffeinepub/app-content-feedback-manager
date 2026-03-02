@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Upload, RefreshCw, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import {
-  useGetAppEvents,
-  useCreateAppEvent,
+  useAppsEvents,
+  useAddAppEvent,
   useRenameAppEvent,
   useDeleteAppEvent,
-  useAddUsernamesToEvent,
+  useAddUsernamesToAppEvent,
   useImportLiveList,
 } from '../../hooks/useQueries';
 import { parseLiveListReport } from '../../utils/liveListParser';
 import type { AppEvent } from '../../backend';
 
 export default function AdminLiveList() {
-  const { data: appEvents = [], isLoading } = useGetAppEvents();
-  const createEvent = useCreateAppEvent();
+  const { data: appEvents = [], isLoading } = useAppsEvents();
+  const createEvent = useAddAppEvent();
   const renameEvent = useRenameAppEvent();
   const deleteEvent = useDeleteAppEvent();
-  const addUsernames = useAddUsernamesToEvent();
+  const addUsernames = useAddUsernamesToAppEvent();
   const importList = useImportLiveList();
 
   const [newEventName, setNewEventName] = useState('');
@@ -99,23 +99,23 @@ export default function AdminLiveList() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 animate-fadeInUp">
       {error && (
-        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
           {error}
         </div>
       )}
 
       {importResult && (
-        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.65 0.18 145 / 0.12)', border: '1px solid oklch(0.65 0.18 145 / 0.3)', color: 'oklch(0.72 0.20 145)' }}>
           {importResult}
         </div>
       )}
 
       {/* Create App/Event */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary" />
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 gradient-heading flex items-center gap-2">
+          <Plus className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
           Create App / Event List
         </h3>
         <form onSubmit={handleCreateEvent} className="flex gap-2">
@@ -124,15 +124,20 @@ export default function AdminLiveList() {
             value={newEventName}
             onChange={e => setNewEventName(e.target.value)}
             placeholder="App or event name"
-            className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input flex-1 px-3 py-2.5 text-sm"
           />
           <button
             type="submit"
             disabled={createEvent.isPending || !newEventName.trim()}
-            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              opacity: (createEvent.isPending || !newEventName.trim()) ? 0.5 : 1,
+            }}
           >
             {createEvent.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Plus className="w-3.5 h-3.5" />
             )}
@@ -142,12 +147,12 @@ export default function AdminLiveList() {
       </div>
 
       {/* Auto Import & Save */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-primary" />
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <RefreshCw className="w-4 h-4" />
           Auto Import & Save
         </h3>
-        <p className="text-xs text-muted-foreground mb-3">
+        <p className="text-xs font-rajdhani mb-3" style={{ color: 'oklch(0.50 0.04 260)' }}>
           Paste a "REVIEWS WORLD Reports" formatted text to auto-detect apps and usernames.
         </p>
         <textarea
@@ -155,15 +160,20 @@ export default function AdminLiveList() {
           onChange={e => setImportText(e.target.value)}
           placeholder="Paste report text here..."
           rows={6}
-          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-3"
+          className="glass-input w-full px-3 py-2.5 text-sm resize-none mb-3"
         />
         <button
           onClick={handleAutoImport}
           disabled={importList.isPending || !importText.trim()}
-          className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+          className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+          style={{
+            background: 'linear-gradient(135deg, oklch(0.70 0.20 185), oklch(0.75 0.18 65))',
+            color: 'oklch(0.08 0.02 260)',
+            opacity: (importList.isPending || !importText.trim()) ? 0.5 : 1,
+          }}
         >
           {importList.isPending ? (
-            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
           ) : (
             <RefreshCw className="w-3.5 h-3.5" />
           )}
@@ -172,16 +182,16 @@ export default function AdminLiveList() {
       </div>
 
       {/* Bulk Username Upload */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Upload className="w-4 h-4 text-primary" />
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <Upload className="w-4 h-4" />
           Bulk Username Upload
         </h3>
         <div className="space-y-3">
           <select
             value={selectedEvent}
             onChange={e => setSelectedEvent(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="glass-input w-full px-3 py-2.5 text-sm"
           >
             <option value="">Select app/event...</option>
             {appEvents.map(ev => (
@@ -193,10 +203,17 @@ export default function AdminLiveList() {
             onChange={e => setBulkText(e.target.value)}
             placeholder="One username per line..."
             rows={5}
-            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            className="glass-input w-full px-3 py-2.5 text-sm resize-none"
           />
           <div className="flex gap-2">
-            <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm cursor-pointer transition-colors">
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs cursor-pointer transition-all duration-200 hover:scale-105"
+              style={{
+                background: 'oklch(0.14 0.03 260 / 0.6)',
+                border: '1px solid oklch(0.28 0.06 260 / 0.4)',
+                color: 'oklch(0.60 0.04 260)',
+              }}
+            >
               <Upload className="w-3.5 h-3.5" />
               Upload File
               <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
@@ -204,10 +221,15 @@ export default function AdminLiveList() {
             <button
               onClick={handleBulkUpload}
               disabled={addUsernames.isPending || !selectedEvent || !bulkText.trim()}
-              className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+                color: 'oklch(0.08 0.02 260)',
+                opacity: (addUsernames.isPending || !selectedEvent || !bulkText.trim()) ? 0.5 : 1,
+              }}
             >
               {addUsernames.isPending ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Users className="w-3.5 h-3.5" />
               )}
@@ -218,41 +240,45 @@ export default function AdminLiveList() {
       </div>
 
       {/* App Events List */}
-      <div className="space-card p-5 rounded-2xl">
-        <h3 className="font-semibold text-foreground mb-4">App / Event Lists ({appEvents.length})</h3>
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          App / Event Lists ({appEvents.length})
+        </h3>
         {isLoading ? (
-          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>Loading...</div>
         ) : appEvents.length === 0 ? (
-          <div className="text-muted-foreground text-sm text-center py-4">No app events yet</div>
+          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>No app events yet</div>
         ) : (
           <div className="space-y-2">
             {appEvents.map((ev: AppEvent) => (
-              <div key={ev.name} className="border border-border/50 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 p-3 bg-background/30">
+              <div key={ev.name} className="rounded-xl overflow-hidden" style={{ border: '1px solid oklch(0.22 0.05 260 / 0.5)' }}>
+                <div className="flex items-center gap-2 p-3" style={{ background: 'oklch(0.10 0.025 260 / 0.6)' }}>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-foreground text-sm truncate">{ev.name}</div>
-                    <div className="text-xs text-muted-foreground">{ev.usernames.length} usernames</div>
+                    <div className="font-rajdhani font-600 text-sm truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>{ev.name}</div>
+                    <div className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>{ev.usernames.length} usernames</div>
                   </div>
                   <button
                     onClick={() => setExpandedEvent(expandedEvent === ev.name ? null : ev.name)}
-                    className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                    className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                    style={{ background: 'oklch(0.16 0.03 260 / 0.6)', color: 'oklch(0.55 0.04 260)' }}
                   >
                     {expandedEvent === ev.name ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                   <button
                     onClick={() => handleDeleteEvent(ev.name)}
                     disabled={deleteEvent.isPending}
-                    className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                    className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                    style={{ background: 'oklch(0.55 0.22 25 / 0.12)', color: 'oklch(0.65 0.22 25)' }}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
                 {expandedEvent === ev.name && ev.usernames.length > 0 && (
-                  <div className="p-3 border-t border-border/50 bg-background/20">
+                  <div className="p-3" style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)', background: 'oklch(0.08 0.02 260 / 0.4)' }}>
                     <div className="max-h-40 overflow-y-auto space-y-1">
                       {ev.usernames.map((u, i) => (
-                        <div key={i} className="text-xs text-foreground/80 bg-background/30 rounded px-2 py-1">
-                          {u}
+                        <div key={i} className="text-xs font-rajdhani px-2 py-1 rounded" style={{ background: 'oklch(0.12 0.03 260 / 0.6)', color: 'oklch(0.70 0.04 260)' }}>
+                          {i + 1}. {u}
                         </div>
                       ))}
                     </div>

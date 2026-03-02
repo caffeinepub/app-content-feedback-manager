@@ -1,17 +1,50 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-03-02T05:57:17.020Z",
-  "summary": "Both REQ-1 and REQ-2 appear to be implemented. The backend introduces a hasUserOrAdminPermission helper that accepts both user and admin roles for previously user-only gated operations, and the frontend removes the standalone Earnings tab and embeds EarningsChecker as a sub-tab within LiveChecker.",
-  "missing_requirements": [],
+  "generatedAt": "2026-03-02T17:14:30.657Z",
+  "summary": "The diff contains only backend files: a new migration module (backend/migration.mo) adding countdownState, a partially shown backend/main.mo with countdown/music/settings types, and a project_state.json tracking planned work. All four requirements are marked 'pending' in project_state.json, meaning no frontend implementation has been delivered. The diff shows backend data-model scaffolding for REQ-2 (music blob in Settings) and REQ-3 (CountdownState), but no frontend components, hooks, or UI changes are present for any of REQ-1 through REQ-4.",
+  "missing_requirements": [
+    {
+      "id": "REQ-1",
+      "requirement": "Replace password-based AdminUnlock with Internet Identity authentication; principal allowlist check; Access Denied message; logout; useAdminAuth/AdminUnlock updated to use useInternetIdentity.",
+      "reason": "No frontend files modified. AdminUnlock, AdminView, useAdminAuth components are not changed. No II login prompt, allowlist check, or Access Denied UI is implemented in the diff.",
+      "evidence": [
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "Music upload in AdminSettings; file saved to backend as blob; all users auto-load/loop track; play/pause button in top-right of top nav; button hidden if no music; useBackgroundMusic wired to backend.",
+      "reason": "Backend Settings type includes musicFile blob field (data model only), but no frontend AdminSettings upload UI, no top nav play/pause button, and no useBackgroundMusic hook wiring are present in the diff.",
+      "evidence": [
+        "backend/main.mo",
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "requirement": "Countdown timer (HH:MM:SS) visible to all users; admin form to set/reset countdown; backend stores target time; timer stops at 00:00:00; useCountdown extended to use backend target time.",
+      "reason": "CountdownState type and migration are added in the backend, but no frontend countdown display, admin form, or useCountdown hook update appear in the diff.",
+      "evidence": [
+        "backend/main.mo",
+        "backend/migration.mo",
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "requirement": "Sun/moon icon toggle in top navigation bar; toggles light/dark theme app-wide; persisted in localStorage; uses existing CSS custom properties; visible without login.",
+      "reason": "No frontend files are modified. No theme toggle button, localStorage persistence, or CSS theme switching is implemented in the diff.",
+      "evidence": [
+        "project_state.json"
+      ]
+    }
+  ],
   "hallucinated_features": [],
-  "confidence": 0.88,
+  "confidence": 0.92,
   "changed_files": [
     "backend/main.mo",
-    "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/views/LiveChecker.tsx",
-    "frontend/src/views/admin/AdminView.tsx",
+    "backend/migration.mo",
     "project_state.json"
   ]
 }

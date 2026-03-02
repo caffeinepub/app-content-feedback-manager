@@ -49,10 +49,10 @@ export interface CommentList {
   'locked' : boolean,
   'suffix' : string,
 }
-export interface Earning {
-  'walletPhone' : [] | [string],
-  'username' : string,
-  'totalAmount' : bigint,
+export interface CountdownState {
+  'startedBy' : [] | [Principal],
+  'isActive' : boolean,
+  'targetTime' : [] | [Time],
 }
 export interface ExportData {
   'chatMessages' : Array<ChatMessage>,
@@ -82,18 +82,14 @@ export interface ListMetrics {
   'totalTemplates' : bigint,
   'listId' : string,
 }
-export interface PayoutRequest {
-  'walletPhone' : string,
-  'status' : { 'pending' : null } |
-    { 'approved' : null },
-  'username' : string,
-  'totalAmount' : bigint,
-  'timestamp' : bigint,
-}
 export interface PriceEntry {
   'pricePerEntry' : number,
   'appName' : string,
   'isActive' : boolean,
+}
+export interface PublicSettings {
+  'bgMusicEnabled' : boolean,
+  'musicFile' : [] | [ExternalBlob],
 }
 export interface Settings {
   'accessKey' : [] | [string],
@@ -105,6 +101,16 @@ export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface WithdrawalRequest {
+  'status' : WithdrawalStatus,
+  'username' : string,
+  'timestamp' : Time,
+  'walletNumber' : string,
+  'amount' : number,
+}
+export type WithdrawalStatus = { 'pending' : null } |
+  { 'completed' : null } |
+  { 'rejected' : null };
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -140,27 +146,22 @@ export interface _SERVICE {
     [string, Array<string>, string, [] | [ExternalBlob]],
     undefined
   >,
-  'addOrUpdateEarning' : ActorMethod<[string, bigint], undefined>,
   'addTemplatesToList' : ActorMethod<[string, Array<string>], boolean>,
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
-  'approvePayoutRequest' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'bulkDeleteCommentLists' : ActorMethod<[], undefined>,
-  'bulkDeleteLiveLists' : ActorMethod<[], undefined>,
   'bulkSetPrices' : ActorMethod<[Array<[string, number, boolean]>], undefined>,
   'calculateAllEarnings' : ActorMethod<[], AllEarningsSummary>,
   'calculateEarnings' : ActorMethod<[string], [] | [AppEarnings]>,
+  'checkAndRequestWithdrawal' : ActorMethod<[string, string], [] | [number]>,
   'claimComment' : ActorMethod<[string], ClaimCommentResult>,
-  'deleteAllPayoutRequests' : ActorMethod<[], undefined>,
   'deleteAppEvent' : ActorMethod<[string], boolean>,
   'deleteCommentList' : ActorMethod<[string], boolean>,
-  'deleteEarningsRecords' : ActorMethod<[], undefined>,
   'deletePriceEntry' : ActorMethod<[string], undefined>,
   'exportAllData' : ActorMethod<[], [] | [ExportData]>,
   'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
-  'getAllEarnings' : ActorMethod<[], Array<Earning>>,
-  'getAllPayoutRequests' : ActorMethod<[], Array<PayoutRequest>>,
+  'getAllInventory' : ActorMethod<[], Array<[string, bigint]>>,
+  'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getAvailableComments' : ActorMethod<
     [string],
     { 'count' : bigint, 'comments' : Array<string> }
@@ -169,20 +170,27 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCommentListsOrder' : ActorMethod<[], Array<string>>,
-  'getEarning' : ActorMethod<[string], [] | [Earning]>,
+  'getCountdownState' : ActorMethod<[], CountdownState>,
+  'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
+  'getPublicSettings' : ActorMethod<[], PublicSettings>,
+  'getSettings' : ActorMethod<[], Settings>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'importLiveList' : ActorMethod<[Array<AppImport>], ImportSummary>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'pauseCountdown' : ActorMethod<[], undefined>,
   'renameAppEvent' : ActorMethod<[string, string], boolean>,
   'renameCommentList' : ActorMethod<[string, string, string], boolean>,
+  'resetCountdown' : ActorMethod<[], undefined>,
+  'resumeCountdown' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string], undefined>,
+  'setCountdown' : ActorMethod<[Time], undefined>,
+  'setInventoryCount' : ActorMethod<[string, bigint], undefined>,
   'setPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
-  'setWalletPhone' : ActorMethod<[string, string], undefined>,
-  'submitPayoutRequest' : ActorMethod<[string, bigint, string], undefined>,
   'toggleListLock' : ActorMethod<[string], boolean>,
+  'updateInventory' : ActorMethod<[string, bigint], boolean>,
   'updateSettings' : ActorMethod<[boolean, [] | [ExternalBlob]], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;

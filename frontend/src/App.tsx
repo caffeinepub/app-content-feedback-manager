@@ -1,129 +1,156 @@
-import { useState, useEffect, useRef } from 'react';
-import UserView from './views/UserView';
-import { UploadView } from './views/UploadView';
-import LiveChecker from './views/LiveChecker';
+import React, { useState, useEffect, useRef } from 'react';
+import { Music, Music2, Shield } from 'lucide-react';
 import AdminView from './views/admin/AdminView';
-import { Toaster } from '@/components/ui/sonner';
-import { Radio, Upload, Shield, User } from 'lucide-react';
+import UserView from './views/UserView';
+import LiveChecker from './views/LiveChecker';
+import { UploadView } from './views/UploadView';
+import { useGetSettings } from './hooks/useQueries';
 
-const TABS = [
-  { id: 'user', label: 'User View', icon: User },
-  { id: 'upload', label: 'Upload', icon: Upload },
-  { id: 'live', label: 'Live Checker', icon: Radio },
-  { id: 'admin', label: 'Admin', icon: Shield },
-] as const;
-
-type TabId = typeof TABS[number]['id'];
-
-function CountdownTimer() {
-  const [timeLeft, setTimeLeft] = useState('');
-  const [message] = useState(() => {
-    const messages = [
-      'Make the most of today! ✨',
-      'Keep pushing forward! 💪',
-      'Every second counts! ⚡',
-      'Stay focused! 🎯',
-    ];
-    return messages[Math.floor(Math.random() * messages.length)];
-  });
-
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0);
-      const diff = midnight.getTime() - now.getTime();
-      const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
-      const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-      const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-      setTimeLeft(`${h}:${m}:${s}`);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="flex items-center justify-between px-4 py-3 mx-4 mb-4 rounded-2xl bg-card/60 border border-border/40 backdrop-blur-sm">
-      <div className="flex flex-col">
-        <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Time Until Midnight</span>
-        <span className="text-2xl font-bold text-primary font-mono tracking-wider">{timeLeft}</span>
-        <span className="text-xs text-muted-foreground mt-0.5">{message}</span>
-      </div>
-    </div>
-  );
-}
+type Tab = 'comment' | 'live' | 'upload' | 'admin';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('user');
+  const [activeTab, setActiveTab] = useState<Tab>('comment');
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const { data: settings } = useGetSettings();
+
+  // Countdown timer state
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date();
+    target.setDate(target.getDate() + 7);
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = target.getTime() - now.getTime();
+      if (diff <= 0) {
+        clearInterval(interval);
+        return;
+      }
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Music control
+  useEffect(() => {
+    if (settings?.bgMusicEnabled && settings?.musicFile) {
+      const url = settings.musicFile.getDirectURL();
+      if (!audioRef.current) {
+        audioRef.current = new Audio(url);
+        audioRef.current.loop = true;
+      }
+      if (musicPlaying) {
+        audioRef.current.play().catch(() => {});
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [musicPlaying, settings]);
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'comment', label: 'Comment' },
+    { id: 'live', label: 'Live' },
+    { id: 'upload', label: 'Upload' },
+    { id: 'admin', label: 'Admin' },
+  ];
 
   return (
-    <div className="min-h-screen app-bg-gradient text-foreground">
+    <div className="min-h-screen app-bg-gradient flex flex-col">
       <div className="floating-shapes" aria-hidden="true">
         <div className="shape" />
         <div className="shape" />
         <div className="shape" />
       </div>
 
-      <div className="relative z-10 max-w-2xl mx-auto px-0 pb-24">
-        {/* Header */}
-        <header className="pt-6 pb-2 px-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/40">
-            <img
-              src="/assets/generated/app-avatar-icon.dim_128x128.png"
-              alt="App"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold gradient-heading leading-tight">App Content &amp; Features</h1>
-            <p className="text-xs text-muted-foreground">Manage your content efficiently</p>
-          </div>
-        </header>
-
-        {/* Countdown */}
-        <div className="mt-4">
-          <CountdownTimer />
-        </div>
-
-        {/* Tab Navigation */}
-        <nav className="px-4 mb-4">
-          <div className="flex gap-1 bg-card/40 border border-border/30 rounded-2xl p-1 backdrop-blur-sm overflow-x-auto scrollbar-hide">
-            {TABS.map(({ id, label, icon: Icon }) => (
+      {/* Header */}
+      <header className="relative z-10 px-4 pt-4 pb-2">
+        <div className="max-w-2xl mx-auto">
+          <div className="space-card px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src="/assets/generated/app-avatar-icon.dim_128x128.png"
+                alt="Reviews World"
+                className="w-9 h-9 rounded-xl"
+              />
+              <div>
+                <h1 className="gradient-heading text-lg font-bold leading-tight">Reviews World</h1>
+                <p className="text-xs text-muted-foreground">Comment Tools</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Countdown */}
+              <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
+                {[
+                  { v: timeLeft.days, l: 'd' },
+                  { v: timeLeft.hours, l: 'h' },
+                  { v: timeLeft.minutes, l: 'm' },
+                  { v: timeLeft.seconds, l: 's' },
+                ].map(({ v, l }) => (
+                  <span key={l} className="bg-primary/10 px-1.5 py-0.5 rounded font-mono">
+                    {String(v).padStart(2, '0')}{l}
+                  </span>
+                ))}
+              </div>
+              {/* Music toggle */}
               <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
-                  activeTab === id
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-card/60'
+                onClick={() => setMusicPlaying((p) => !p)}
+                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary"
+                title={musicPlaying ? 'Pause music' : 'Play music'}
+              >
+                {musicPlaying ? <Music2 size={16} /> : <Music size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Tab Navigation */}
+      <nav className="relative z-10 px-4 py-2">
+        <div className="max-w-2xl mx-auto">
+          <div className="space-card p-1 flex gap-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'gradient-button text-white shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-primary/10'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
+                {tab.id === 'admin' && <Shield size={12} className="inline mr-1" />}
+                {tab.label}
               </button>
             ))}
           </div>
-        </nav>
+        </div>
+      </nav>
 
-        {/* Tab Content */}
-        <main className="px-4">
-          {activeTab === 'user' && <UserView />}
-          {activeTab === 'upload' && <UploadView />}
+      {/* Main Content */}
+      <main className="relative z-10 flex-1 px-4 py-2 pb-6">
+        <div className="max-w-2xl mx-auto">
+          {activeTab === 'comment' && <UserView />}
           {activeTab === 'live' && <LiveChecker />}
+          {activeTab === 'upload' && <UploadView />}
           {activeTab === 'admin' && <AdminView />}
-        </main>
-      </div>
+        </div>
+      </main>
 
       {/* Footer */}
-      <footer className="relative z-10 text-center py-6 text-xs text-muted-foreground border-t border-border/20 mt-8">
+      <footer className="relative z-10 px-4 py-4 text-center text-xs text-muted-foreground">
         <p>
-          Built with{' '}
-          <span className="text-red-400">♥</span>{' '}
-          using{' '}
+          © {new Date().getFullYear()} Reviews World · Built with{' '}
+          <span className="text-red-400">♥</span> using{' '}
           <a
             href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(
-              typeof window !== 'undefined' ? window.location.hostname : 'app-content-features'
+              typeof window !== 'undefined' ? window.location.hostname : 'reviews-world'
             )}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -132,10 +159,7 @@ export default function App() {
             caffeine.ai
           </a>
         </p>
-        <p className="mt-1">© {new Date().getFullYear()} App Content &amp; Features</p>
       </footer>
-
-      <Toaster />
     </div>
   );
 }
