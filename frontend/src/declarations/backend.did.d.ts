@@ -49,6 +49,11 @@ export interface CommentList {
   'locked' : boolean,
   'suffix' : string,
 }
+export interface Earning {
+  'walletPhone' : [] | [string],
+  'username' : string,
+  'totalAmount' : bigint,
+}
 export interface ExportData {
   'chatMessages' : Array<ChatMessage>,
   'settings' : Settings,
@@ -76,6 +81,14 @@ export interface ListMetrics {
   'percentUsed' : number,
   'totalTemplates' : bigint,
   'listId' : string,
+}
+export interface PayoutRequest {
+  'walletPhone' : string,
+  'status' : { 'pending' : null } |
+    { 'approved' : null },
+  'username' : string,
+  'totalAmount' : bigint,
+  'timestamp' : bigint,
 }
 export interface PriceEntry {
   'pricePerEntry' : number,
@@ -127,19 +140,27 @@ export interface _SERVICE {
     [string, Array<string>, string, [] | [ExternalBlob]],
     undefined
   >,
+  'addOrUpdateEarning' : ActorMethod<[string, bigint], undefined>,
   'addTemplatesToList' : ActorMethod<[string, Array<string>], boolean>,
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
+  'approvePayoutRequest' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'bulkDeleteCommentLists' : ActorMethod<[], undefined>,
+  'bulkDeleteLiveLists' : ActorMethod<[], undefined>,
   'bulkSetPrices' : ActorMethod<[Array<[string, number, boolean]>], undefined>,
   'calculateAllEarnings' : ActorMethod<[], AllEarningsSummary>,
   'calculateEarnings' : ActorMethod<[string], [] | [AppEarnings]>,
   'claimComment' : ActorMethod<[string], ClaimCommentResult>,
+  'deleteAllPayoutRequests' : ActorMethod<[], undefined>,
   'deleteAppEvent' : ActorMethod<[string], boolean>,
   'deleteCommentList' : ActorMethod<[string], boolean>,
+  'deleteEarningsRecords' : ActorMethod<[], undefined>,
   'deletePriceEntry' : ActorMethod<[string], undefined>,
-  'exportAllData' : ActorMethod<[], ExportData>,
+  'exportAllData' : ActorMethod<[], [] | [ExportData]>,
   'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
   'getAccessKey' : ActorMethod<[], [] | [string]>,
+  'getAllEarnings' : ActorMethod<[], Array<Earning>>,
+  'getAllPayoutRequests' : ActorMethod<[], Array<PayoutRequest>>,
   'getAvailableComments' : ActorMethod<
     [string],
     { 'count' : bigint, 'comments' : Array<string> }
@@ -148,6 +169,7 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCommentListsOrder' : ActorMethod<[], Array<string>>,
+  'getEarning' : ActorMethod<[string], [] | [Earning]>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -158,6 +180,8 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string], undefined>,
   'setPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
+  'setWalletPhone' : ActorMethod<[string, string], undefined>,
+  'submitPayoutRequest' : ActorMethod<[string, bigint, string], undefined>,
   'toggleListLock' : ActorMethod<[string], boolean>,
   'updateSettings' : ActorMethod<[boolean, [] | [ExternalBlob]], undefined>,
 }

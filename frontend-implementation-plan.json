@@ -1,21 +1,27 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Admin Authorization for Comment List Creation",
+  "title": "Fix Admin Authorization Error & Merge Earnings into Live List Tab",
   "requirements": [
     {
-      "id": "REQ-24",
-      "summary": "Fix AdminComments.tsx to use authenticated actor for all comment list mutations",
+      "id": "REQ-2",
+      "summary": "Remove the separate 'Earnings' tab from the main navigation and merge the EarningsChecker view directly into the Live Checker tab",
       "acceptanceCriteria": [
-        "AdminComments.tsx retrieves and uses the authenticated actor for all mutation calls",
-        "Creating, renaming, deleting, and modifying comment lists from the Admin Panel completes without authorization errors",
-        "The pattern matches how AdminLiveList.tsx and AdminSettings.tsx obtain and pass the authenticated actor"
+        "The standalone 'Earnings' tab is no longer visible in the main navigation.",
+        "The EarningsChecker content (username lookup, wallet entry, payout request) is accessible from within the Live Checker tab.",
+        "No earnings functionality is lost — all EarningsChecker features remain fully functional after the merge.",
+        "The Live Checker tab layout is coherent with the merged earnings section (e.g., as a sub-section or secondary tab within Live Checker)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/views/admin/AdminComments.tsx",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Update AdminComments.tsx to use the authenticated actor from useActor hook for all comment list mutation operations (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, toggleListLock). Follow the same pattern used in AdminLiveList.tsx and AdminSettings.tsx where the authenticated actor is retrieved via useActor and passed to mutation hooks. Ensure all mutation calls that interact with admin-gated backend functions use the authenticated actor rather than the anonymous identity. This resolves the 'Unauthorized: Only admins can add comment lists' error by ensuring proper authentication credentials are sent with all admin operations."
+          "description": "Remove the 'Earnings' tab from the main navigation. Update the tab list to only include: User View, Upload, Live Checker, and Admin. Remove the TabPanel for Earnings and its associated imports."
+        },
+        {
+          "path": "frontend/src/views/LiveChecker.tsx",
+          "operation": "modify",
+          "description": "Add the EarningsChecker view as a secondary tab or accordion section within the Live Checker view. Implement a sub-navigation or toggle mechanism (e.g., tabs within the view) to allow users to switch between 'Username Checker' and 'Earnings Lookup'. Import and embed the EarningsChecker component so users can access earnings lookup, wallet entry, and payout request functionality without leaving the Live Checker tab. Ensure the layout is coherent and both features are accessible."
         }
       ]
     }

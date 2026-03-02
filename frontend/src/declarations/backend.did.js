@@ -84,6 +84,18 @@ export const BulkCommentsResult = IDL.Record({
   'generatedCount' : IDL.Nat,
   'comments' : IDL.Vec(IDL.Text),
 });
+export const Earning = IDL.Record({
+  'walletPhone' : IDL.Opt(IDL.Text),
+  'username' : IDL.Text,
+  'totalAmount' : IDL.Nat,
+});
+export const PayoutRequest = IDL.Record({
+  'walletPhone' : IDL.Text,
+  'status' : IDL.Variant({ 'pending' : IDL.Null, 'approved' : IDL.Null }),
+  'username' : IDL.Text,
+  'totalAmount' : IDL.Nat,
+  'timestamp' : IDL.Int,
+});
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const ListMetrics = IDL.Record({
   'usedTemplates' : IDL.Nat,
@@ -145,6 +157,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'addOrUpdateEarning' : IDL.Func([IDL.Text, IDL.Nat], [], []),
   'addTemplatesToList' : IDL.Func(
       [IDL.Text, IDL.Vec(IDL.Text)],
       [IDL.Bool],
@@ -155,7 +168,10 @@ export const idlService = IDL.Service({
       [IDL.Bool],
       [],
     ),
+  'approvePayoutRequest' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'bulkDeleteCommentLists' : IDL.Func([], [], []),
+  'bulkDeleteLiveLists' : IDL.Func([], [], []),
   'bulkSetPrices' : IDL.Func(
       [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
       [],
@@ -164,16 +180,20 @@ export const idlService = IDL.Service({
   'calculateAllEarnings' : IDL.Func([], [AllEarningsSummary], ['query']),
   'calculateEarnings' : IDL.Func([IDL.Text], [IDL.Opt(AppEarnings)], ['query']),
   'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
+  'deleteAllPayoutRequests' : IDL.Func([], [], []),
   'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteEarningsRecords' : IDL.Func([], [], []),
   'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
-  'exportAllData' : IDL.Func([], [ExportData], []),
+  'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
   'generateBulkComments' : IDL.Func(
       [IDL.Text, IDL.Nat],
       [BulkCommentsResult],
       [],
     ),
   'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getAllEarnings' : IDL.Func([], [IDL.Vec(Earning)], ['query']),
+  'getAllPayoutRequests' : IDL.Func([], [IDL.Vec(PayoutRequest)], ['query']),
   'getAvailableComments' : IDL.Func(
       [IDL.Text],
       [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
@@ -183,6 +203,7 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+  'getEarning' : IDL.Func([IDL.Text], [IDL.Opt(Earning)], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
   'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -201,6 +222,8 @@ export const idlService = IDL.Service({
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setAccessKey' : IDL.Func([IDL.Text], [], []),
   'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
+  'setWalletPhone' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'submitPayoutRequest' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
   'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
 });
@@ -284,6 +307,18 @@ export const idlFactory = ({ IDL }) => {
     'generatedCount' : IDL.Nat,
     'comments' : IDL.Vec(IDL.Text),
   });
+  const Earning = IDL.Record({
+    'walletPhone' : IDL.Opt(IDL.Text),
+    'username' : IDL.Text,
+    'totalAmount' : IDL.Nat,
+  });
+  const PayoutRequest = IDL.Record({
+    'walletPhone' : IDL.Text,
+    'status' : IDL.Variant({ 'pending' : IDL.Null, 'approved' : IDL.Null }),
+    'username' : IDL.Text,
+    'totalAmount' : IDL.Nat,
+    'timestamp' : IDL.Int,
+  });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const ListMetrics = IDL.Record({
     'usedTemplates' : IDL.Nat,
@@ -345,6 +380,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'addOrUpdateEarning' : IDL.Func([IDL.Text, IDL.Nat], [], []),
     'addTemplatesToList' : IDL.Func(
         [IDL.Text, IDL.Vec(IDL.Text)],
         [IDL.Bool],
@@ -355,7 +391,10 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Bool],
         [],
       ),
+    'approvePayoutRequest' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'bulkDeleteCommentLists' : IDL.Func([], [], []),
+    'bulkDeleteLiveLists' : IDL.Func([], [], []),
     'bulkSetPrices' : IDL.Func(
         [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
         [],
@@ -368,16 +407,20 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
+    'deleteAllPayoutRequests' : IDL.Func([], [], []),
     'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteEarningsRecords' : IDL.Func([], [], []),
     'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
-    'exportAllData' : IDL.Func([], [ExportData], []),
+    'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
     'generateBulkComments' : IDL.Func(
         [IDL.Text, IDL.Nat],
         [BulkCommentsResult],
         [],
       ),
     'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'getAllEarnings' : IDL.Func([], [IDL.Vec(Earning)], ['query']),
+    'getAllPayoutRequests' : IDL.Func([], [IDL.Vec(PayoutRequest)], ['query']),
     'getAvailableComments' : IDL.Func(
         [IDL.Text],
         [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
@@ -387,6 +430,7 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'getEarning' : IDL.Func([IDL.Text], [IDL.Opt(Earning)], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
     'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -405,6 +449,8 @@ export const idlFactory = ({ IDL }) => {
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setAccessKey' : IDL.Func([IDL.Text], [], []),
     'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
+    'setWalletPhone' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'submitPayoutRequest' : IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [], []),
     'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
   });

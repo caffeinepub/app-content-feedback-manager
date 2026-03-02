@@ -1,36 +1,54 @@
 import { useState, useEffect } from 'react';
 
 const ADMIN_CODE = '7898';
-const STORAGE_KEY = 'adminUnlocked';
+
+interface AdminAuthState {
+  isUnlocked: boolean;
+  error: string | null;
+  isLoading: boolean;
+}
 
 export function useAdminAuth() {
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return sessionStorage.getItem(STORAGE_KEY) === 'true';
+  const [state, setState] = useState<AdminAuthState>({
+    isUnlocked: false,
+    error: null,
+    isLoading: false,
   });
-  const [error, setError] = useState<string>('');
 
+  // Restore admin state from localStorage on mount
   useEffect(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY) === 'true';
-    setIsAdmin(stored);
+    const storedCode = localStorage.getItem('adminCode');
+    const storedIsAdmin = localStorage.getItem('isAdmin');
+    if (storedCode === ADMIN_CODE && storedIsAdmin === 'true') {
+      setState(prev => ({ ...prev, isUnlocked: true }));
+    }
   }, []);
 
-  const unlock = (code: string): boolean => {
+  const unlock = async (code: string): Promise<boolean> => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
+
     if (code === ADMIN_CODE) {
-      sessionStorage.setItem(STORAGE_KEY, 'true');
-      setIsAdmin(true);
-      setError('');
+      localStorage.setItem('adminCode', ADMIN_CODE);
+      localStorage.setItem('isAdmin', 'true');
+      setState({ isUnlocked: true, error: null, isLoading: false });
       return true;
     } else {
-      setError('Incorrect code, try again');
+      setState({ isUnlocked: false, error: 'Invalid admin code. Please try again.', isLoading: false });
       return false;
     }
   };
 
-  const lock = () => {
-    sessionStorage.removeItem(STORAGE_KEY);
-    setIsAdmin(false);
-    setError('');
+  const lockAdmin = () => {
+    localStorage.removeItem('adminCode');
+    localStorage.removeItem('isAdmin');
+    setState({ isUnlocked: false, error: null, isLoading: false });
   };
 
-  return { isAdmin, unlock, lock, error, setError };
+  return {
+    isUnlocked: state.isUnlocked,
+    error: state.error,
+    isLoading: state.isLoading,
+    unlock,
+    lockAdmin,
+  };
 }

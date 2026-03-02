@@ -1,24 +1,20 @@
-import Storage "blob-storage/Storage";
-import List "mo:core/List";
 import Map "mo:core/Map";
-import Set "mo:core/Set";
-import Nat "mo:core/Nat";
-import Text "mo:core/Text";
-import Time "mo:core/Time";
+import List "mo:core/List";
 import Array "mo:core/Array";
-import Order "mo:core/Order";
-import Iter "mo:core/Iter";
+import Set "mo:core/Set";
 import Float "mo:core/Float";
 import Int "mo:core/Int";
+import Text "mo:core/Text";
+import Time "mo:core/Time";
+import Order "mo:core/Order";
+import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
-
-
+import Nat "mo:core/Nat";
+import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-
-// Specify the data migration function in with-clause
 
 actor {
   include MixinStorage();
@@ -26,16 +22,19 @@ actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  func hasUserOrAdminPermission(caller : Principal) : Bool {
+    AccessControl.hasPermission(accessControlState, caller, #user) or AccessControl.isAdmin(accessControlState, caller);
+  };
+
   type UserProfile = {
     name : Text;
-    // Other user metadata if needed
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can get their profile");
     };
     userProfiles.get(caller);
   };
@@ -48,8 +47,8 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can save profiles");
     };
     userProfiles.add(caller, profile);
   };
@@ -163,13 +162,10 @@ actor {
     };
   };
 
-  // Reordered functions: App import logic is now first
-
   public shared ({ caller }) func importLiveList(imports : [AppImport]) : async ImportSummary {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can import live lists");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can import live lists");
     };
-
     var totalUsernamesAdded = 0;
     var totalDuplicatesSkipped = 0;
 
@@ -224,10 +220,9 @@ actor {
     };
   };
 
-  // Comment list administration
   public shared ({ caller }) func deleteCommentList(listId : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete comment lists");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can delete comment lists");
     };
     switch (commentLists.get(listId)) {
       case (null) { false };
@@ -246,8 +241,8 @@ actor {
   };
 
   public shared ({ caller }) func addCommentList(id : Text, displayName : Text, suffix : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add comment lists");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add comment lists");
     };
     let list : CommentList = {
       id;
@@ -262,8 +257,8 @@ actor {
   };
 
   public shared ({ caller }) func renameCommentList(oldId : Text, newId : Text, newDisplayName : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can rename comment lists");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can rename comment lists");
     };
     switch (commentLists.get(oldId)) {
       case (null) { false };
@@ -293,8 +288,8 @@ actor {
   };
 
   public shared ({ caller }) func addTemplatesToList(listId : Text, templates : [Text]) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add templates to lists");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add templates");
     };
     switch (commentLists.get(listId)) {
       case (null) { false };
@@ -314,8 +309,8 @@ actor {
   };
 
   public shared ({ caller }) func toggleListLock(listId : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can toggle list lock");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can toggle list lock");
     };
     switch (commentLists.get(listId)) {
       case (null) { false };
@@ -334,8 +329,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteAppEvent(name : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can delete app events");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can delete app events");
     };
     switch (appsEvents.get(name)) {
       case (null) { false };
@@ -347,8 +342,8 @@ actor {
   };
 
   public shared ({ caller }) func renameAppEvent(oldName : Text, newName : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can rename app events");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can rename app events");
     };
     switch (appsEvents.get(oldName)) {
       case (null) { false };
@@ -371,8 +366,8 @@ actor {
   };
 
   public shared ({ caller }) func addAppEvent(name : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add app events");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add app events");
     };
     let app : AppEvent = {
       name;
@@ -389,8 +384,8 @@ actor {
   };
 
   public shared ({ caller }) func addUsernamesToAppEvent(name : Text, usernames : [Text]) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add usernames to app events");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add usernames to app events");
     };
     switch (appsEvents.get(name)) {
       case (null) { false };
@@ -412,8 +407,8 @@ actor {
   };
 
   public shared ({ caller }) func addChatMessage(text : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can add chat messages");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add chat messages");
     };
     let message : ChatMessage = {
       id = nextMessageId;
@@ -425,8 +420,8 @@ actor {
   };
 
   public shared ({ caller }) func addImage(name : Text, tags : [Text], dataUrl : Text, data : ?Storage.ExternalBlob) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can add images");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add images");
     };
     let image : ImageMeta = {
       id = nextImageId;
@@ -440,7 +435,7 @@ actor {
   };
 
   public shared ({ caller }) func updateSettings(bgMusicEnabled : Bool, musicFile : ?Storage.ExternalBlob) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can update settings");
     };
     settings := {
@@ -451,7 +446,7 @@ actor {
   };
 
   public shared ({ caller }) func setAccessKey(key : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can set the access key");
     };
     settings := {
@@ -460,19 +455,17 @@ actor {
   };
 
   public query ({ caller }) func getAccessKey() : async ?Text {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can view the access key");
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can retrieve the access key");
     };
     settings.accessKey;
   };
 
   public shared ({ caller }) func claimComment(listId : Text) : async ClaimCommentResult {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can claim comments");
-    };
+    // Open to any caller (no auth check required)
     switch (commentLists.get(listId)) {
       case (null) {
-        #noCommentsRemaining; // If list doesn't exist, treat as no comments remaining
+        #noCommentsRemaining;
       };
       case (?list) {
         if (list.templates.size() == 0) {
@@ -493,7 +486,7 @@ actor {
         var availableIndex : ?Nat = null;
 
         var attempts = 0;
-        let maxAttempts = 100; // Increased max attempts for better randomness
+        let maxAttempts = 100;
 
         while (attempts < maxAttempts) {
           let randomIndex = Int.abs(Time.now()) % list.templates.size();
@@ -530,9 +523,6 @@ actor {
     comments : [Text];
     count : Nat;
   } {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view available comments");
-    };
     switch (commentLists.get(listId)) {
       case (null) {
         { comments = []; count = 0 };
@@ -552,11 +542,7 @@ actor {
               "";
             };
           },
-        ).filter(
-          func(comment) {
-            comment != "";
-          }
-        );
+        ).filter(func(comment) { comment != "" });
 
         {
           comments = availableComments;
@@ -567,9 +553,6 @@ actor {
   };
 
   public query ({ caller }) func getAvailableCount(listId : Text) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view available count");
-    };
     switch (commentLists.get(listId)) {
       case (null) { 0 };
       case (?list) {
@@ -579,8 +562,8 @@ actor {
         };
         let usedCount = usedIndices.size();
         if (list.templates.size() > 0 and usedCount > 0) {
-          let size = list.templates.size() - usedCount;
-          assert (size >= 0); // Ensure non-negative
+          let size = Int.abs(list.templates.size() - usedCount);
+          assert (size >= 0);
           size;
         } else {
           list.templates.size();
@@ -590,9 +573,6 @@ actor {
   };
 
   public query ({ caller }) func getListMetrics() : async [ListMetrics] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view list metrics");
-    };
     commentLists.values().toArray().map(
       func(list) {
         let usedIndices = switch (usedTemplateIndices.get(list.id)) {
@@ -607,7 +587,7 @@ actor {
           totalTemplates;
           usedTemplates = usedCount;
           availableTemplates = if (totalTemplates > 0 and usedCount > 0) {
-            totalTemplates - usedCount;
+            Int.abs(totalTemplates - usedCount);
           } else {
             totalTemplates;
           };
@@ -623,17 +603,17 @@ actor {
   };
 
   public shared ({ caller }) func generateBulkComments(_ : Text, _ : Nat) : async BulkCommentsResult {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can generate bulk comments");
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can generate bulk comments");
     };
-    Runtime.trap("Function not implemented yet. This will take place in the next generated iteration. ");
+    Runtime.trap("Function not implemented yet. This will take place in the next generated iteration.");
   };
 
-  public shared ({ caller }) func exportAllData() : async ExportData {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+  public shared ({ caller }) func exportAllData() : async ?ExportData {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can export all data");
     };
-    {
+    ?{
       commentLists = commentLists.values().toArray();
       appsEvents = appsEvents.values().toArray().map(func(appWithDate) { appWithDate.appEvent });
       chatMessages = chatMessages.toArray();
@@ -643,13 +623,9 @@ actor {
   };
 
   public query ({ caller }) func getCommentListsOrder() : async [Text] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view comment lists order");
-    };
     commentListsOrder.toArray();
   };
 
-  // Price list functionality
   type PriceEntry = {
     appName : Text;
     pricePerEntry : Float;
@@ -657,16 +633,13 @@ actor {
   };
 
   public shared ({ caller }) func setPriceEntry(appName : Text, pricePerEntry : Float, isActive : Bool) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can set price entries");
     };
     priceList.add(appName, { pricePerEntry; isActive });
   };
 
   public query ({ caller }) func getPriceList() : async [PriceEntry] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view the price list");
-    };
     priceList.toArray().map(
       func((appName, entry)) {
         {
@@ -679,14 +652,14 @@ actor {
   };
 
   public shared ({ caller }) func deletePriceEntry(appName : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can delete price entries");
     };
     priceList.remove(appName);
   };
 
   public shared ({ caller }) func bulkSetPrices(entries : [(Text, Float, Bool)]) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can bulk set prices");
     };
     for ((appName, pricePerEntry, isActive) in entries.values()) {
@@ -710,9 +683,6 @@ actor {
   };
 
   public query ({ caller }) func calculateEarnings(appName : Text) : async ?AppEarnings {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can calculate earnings");
-    };
     let appsEventsWithoutImportDate = appsEvents.toArray().filter(
       func((_, appWithDate)) {
         appWithDate.appEvent.name == appName;
@@ -749,9 +719,6 @@ actor {
   };
 
   public query ({ caller }) func calculateAllEarnings() : async AllEarningsSummary {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can calculate all earnings");
-    };
     var totalUsernames = 0;
     var totalEarnings = 0.0;
     var appsWithPricesCount = 0;
@@ -809,5 +776,166 @@ actor {
       totalValidEntries = totalUsernames;
       totalEarnings;
     };
+  };
+
+  //
+  // Earnings and Payout Backend
+  //
+  public type Earning = {
+    username : Text;
+    totalAmount : Nat;
+    walletPhone : ?Text;
+  };
+
+  public type PayoutRequest = {
+    username : Text;
+    totalAmount : Nat;
+    walletPhone : Text;
+    status : {
+      #pending;
+      #approved;
+    };
+    timestamp : Int;
+  };
+
+  var earningsStore : Map.Map<Text, Earning> = Map.empty<Text, Earning>();
+  var payoutStore : Map.Map<Text, List.List<PayoutRequest>> = Map.empty<Text, List.List<PayoutRequest>>();
+
+  public shared ({ caller }) func addOrUpdateEarning(username : Text, totalAmount : Nat) : async () {
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can add or update earnings");
+    };
+    let existing : Earning = {
+      username;
+      totalAmount;
+      walletPhone = switch (earningsStore.get(username)) {
+        case (?e) { e.walletPhone };
+        case (null) { null };
+      };
+    };
+    earningsStore.add(username, existing);
+  };
+
+  public shared ({ caller }) func setWalletPhone(username : Text, phone : Text) : async () {
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can set wallet phone");
+    };
+    switch (earningsStore.get(username)) {
+      case (null) {};
+      case (?earning) {
+        let updated : Earning = {
+          earning with walletPhone = ?phone;
+        };
+        earningsStore.add(username, updated);
+      };
+    };
+  };
+
+  public query ({ caller }) func getEarning(username : Text) : async ?Earning {
+    earningsStore.get(username);
+  };
+
+  public shared ({ caller }) func submitPayoutRequest(username : Text, totalAmount : Nat, walletPhone : Text) : async () {
+    if (not hasUserOrAdminPermission(caller)) {
+      Runtime.trap("Unauthorized: Only users or admins can submit payout requests");
+    };
+    let request : PayoutRequest = {
+      username;
+      totalAmount;
+      walletPhone;
+      status = #pending;
+      timestamp = Time.now();
+    };
+
+    switch (payoutStore.get(username)) {
+      case (null) {
+        let newList = List.empty<PayoutRequest>();
+        newList.add(request);
+        payoutStore.add(username, newList);
+      };
+      case (?existingList) {
+        existingList.add(request);
+      };
+    };
+  };
+
+  public shared ({ caller }) func approvePayoutRequest(username : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can approve payout requests");
+    };
+    switch (payoutStore.get(username)) {
+      case (null) {};
+      case (?requests) {
+        let updated = requests.map<PayoutRequest, PayoutRequest>(
+          func(req) {
+            if (req.status == #pending) {
+              {
+                req with status = #approved;
+              };
+            } else {
+              req;
+            };
+          }
+        );
+        payoutStore.add(username, updated);
+      };
+    };
+  };
+
+  public query ({ caller }) func getAllPayoutRequests() : async [PayoutRequest] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can view all payout requests");
+    };
+    let allRequests = List.empty<PayoutRequest>();
+    for ((_, requests) in payoutStore.entries()) {
+      for (req in requests.values()) {
+        if (req.status == #pending) {
+          allRequests.add({
+            req with status = #pending;
+          });
+        } else {
+          allRequests.add({
+            req with status = #approved;
+          });
+        };
+      };
+    };
+    allRequests.toArray();
+  };
+
+  public shared ({ caller }) func bulkDeleteCommentLists() : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can bulk delete comment lists");
+    };
+    commentLists.clear();
+    commentListsOrder.clear();
+  };
+
+  public shared ({ caller }) func bulkDeleteLiveLists() : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can bulk delete live lists");
+    };
+    appsEvents.clear();
+  };
+
+  public query ({ caller }) func getAllEarnings() : async [Earning] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can view all earnings");
+    };
+    earningsStore.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteEarningsRecords() : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can delete earnings records");
+    };
+    earningsStore := Map.empty<Text, Earning>();
+  };
+
+  public shared ({ caller }) func deleteAllPayoutRequests() : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can delete all payout requests");
+    };
+    payoutStore := Map.empty<Text, List.List<PayoutRequest>>();
   };
 };

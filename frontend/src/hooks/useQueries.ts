@@ -1,43 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
-import type { AppImport, CommentList, AppEvent, PriceEntry, ImportSummary, UserProfile } from '../backend';
-import type { backendInterface } from '../backend';
+import type { CommentList, AppEvent, ChatMessage, ImageMeta, Settings, ListMetrics, PriceEntry, AppEarnings, AllEarningsSummary, AppImport, ExternalBlob, Earning, PayoutRequest } from '../backend';
 
-// ─── User Profile ────────────────────────────────────────────────────────────
-
-export function useGetCallerUserProfile() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  const query = useQuery<UserProfile | null>({
-    queryKey: ['currentUserProfile'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getCallerUserProfile();
-    },
-    enabled: !!actor && !actorFetching,
-    retry: false,
-  });
-
-  return {
-    ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
-  };
-}
-
-export function useSaveCallerUserProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (profile: UserProfile) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.saveCallerUserProfile(profile);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-    },
-  });
+// Helper to get admin code from localStorage
+function getAdminCode(): string {
+  const code = localStorage.getItem('adminCode');
+  if (!code) {
+    throw new Error('Admin access required. Please unlock with code 7898.');
+  }
+  return code;
 }
 
 // ─── Comment Lists ────────────────────────────────────────────────────────────
@@ -49,85 +20,43 @@ export function useGetCommentLists() {
     queryKey: ['commentLists'],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        const data = await actor.exportAllData();
-        return data.commentLists;
-      } catch {
-        return [];
-      }
+      const order = await actor.getCommentListsOrder();
+      const allLists = await actor.exportAllData();
+      if (!allLists) return [];
+      const listMap = new Map(allLists.commentLists.map(l => [l.id, l]));
+      return order.map(id => listMap.get(id)).filter(Boolean) as CommentList[];
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-export function useGetCommentListsOrdered() {
+export function useGetCommentListsOrder() {
   const { actor, isFetching } = useActor();
 
-  return useQuery<CommentList[]>({
-    queryKey: ['commentListsOrdered'],
+  return useQuery<string[]>({
+    queryKey: ['commentListsOrder'],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        const [order, data] = await Promise.all([
-          actor.getCommentListsOrder(),
-          actor.exportAllData(),
-        ]);
-        const listMap = new Map(data.commentLists.map((l) => [l.id, l]));
-        const ordered: CommentList[] = [];
-        for (const id of order) {
-          const l = listMap.get(id);
-          if (l) ordered.push(l);
-        }
-        // append any not in order
-        for (const l of data.commentLists) {
-          if (!order.includes(l.id)) ordered.push(l);
-        }
-        return ordered;
-      } catch {
-        return [];
-      }
+      return actor.getCommentListsOrder();
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-// Backward-compatible aliases
-export const useCommentLists = useGetCommentListsOrdered;
-
-// Helper to get the current actor from query cache
-function getActorFromCache(queryClient: ReturnType<typeof useQueryClient>): backendInterface | null {
-  // Find the actor query data - it may have any identity key
-  const queries = queryClient.getQueriesData<backendInterface>({ queryKey: ['actor'] });
-  for (const [, data] of queries) {
-    if (data) return data;
-  }
-  return null;
-}
-
-export function useAddCommentList() {
+export function useCreateCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, displayName, suffix }: { id: string; displayName: string; suffix: string }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        const result = await currentActor.addCommentList(id, displayName, suffix);
-        if (!result) throw new Error('Failed to create comment list');
-        return result;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.addCommentList(id, displayName, suffix);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['commentListsOrdered'] });
+      queryClient.invalidateQueries({ queryKey: ['commentListsOrder'] });
       queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-    },
-    onError: (error: Error) => {
-      console.error('addCommentList error:', error);
     },
   });
 }
@@ -138,21 +67,13 @@ export function useRenameCommentList() {
 
   return useMutation({
     mutationFn: async ({ oldId, newId, newDisplayName }: { oldId: string; newId: string; newDisplayName: string }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        return await currentActor.renameCommentList(oldId, newId, newDisplayName);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.renameCommentList(oldId, newId, newDisplayName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['commentListsOrdered'] });
-    },
-    onError: (error: Error) => {
-      console.error('renameCommentList error:', error);
+      queryClient.invalidateQueries({ queryKey: ['commentListsOrder'] });
     },
   });
 }
@@ -163,22 +84,14 @@ export function useDeleteCommentList() {
 
   return useMutation({
     mutationFn: async (listId: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        return await currentActor.deleteCommentList(listId);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteCommentList(listId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['commentListsOrdered'] });
+      queryClient.invalidateQueries({ queryKey: ['commentListsOrder'] });
       queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-    },
-    onError: (error: Error) => {
-      console.error('deleteCommentList error:', error);
     },
   });
 }
@@ -189,23 +102,14 @@ export function useAddTemplatesToList() {
 
   return useMutation({
     mutationFn: async ({ listId, templates }: { listId: string; templates: string[] }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        return await currentActor.addTemplatesToList(listId, templates);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.addTemplatesToList(listId, templates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['commentListsOrdered'] });
       queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
       queryClient.invalidateQueries({ queryKey: ['availableComments'] });
-    },
-    onError: (error: Error) => {
-      console.error('addTemplatesToList error:', error);
     },
   });
 }
@@ -216,21 +120,12 @@ export function useToggleListLock() {
 
   return useMutation({
     mutationFn: async (listId: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        return await currentActor.toggleListLock(listId);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.toggleListLock(listId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['commentListsOrdered'] });
-    },
-    onError: (error: Error) => {
-      console.error('toggleListLock error:', error);
     },
   });
 }
@@ -244,69 +139,25 @@ export function useGetAppEvents() {
     queryKey: ['appEvents'],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        const data = await actor.exportAllData();
-        return data.appsEvents;
-      } catch {
-        return [];
-      }
+      const data = await actor.exportAllData();
+      return data?.appsEvents ?? [];
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-// Backward-compatible aliases
-export const useAppsEvents = useGetAppEvents;
-export const useAppEvents = useGetAppEvents;
-
-export function useAddAppEvent() {
+export function useCreateAppEvent() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (name: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        const result = await currentActor.addAppEvent(name);
-        if (!result) throw new Error('Failed to create list (returned false)');
-        return result;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.addAppEvent(name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appEvents'] });
-    },
-    onError: (error: Error) => {
-      console.error('addAppEvent error:', error);
-    },
-  });
-}
-
-export function useAddUsernamesToAppEvent() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ name, usernames }: { name: string; usernames: string[] }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        const result = await currentActor.addUsernamesToAppEvent(name, usernames);
-        if (!result) throw new Error('Failed to add usernames (returned false)');
-        return result;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appEvents'] });
-    },
-    onError: (error: Error) => {
-      console.error('addUsernamesToAppEvent error:', error);
     },
   });
 }
@@ -317,23 +168,13 @@ export function useRenameAppEvent() {
 
   return useMutation({
     mutationFn: async ({ oldName, newName, id }: { oldName?: string; newName: string; id?: string }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
       const resolvedOldName = oldName ?? id ?? '';
-      try {
-        const result = await currentActor.renameAppEvent(resolvedOldName, newName);
-        if (!result) throw new Error('Failed to rename list (returned false)');
-        return result;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      return actor.renameAppEvent(resolvedOldName, newName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appEvents'] });
-    },
-    onError: (error: Error) => {
-      console.error('renameAppEvent error:', error);
     },
   });
 }
@@ -344,22 +185,28 @@ export function useDeleteAppEvent() {
 
   return useMutation({
     mutationFn: async (name: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        const result = await currentActor.deleteAppEvent(name);
-        if (!result) throw new Error('Failed to delete list (returned false)');
-        return result;
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteAppEvent(name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appEvents'] });
     },
-    onError: (error: Error) => {
-      console.error('deleteAppEvent error:', error);
+  });
+}
+
+export function useAddUsernamesToEvent() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ name, usernames }: { name: string; usernames: string[] }) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.addUsernamesToAppEvent(name, usernames);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appEvents'] });
     },
   });
 }
@@ -369,26 +216,75 @@ export function useImportLiveList() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (imports: AppImport[]): Promise<ImportSummary> => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        const sanitized: AppImport[] = imports.map((imp) => {
-          const base: AppImport = { appName: imp.appName, usernames: imp.usernames };
-          if (imp.importDate !== undefined) base.importDate = imp.importDate;
-          return base;
-        });
-        return await currentActor.importLiveList(sanitized);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+    mutationFn: async (imports: AppImport[]) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.importLiveList(imports);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appEvents'] });
     },
-    onError: (error: Error) => {
-      console.error('importLiveList error:', error);
+  });
+}
+
+// ─── Chat Messages ────────────────────────────────────────────────────────────
+
+export function useGetChatMessages() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<ChatMessage[]>({
+    queryKey: ['chatMessages'],
+    queryFn: async () => {
+      if (!actor) return [];
+      const data = await actor.exportAllData();
+      return data?.chatMessages ?? [];
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddChatMessage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (text: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.addChatMessage(text);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chatMessages'] });
+    },
+  });
+}
+
+// ─── Images ───────────────────────────────────────────────────────────────────
+
+export function useGetImages() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<ImageMeta[]>({
+    queryKey: ['images'],
+    queryFn: async () => {
+      if (!actor) return [];
+      const data = await actor.exportAllData();
+      return data?.images ?? [];
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddImage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ name, tags, dataUrl, data }: { name: string; tags: string[]; dataUrl: string; data: ExternalBlob | null }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.addImage(name, tags, dataUrl, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['images'] });
     },
   });
 }
@@ -398,66 +294,14 @@ export function useImportLiveList() {
 export function useGetSettings() {
   const { actor, isFetching } = useActor();
 
-  return useQuery({
+  return useQuery<Settings>({
     queryKey: ['settings'],
     queryFn: async () => {
-      if (!actor) return null;
-      try {
-        const data = await actor.exportAllData();
-        return data.settings;
-      } catch {
-        return null;
-      }
+      if (!actor) return { bgMusicEnabled: false };
+      const data = await actor.exportAllData();
+      return data?.settings ?? { bgMusicEnabled: false };
     },
     enabled: !!actor && !isFetching,
-  });
-}
-
-// Backward-compatible alias
-export const useSettings = useGetSettings;
-
-export function useGetAccessKey() {
-  const { actor, isFetching } = useActor();
-
-  return useQuery<string | null>({
-    queryKey: ['accessKey'],
-    queryFn: async () => {
-      if (!actor) return null;
-      try {
-        return await actor.getAccessKey();
-      } catch {
-        return null;
-      }
-    },
-    enabled: !!actor && !isFetching,
-  });
-}
-
-// Backward-compatible alias
-export const useAccessKey = useGetAccessKey;
-
-export function useSetAccessKey() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (key: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.setAccessKey(key);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accessKey'] });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (error: Error) => {
-      console.error('setAccessKey error:', error);
-    },
   });
 }
 
@@ -466,37 +310,53 @@ export function useUpdateSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      bgMusicEnabled,
-      musicFile,
-    }: {
-      bgMusicEnabled: boolean;
-      musicFile: import('../backend').ExternalBlob | null;
-    }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.updateSettings(bgMusicEnabled, musicFile);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+    mutationFn: async ({ bgMusicEnabled, musicFile }: { bgMusicEnabled: boolean; musicFile: ExternalBlob | null }) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.updateSettings(bgMusicEnabled, musicFile);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     },
-    onError: (error: Error) => {
-      console.error('updateSettings error:', error);
+  });
+}
+
+export function useSetAccessKey() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (key: string) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.setAccessKey(key);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['accessKey'] });
     },
   });
 }
 
-// ─── Metrics ──────────────────────────────────────────────────────────────────
+export function useGetAccessKey() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<string | null>({
+    queryKey: ['accessKey'],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getAccessKey();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ─── List Metrics ─────────────────────────────────────────────────────────────
 
 export function useGetListMetrics() {
   const { actor, isFetching } = useActor();
 
-  return useQuery({
+  return useQuery<ListMetrics[]>({
     queryKey: ['listMetrics'],
     queryFn: async () => {
       if (!actor) return [];
@@ -507,35 +367,7 @@ export function useGetListMetrics() {
   });
 }
 
-// Backward-compatible alias
-export const useListMetrics = useGetListMetrics;
-
-export function useAvailableComments(listId: string) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery({
-    queryKey: ['availableComments', listId],
-    queryFn: async () => {
-      if (!actor || !listId) return { comments: [] as string[], count: BigInt(0) };
-      return actor.getAvailableComments(listId);
-    },
-    enabled: !!actor && !isFetching && !!listId,
-    refetchInterval: 5000,
-  });
-}
-
-export function useAvailableCount(listId: string) {
-  const { actor, isFetching } = useActor();
-
-  return useQuery({
-    queryKey: ['availableCount', listId],
-    queryFn: async () => {
-      if (!actor || !listId) return BigInt(0);
-      return actor.getAvailableCount(listId);
-    },
-    enabled: !!actor && !isFetching && !!listId,
-  });
-}
+// ─── Comments (Claim) ─────────────────────────────────────────────────────────
 
 export function useClaimComment() {
   const { actor } = useActor();
@@ -543,9 +375,8 @@ export function useClaimComment() {
 
   return useMutation({
     mutationFn: async (listId: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      return currentActor.claimComment(listId);
+      if (!actor) throw new Error('Actor not available');
+      return actor.claimComment(listId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
@@ -555,7 +386,33 @@ export function useClaimComment() {
   });
 }
 
-// ─── Price List ───────────────────────────────────────────────────────────────
+export function useGetAvailableComments(listId: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery({
+    queryKey: ['availableComments', listId],
+    queryFn: async () => {
+      if (!actor) return { comments: [], count: BigInt(0) };
+      return actor.getAvailableComments(listId);
+    },
+    enabled: !!actor && !isFetching && !!listId,
+  });
+}
+
+export function useGetAvailableCount(listId: string) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<bigint>({
+    queryKey: ['availableCount', listId],
+    queryFn: async () => {
+      if (!actor) return BigInt(0);
+      return actor.getAvailableCount(listId);
+    },
+    enabled: !!actor && !isFetching && !!listId,
+  });
+}
+
+// ─── Pricing ──────────────────────────────────────────────────────────────────
 
 export function useGetPriceList() {
   const { actor, isFetching } = useActor();
@@ -570,38 +427,19 @@ export function useGetPriceList() {
   });
 }
 
-// Backward-compatible alias
-export const usePriceList = useGetPriceList;
-
 export function useSetPriceEntry() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      appName,
-      pricePerEntry,
-      isActive,
-    }: {
-      appName: string;
-      pricePerEntry: number;
-      isActive: boolean;
-    }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.setPriceEntry(appName, pricePerEntry, isActive);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+    mutationFn: async ({ appName, pricePerEntry, isActive }: { appName: string; pricePerEntry: number; isActive: boolean }) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.setPriceEntry(appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['priceList'] });
       queryClient.invalidateQueries({ queryKey: ['earnings'] });
-    },
-    onError: (error: Error) => {
-      console.error('setPriceEntry error:', error);
     },
   });
 }
@@ -612,21 +450,13 @@ export function useDeletePriceEntry() {
 
   return useMutation({
     mutationFn: async (appName: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.deletePriceEntry(appName);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.deletePriceEntry(appName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['priceList'] });
       queryClient.invalidateQueries({ queryKey: ['earnings'] });
-    },
-    onError: (error: Error) => {
-      console.error('deletePriceEntry error:', error);
     },
   });
 }
@@ -637,39 +467,27 @@ export function useBulkSetPrices() {
 
   return useMutation({
     mutationFn: async (entries: Array<[string, number, boolean]>) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.bulkSetPrices(entries);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.bulkSetPrices(entries);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['priceList'] });
       queryClient.invalidateQueries({ queryKey: ['earnings'] });
     },
-    onError: (error: Error) => {
-      console.error('bulkSetPrices error:', error);
-    },
   });
 }
 
-// ─── Earnings ─────────────────────────────────────────────────────────────────
+// ─── Earnings (calculated) ────────────────────────────────────────────────────
 
 export function useCalculateAllEarnings() {
   const { actor, isFetching } = useActor();
 
-  return useQuery({
+  return useQuery<AllEarningsSummary>({
     queryKey: ['earnings'],
     queryFn: async () => {
-      if (!actor) return null;
-      try {
-        return await actor.calculateAllEarnings();
-      } catch {
-        return null;
-      }
+      if (!actor) return { appEarnings: [], totalAppsWithPrices: BigInt(0), totalValidEntries: BigInt(0), totalEarnings: 0 };
+      return actor.calculateAllEarnings();
     },
     enabled: !!actor && !isFetching,
   });
@@ -678,120 +496,202 @@ export function useCalculateAllEarnings() {
 export function useCalculateEarnings(appName: string) {
   const { actor, isFetching } = useActor();
 
-  return useQuery({
+  return useQuery<AppEarnings | null>({
     queryKey: ['earnings', appName],
     queryFn: async () => {
-      if (!actor || !appName) return null;
-      try {
-        return await actor.calculateEarnings(appName);
-      } catch {
-        return null;
-      }
+      if (!actor) return null;
+      return actor.calculateEarnings(appName);
     },
     enabled: !!actor && !isFetching && !!appName,
   });
 }
 
-// ─── Chat Messages ────────────────────────────────────────────────────────────
+// ─── Export ───────────────────────────────────────────────────────────────────
 
-export function useGetChatMessages() {
+export function useExportAllData() {
+  const { actor } = useActor();
+
+  return useMutation({
+    mutationFn: async () => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.exportAllData();
+    },
+  });
+}
+
+// ─── User Earnings Store ──────────────────────────────────────────────────────
+
+export function useGetEarning(username: string) {
   const { actor, isFetching } = useActor();
 
-  return useQuery({
-    queryKey: ['chatMessages'],
+  return useQuery<Earning | null>({
+    queryKey: ['earning', username],
+    queryFn: async () => {
+      if (!actor || !username) return null;
+      return actor.getEarning(username);
+    },
+    enabled: !!actor && !isFetching && !!username,
+  });
+}
+
+export function useGetAllEarnings() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Earning[]>({
+    queryKey: ['allEarnings'],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        const data = await actor.exportAllData();
-        return data.chatMessages;
-      } catch {
-        return [];
-      }
+      return actor.getAllEarnings();
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-// Backward-compatible alias
+export function useAddOrUpdateEarning() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ username, totalAmount }: { username: string; totalAmount: bigint }) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.addOrUpdateEarning(username, totalAmount);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allEarnings'] });
+    },
+  });
+}
+
+export function useSetWalletPhone() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ username, phone }: { username: string; phone: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.setWalletPhone(username, phone);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allEarnings'] });
+    },
+  });
+}
+
+// ─── Payout Requests ─────────────────────────────────────────────────────────
+
+export function useGetAllPayoutRequests() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<PayoutRequest[]>({
+    queryKey: ['allPayoutRequests'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllPayoutRequests();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 5000,
+  });
+}
+
+export function useSubmitPayoutRequest() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ username, totalAmount, walletPhone }: { username: string; totalAmount: bigint; walletPhone: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.submitPayoutRequest(username, totalAmount, walletPhone);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allPayoutRequests'] });
+    },
+  });
+}
+
+export function useApprovePayoutRequest() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (username: string) => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.approvePayoutRequest(username);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allPayoutRequests'] });
+    },
+  });
+}
+
+// ─── Bulk Delete ──────────────────────────────────────────────────────────────
+
+export function useBulkDeleteLiveLists() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.bulkDeleteLiveLists();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appEvents'] });
+    },
+  });
+}
+
+export function useBulkDeleteCommentLists() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      getAdminCode();
+      if (!actor) throw new Error('Actor not available');
+      return actor.bulkDeleteCommentLists();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
+      queryClient.invalidateQueries({ queryKey: ['commentListsOrder'] });
+      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+    },
+  });
+}
+
+// ─── Backward-compatible aliases ──────────────────────────────────────────────
+
+// Comment lists
+export const useCommentLists = useGetCommentLists;
+export const useGetCommentListsOrdered = useGetCommentLists;
+export const useAddCommentList = useCreateCommentList;
+
+// App events
+export const useAppEvents = useGetAppEvents;
+export const useAppsEvents = useGetAppEvents;
+export const useAddAppEvent = useCreateAppEvent;
+export const useAddUsernamesToAppEvent = useAddUsernamesToEvent;
+
+// Chat messages
 export const useChatMessages = useGetChatMessages;
 
-export function useAddChatMessage() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (text: string) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.addChatMessage(text);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages'] });
-    },
-    onError: (error: Error) => {
-      console.error('addChatMessage error:', error);
-    },
-  });
-}
-
-// ─── Images ───────────────────────────────────────────────────────────────────
-
-export function useGetImages() {
-  const { actor, isFetching } = useActor();
-
-  return useQuery({
-    queryKey: ['images'],
-    queryFn: async () => {
-      if (!actor) return [];
-      try {
-        const data = await actor.exportAllData();
-        return data.images;
-      } catch {
-        return [];
-      }
-    },
-    enabled: !!actor && !isFetching,
-  });
-}
-
-// Backward-compatible alias
+// Images
 export const useImages = useGetImages;
 
-export function useAddImage() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
+// Settings
+export const useSettings = useGetSettings;
+export const useAccessKey = useGetAccessKey;
 
-  return useMutation({
-    mutationFn: async ({
-      name,
-      tags,
-      dataUrl,
-      data,
-    }: {
-      name: string;
-      tags: string[];
-      dataUrl: string;
-      data: import('../backend').ExternalBlob | null;
-    }) => {
-      const currentActor = getActorFromCache(queryClient) || actor;
-      if (!currentActor) throw new Error('Actor not available');
-      try {
-        await currentActor.addImage(name, tags, dataUrl, data);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new Error(msg);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['images'] });
-    },
-    onError: (error: Error) => {
-      console.error('addImage error:', error);
-    },
-  });
-}
+// Metrics / comments
+export const useListMetrics = useGetListMetrics;
+export const useAvailableComments = useGetAvailableComments;
+export const useAvailableCount = useGetAvailableCount;
+
+// Pricing
+export const usePriceList = useGetPriceList;
+
+// Earnings
+export const useAllEarnings = useCalculateAllEarnings;

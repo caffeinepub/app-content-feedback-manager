@@ -1,338 +1,257 @@
 import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Lock, Unlock, Save, X } from 'lucide-react';
 import {
-  Plus, Trash2, Edit2, Check, X, Lock, Unlock, RefreshCw,
-  List, BarChart2,
-} from 'lucide-react';
-import { useActor } from '../../hooks/useActor';
-import {
-  useGetCommentListsOrdered,
-  useAddCommentList,
+  useGetCommentLists,
+  useCreateCommentList,
   useRenameCommentList,
   useDeleteCommentList,
   useAddTemplatesToList,
   useToggleListLock,
   useGetListMetrics,
-  useAvailableComments,
 } from '../../hooks/useQueries';
 import { MetricsDonutChart } from '../../components/MetricsDonutChart';
+import type { CommentList } from '../../backend';
 
-// Sub-component to show available comments for a list
-function AvailableCommentsPanel({ listId }: { listId: string }) {
-  const { data, isLoading } = useAvailableComments(listId);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm p-3">
-        <RefreshCw className="w-3 h-3 animate-spin" /> Loading...
-      </div>
-    );
-  }
-
-  const comments = data?.comments ?? [];
-
-  if (comments.length === 0) {
-    return <p className="text-sm text-muted-foreground p-3">No available comments in pool.</p>;
-  }
-
-  return (
-    <div className="p-3 space-y-1 max-h-48 overflow-y-auto">
-      {comments.map((c, i) => (
-        <div key={i} className="text-xs text-foreground/80 bg-background/40 rounded px-2 py-1 border border-border/50">
-          {c}
-        </div>
-      ))}
-    </div>
-  );
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export default function AdminComments() {
-  const { actor } = useActor();
-  const { data: commentLists = [], isLoading } = useGetCommentListsOrdered();
+  const { data: commentLists = [], isLoading } = useGetCommentLists();
   const { data: metrics = [] } = useGetListMetrics();
+  const createList = useCreateCommentList();
+  const renameList = useRenameCommentList();
+  const deleteList = useDeleteCommentList();
+  const addTemplates = useAddTemplatesToList();
+  const toggleLock = useToggleListLock();
 
-  const addCommentList = useAddCommentList();
-  const renameCommentList = useRenameCommentList();
-  const deleteCommentList = useDeleteCommentList();
-  const addTemplatesToList = useAddTemplatesToList();
-  const toggleListLock = useToggleListLock();
-
-  // Create form — NO List ID field; auto-generate from display name
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newSuffix, setNewSuffix] = useState('');
-  const [createError, setCreateError] = useState('');
-
-  // Rename
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editName, setEditName] = useState('');
+  const [expandedList, setExpandedList] = useState<string | null>(null);
+  const [templateText, setTemplateText] = useState('');
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Add templates
-  const [addingTemplatesTo, setAddingTemplatesTo] = useState<string | null>(null);
-  const [templatesText, setTemplatesText] = useState('');
-
-  // Available comments panel
-  const [expandedAvailable, setExpandedAvailable] = useState<string | null>(null);
-
-  // Slugify helper: convert display name to a valid list ID
-  const slugify = (text: string): string => {
-    return text
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  };
-
-  const handleCreateList = async () => {
-    const displayName = newDisplayName.trim();
-    if (!displayName) {
-      setCreateError('Please enter a display name');
-      return;
-    }
-    if (!actor) {
-      setCreateError('Not connected. Please refresh and try again.');
-      return;
-    }
-    const id = slugify(displayName);
-    if (!id) {
-      setCreateError('Display name must contain at least one letter or number');
-      return;
-    }
-    setCreateError('');
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!newDisplayName.trim()) return;
+    const id = slugify(newDisplayName);
     try {
-      await addCommentList.mutateAsync({ id, displayName, suffix: newSuffix.trim() });
+      await createList.mutateAsync({ id, displayName: newDisplayName.trim(), suffix: newSuffix.trim() });
       setNewDisplayName('');
       setNewSuffix('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCreateError(`Failed to create list: ${msg}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create list');
     }
   };
 
-  const handleRenameConfirm = async () => {
-    if (!editingId || !editDisplayName.trim()) return;
-    if (!actor) return;
-    const newId = slugify(editDisplayName.trim());
+  const handleRename = async (list: CommentList) => {
+    setError(null);
+    if (!editName.trim()) return;
+    const newId = slugify(editName);
     try {
-      await renameCommentList.mutateAsync({
-        oldId: editingId,
-        newId: newId || editingId,
-        newDisplayName: editDisplayName.trim(),
-      });
+      await renameList.mutateAsync({ oldId: list.id, newId, newDisplayName: editName.trim() });
       setEditingId(null);
-      setEditDisplayName('');
-    } catch (err: unknown) {
-      console.error('Rename failed:', err);
+      setEditName('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to rename list');
     }
   };
 
   const handleDelete = async (listId: string) => {
-    if (!actor) return;
-    if (!window.confirm('Delete this comment list and all its templates?')) return;
+    setError(null);
+    if (!confirm('Delete this comment list?')) return;
     try {
-      await deleteCommentList.mutateAsync(listId);
-    } catch (err: unknown) {
-      console.error('Delete failed:', err);
+      await deleteList.mutateAsync(listId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete list');
     }
   };
 
   const handleAddTemplates = async (listId: string) => {
-    if (!templatesText.trim()) return;
-    if (!actor) return;
-    const templates = templatesText
-      .split('\n')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+    setError(null);
+    if (!templateText.trim()) return;
+    const templates = templateText.split('\n').map(t => t.trim()).filter(Boolean);
     try {
-      await addTemplatesToList.mutateAsync({ listId, templates });
-      setTemplatesText('');
-      setAddingTemplatesTo(null);
-    } catch (err: unknown) {
-      console.error('Add templates failed:', err);
+      await addTemplates.mutateAsync({ listId, templates });
+      setTemplateText('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to add templates');
     }
   };
 
   const handleToggleLock = async (listId: string) => {
-    if (!actor) return;
+    setError(null);
     try {
-      await toggleListLock.mutateAsync(listId);
-    } catch (err: unknown) {
-      console.error('Toggle lock failed:', err);
+      await toggleLock.mutateAsync(listId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle lock');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Create Comment List */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-primary" />
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Create New List */}
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Plus className="w-4 h-4 text-primary" />
           Create Comment List
         </h3>
-        <div className="space-y-3">
-          {/* NO List ID field — auto-generated from display name */}
+        <form onSubmit={handleCreate} className="space-y-3">
           <input
             type="text"
             value={newDisplayName}
-            onChange={(e) => setNewDisplayName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateList()}
-            placeholder="Display Name"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            onChange={e => setNewDisplayName(e.target.value)}
+            placeholder="List display name"
+            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
           <input
             type="text"
             value={newSuffix}
-            onChange={(e) => setNewSuffix(e.target.value)}
-            placeholder="Suffix (optional)"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            onChange={e => setNewSuffix(e.target.value)}
+            placeholder="Suffix (optional, e.g. ❤️)"
+            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
-          {newDisplayName.trim() && (
-            <p className="text-xs text-muted-foreground">
-              List ID will be: <span className="font-mono text-primary">{slugify(newDisplayName)}</span>
-            </p>
-          )}
           <button
-            onClick={handleCreateList}
-            disabled={addCommentList.isPending || !newDisplayName.trim()}
-            className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+            type="submit"
+            disabled={createList.isPending || !newDisplayName.trim()}
+            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
           >
-            {addCommentList.isPending ? (
-              <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</>
+            {createList.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              'Create List'
+              <Plus className="w-3.5 h-3.5" />
             )}
+            Create List
           </button>
-          {createError && <p className="text-sm text-destructive">{createError}</p>}
-        </div>
+        </form>
       </div>
 
       {/* Comment Lists */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Comment Lists</h3>
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4">Comment Lists</h3>
         {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
-          </div>
+          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
         ) : commentLists.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No comment lists yet. Create one above.</p>
+          <div className="text-muted-foreground text-sm text-center py-4">No comment lists yet</div>
         ) : (
           <div className="space-y-3">
-            {commentLists.map((list) => (
-              <div key={list.id} className="border border-border rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between bg-background/50 px-4 py-3">
+            {commentLists.map(list => (
+              <div key={list.id} className="border border-border/50 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 p-3 bg-background/30">
                   {editingId === list.id ? (
-                    <div className="flex items-center gap-2 flex-1">
+                    <>
                       <input
                         type="text"
-                        value={editDisplayName}
-                        onChange={(e) => setEditDisplayName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
-                        className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="flex-1 px-2 py-1 rounded bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
                         autoFocus
                       />
-                      <button onClick={handleRenameConfirm} className="text-primary p-1">
-                        <Check className="w-4 h-4" />
+                      <button
+                        onClick={() => handleRename(list)}
+                        disabled={renameList.isPending}
+                        className="p-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                      >
+                        <Save className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setEditingId(null)} className="text-muted-foreground p-1">
-                        <X className="w-4 h-4" />
+                      <button
+                        onClick={() => { setEditingId(null); setEditName(''); }}
+                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    </>
                   ) : (
                     <>
-                      <div>
-                        <p className="font-medium text-foreground">{list.displayName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          ID: {list.id} · {list.templates.length} templates
-                          {list.suffix && ` · Suffix: "${list.suffix}"`}
-                          {list.locked && ' · 🔒 Locked'}
-                        </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-foreground text-sm truncate">{list.displayName}</div>
+                        <div className="text-xs text-muted-foreground">{list.templates.length} templates{list.suffix ? ` · suffix: ${list.suffix}` : ''}</div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setExpandedAvailable(expandedAvailable === list.id ? null : list.id)}
-                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                          title="View available comments"
-                        >
-                          <List className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setAddingTemplatesTo(addingTemplatesTo === list.id ? null : list.id)}
-                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                          title="Add templates"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleLock(list.id)}
-                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                          title={list.locked ? 'Unlock' : 'Lock'}
-                        >
-                          {list.locked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                        </button>
-                        <button
-                          onClick={() => { setEditingId(list.id); setEditDisplayName(list.displayName); }}
-                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                          title="Rename"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(list.id)}
-                          className="text-muted-foreground hover:text-destructive p-1 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleToggleLock(list.id)}
+                        disabled={toggleLock.isPending}
+                        className={`p-1.5 rounded-lg transition-colors ${list.locked ? 'bg-warning/20 text-warning hover:bg-warning/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'}`}
+                        title={list.locked ? 'Unlock list' : 'Lock list'}
+                      >
+                        {list.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(list.id); setEditName(list.displayName); }}
+                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(list.id)}
+                        disabled={deleteList.isPending}
+                        className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setExpandedList(expandedList === list.id ? null : list.id)}
+                        className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                      >
+                        {expandedList === list.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
                     </>
                   )}
                 </div>
 
-                {/* Add Templates Panel */}
-                {addingTemplatesTo === list.id && (
-                  <div className="border-t border-border p-3 bg-background/30">
-                    <textarea
-                      value={templatesText}
-                      onChange={(e) => setTemplatesText(e.target.value)}
-                      placeholder="Enter one template per line..."
-                      rows={4}
-                      className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAddTemplates(list.id)}
-                        disabled={addTemplatesToList.isPending || !templatesText.trim()}
-                        className="gradient-button px-3 py-1 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {addTemplatesToList.isPending ? (
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                        ) : (
-                          'Add Templates'
-                        )}
-                      </button>
-                      <button
-                        onClick={() => { setAddingTemplatesTo(null); setTemplatesText(''); }}
-                        className="border border-border px-3 py-1 rounded text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {expandedList === list.id && (
+                  <div className="p-3 border-t border-border/50 bg-background/20 space-y-3">
+                    {/* Add Templates */}
+                    {!list.locked && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Add Templates (one per line)</label>
+                        <textarea
+                          value={templateText}
+                          onChange={e => setTemplateText(e.target.value)}
+                          placeholder="Template 1&#10;Template 2&#10;Template 3"
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                        />
+                        <button
+                          onClick={() => handleAddTemplates(list.id)}
+                          disabled={addTemplates.isPending || !templateText.trim()}
+                          className="gradient-button px-3 py-1.5 rounded-lg text-white text-xs font-medium disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {addTemplates.isPending ? (
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <Plus className="w-3 h-3" />
+                          )}
+                          Add Templates
+                        </button>
+                      </div>
+                    )}
 
-                {/* Available Comments Panel */}
-                {expandedAvailable === list.id && (
-                  <div className="border-t border-border bg-background/20">
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-                      <span className="text-xs font-medium text-muted-foreground">Available Comments Pool</span>
-                      <button
-                        onClick={() => setExpandedAvailable(null)}
-                        className="text-muted-foreground hover:text-foreground p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <AvailableCommentsPanel listId={list.id} />
+                    {/* Available Comments */}
+                    {list.templates.length > 0 && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Templates ({list.templates.length})</label>
+                        <div className="max-h-40 overflow-y-auto space-y-1">
+                          {list.templates.map((t, i) => (
+                            <div key={i} className="text-xs text-foreground/80 bg-background/30 rounded px-2 py-1">
+                              {t}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -342,31 +261,27 @@ export default function AdminComments() {
       </div>
 
       {/* Usage Metrics */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <BarChart2 className="w-5 h-5 text-primary" />
-          Usage Metrics
-        </h3>
-        {metrics.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No metrics available yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {metrics.map((m) => (
-              <div key={m.listId} className="bg-background/50 border border-border rounded-lg p-4 flex items-center gap-4">
+      <div className="space-card p-5 rounded-2xl">
+        <button
+          onClick={() => setShowMetrics(!showMetrics)}
+          className="w-full flex items-center justify-between text-foreground font-semibold"
+        >
+          <span>Usage Metrics</span>
+          {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        {showMetrics && (
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            {metrics.map(m => (
+              <div key={m.listId} className="flex flex-col items-center gap-2 p-3 bg-background/30 rounded-xl">
                 <MetricsDonutChart
                   usedTemplates={Number(m.usedTemplates)}
                   totalTemplates={Number(m.totalTemplates)}
-                  size={64}
+                  size={80}
                   strokeWidth={8}
                 />
-                <div>
-                  <p className="font-medium text-foreground text-sm">{m.listName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {Number(m.usedTemplates)}/{Number(m.totalTemplates)} used ({m.percentUsed.toFixed(1)}%)
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {Number(m.availableTemplates)} available
-                  </p>
+                <div className="text-center">
+                  <div className="text-xs font-medium text-foreground">{m.listName}</div>
+                  <div className="text-xs text-muted-foreground">{Number(m.usedTemplates)}/{Number(m.totalTemplates)} used</div>
                 </div>
               </div>
             ))}

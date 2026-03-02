@@ -1,239 +1,175 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Key, RefreshCw, Eye, EyeOff, Save, Music, Upload } from 'lucide-react';
-import { useActor } from '../../hooks/useActor';
-import { useGetAccessKey, useSetAccessKey, useGetSettings, useUpdateSettings } from '../../hooks/useQueries';
+import React, { useState } from 'react';
+import { Key, Music, Eye, EyeOff, RefreshCw, Save } from 'lucide-react';
+import { useGetSettings, useUpdateSettings, useSetAccessKey, useGetAccessKey } from '../../hooks/useQueries';
 import { ExternalBlob } from '../../backend';
 
 export default function AdminSettings() {
-  const { actor } = useActor();
-
-  // Access Key
-  const { data: currentKey, isLoading: keyLoading } = useGetAccessKey();
+  const { data: settings } = useGetSettings();
+  const { data: accessKey } = useGetAccessKey();
+  const updateSettings = useUpdateSettings();
   const setAccessKey = useSetAccessKey();
 
   const [newKey, setNewKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [keyError, setKeyError] = useState('');
-  const [keySuccess, setKeySuccess] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  // Music Settings
-  const { data: settings, isLoading: settingsLoading } = useGetSettings();
-  const updateSettings = useUpdateSettings();
-
-  const [bgMusicEnabled, setBgMusicEnabled] = useState(false);
-  const [musicUploadProgress, setMusicUploadProgress] = useState<number | null>(null);
-  const [musicError, setMusicError] = useState('');
-  const [musicSuccess, setMusicSuccess] = useState('');
-  const musicFileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (settings) {
-      setBgMusicEnabled(settings.bgMusicEnabled);
-    }
-  }, [settings]);
-
-  const generateRandomKey = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 16; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setNewKey(result);
-  };
-
-  const handleSaveKey = async () => {
-    const key = newKey.trim();
-    if (!key) {
-      setKeyError('Please enter a key');
-      return;
-    }
-    if (!actor) {
-      setKeyError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setKeyError('');
-    setKeySuccess('');
+  const handleSetKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    if (!newKey.trim()) return;
     try {
-      await setAccessKey.mutateAsync(key);
-      setKeySuccess('Access key saved successfully!');
+      await setAccessKey.mutateAsync(newKey.trim());
       setNewKey('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setKeyError(`Failed to save access key: ${msg}`);
+      setSuccess('Access key updated successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to set access key');
     }
   };
 
-  const handleMusicToggle = async (enabled: boolean) => {
-    if (!actor) return;
-    setBgMusicEnabled(enabled);
+  const handleRegenerateKey = async () => {
+    setError(null);
+    setSuccess(null);
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const randomKey = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     try {
-      const musicFile = settings?.musicFile ?? null;
-      await updateSettings.mutateAsync({ bgMusicEnabled: enabled, musicFile: musicFile as ExternalBlob | null });
-    } catch (err: unknown) {
-      console.error('Failed to update music settings:', err);
-      setBgMusicEnabled(!enabled); // revert
+      await setAccessKey.mutateAsync(randomKey);
+      setSuccess(`New key generated: ${randomKey}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to regenerate key');
+    }
+  };
+
+  const handleMusicToggle = async () => {
+    setError(null);
+    try {
+      await updateSettings.mutateAsync({
+        bgMusicEnabled: !settings?.bgMusicEnabled,
+        musicFile: settings?.musicFile ?? null,
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to update settings');
     }
   };
 
   const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!actor) {
-      setMusicError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setMusicError('');
-    setMusicSuccess('');
-    setMusicUploadProgress(0);
+    setError(null);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const blob = ExternalBlob.fromBytes(bytes).withUploadProgress(pct => {
-        setMusicUploadProgress(pct);
+      const blob = ExternalBlob.fromBytes(bytes);
+      await updateSettings.mutateAsync({
+        bgMusicEnabled: settings?.bgMusicEnabled ?? false,
+        musicFile: blob,
       });
-      await updateSettings.mutateAsync({ bgMusicEnabled, musicFile: blob });
-      setMusicSuccess('Music file uploaded successfully!');
-      setMusicUploadProgress(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setMusicError(`Failed to upload music: ${msg}`);
-      setMusicUploadProgress(null);
+      setSuccess('Music file uploaded successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload music');
     }
-    if (musicFileRef.current) musicFileRef.current.value = '';
   };
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+          {success}
+        </div>
+      )}
+
       {/* Access Key Management */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
-          <Key className="w-5 h-5 text-primary" />
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Key className="w-4 h-4 text-primary" />
           Access Key Management
         </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          The access key is required for users to use the Bulk Comments Generator.
-        </p>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground mb-1">Current Access Key</label>
-          {keyLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-background/50 border border-border rounded-lg px-3 py-2 text-sm font-mono text-muted-foreground">
-                {currentKey
-                  ? (showKey ? currentKey : '•'.repeat(Math.min(currentKey.length, 16)))
-                  : 'No key set'}
-              </div>
-              {currentKey && (
-                <button
-                  onClick={() => setShowKey(v => !v)}
-                  className="text-muted-foreground hover:text-foreground p-2 transition-colors"
-                >
-                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-foreground mb-1">Set New Key</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newKey}
-              onChange={e => setNewKey(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSaveKey()}
-              placeholder="Enter new access key..."
-              className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button
-              onClick={handleSaveKey}
-              disabled={setAccessKey.isPending || !newKey.trim()}
-              className="gradient-button px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
-            >
-              {setAccessKey.isPending ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <><Save className="w-4 h-4" /> Save</>
-              )}
-            </button>
+        {/* Current Key */}
+        <div className="mb-4 p-3 bg-background/30 rounded-xl">
+          <div className="text-xs text-muted-foreground mb-1">Current Access Key</div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-sm font-mono text-foreground">
+              {accessKey ? (showKey ? accessKey : '••••••••••••••••') : 'No key set'}
+            </code>
+            {accessKey && (
+              <button
+                onClick={() => setShowKey(!showKey)}
+                className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+              >
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Set Custom Key */}
+        <form onSubmit={handleSetKey} className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={newKey}
+            onChange={e => setNewKey(e.target.value)}
+            placeholder="Enter custom access key"
+            className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          <button
+            type="submit"
+            disabled={setAccessKey.isPending || !newKey.trim()}
+            className="gradient-button px-3 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {setAccessKey.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+            Set Key
+          </button>
+        </form>
+
         <button
-          onClick={generateRandomKey}
-          className="border border-border px-4 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted/30 flex items-center gap-2 transition-colors"
+          onClick={handleRegenerateKey}
+          disabled={setAccessKey.isPending}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm transition-colors"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-3.5 h-3.5" />
           Regenerate Random Key
         </button>
-
-        {keyError && <p className="mt-2 text-sm text-destructive">{keyError}</p>}
-        {keySuccess && <p className="mt-2 text-sm text-green-400">{keySuccess}</p>}
       </div>
 
       {/* Background Music */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Music className="w-5 h-5 text-primary" />
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Music className="w-4 h-4 text-primary" />
           Background Music
         </h3>
 
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="font-medium text-foreground">Enable Background Music</p>
-            <p className="text-sm text-muted-foreground">Play music automatically when the app loads</p>
-          </div>
+          <span className="text-sm text-foreground">Music Enabled</span>
           <button
-            onClick={() => handleMusicToggle(!bgMusicEnabled)}
-            disabled={updateSettings.isPending || settingsLoading}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-              bgMusicEnabled ? 'bg-primary' : 'bg-muted'
-            } disabled:opacity-50`}
+            onClick={handleMusicToggle}
+            disabled={updateSettings.isPending}
+            className={`relative w-12 h-6 rounded-full transition-colors ${settings?.bgMusicEnabled ? 'bg-primary' : 'bg-muted'}`}
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                bgMusicEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${settings?.bgMusicEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
           </button>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Upload Music File</label>
-          <button
-            onClick={() => musicFileRef.current?.click()}
-            disabled={updateSettings.isPending}
-            className="border border-border px-4 py-2 rounded-lg text-sm font-medium text-foreground hover:bg-muted/30 flex items-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <Upload className="w-4 h-4" />
-            Upload Music File
-          </button>
-          <input
-            ref={musicFileRef}
-            type="file"
-            accept=".mp3,.wav,.ogg,.aac"
-            onChange={handleMusicUpload}
-            className="hidden"
-          />
-          <p className="text-xs text-muted-foreground mt-1">Supported formats: MP3, WAV, OGG, AAC</p>
-          {musicUploadProgress !== null && (
-            <div className="mt-2">
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${musicUploadProgress}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{musicUploadProgress}%</p>
-            </div>
-          )}
-          {musicError && <p className="mt-2 text-sm text-destructive">{musicError}</p>}
-          {musicSuccess && <p className="mt-2 text-sm text-green-400">{musicSuccess}</p>}
-        </div>
+        <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm cursor-pointer transition-colors w-fit">
+          <Music className="w-3.5 h-3.5" />
+          Upload Music File
+          <input type="file" accept="audio/*" onChange={handleMusicUpload} className="hidden" />
+        </label>
+
+        {settings?.musicFile && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            ✓ Music file uploaded
+          </div>
+        )}
       </div>
     </div>
   );

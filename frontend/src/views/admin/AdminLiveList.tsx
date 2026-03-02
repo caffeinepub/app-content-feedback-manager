@@ -1,404 +1,265 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Upload, RefreshCw, Trash2, Edit2, Check, X, Users, FileText } from 'lucide-react';
-import { useActor } from '../../hooks/useActor';
+import React, { useState } from 'react';
+import { Plus, Trash2, Upload, RefreshCw, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   useGetAppEvents,
-  useAddAppEvent,
-  useAddUsernamesToAppEvent,
+  useCreateAppEvent,
   useRenameAppEvent,
   useDeleteAppEvent,
+  useAddUsernamesToEvent,
   useImportLiveList,
 } from '../../hooks/useQueries';
 import { parseLiveListReport } from '../../utils/liveListParser';
-import type { ImportSummary } from '../../backend';
+import type { AppEvent } from '../../backend';
 
 export default function AdminLiveList() {
-  const { actor } = useActor();
   const { data: appEvents = [], isLoading } = useGetAppEvents();
+  const createEvent = useCreateAppEvent();
+  const renameEvent = useRenameAppEvent();
+  const deleteEvent = useDeleteAppEvent();
+  const addUsernames = useAddUsernamesToEvent();
+  const importList = useImportLiveList();
 
-  const addAppEvent = useAddAppEvent();
-  const addUsernames = useAddUsernamesToAppEvent();
-  const renameAppEvent = useRenameAppEvent();
-  const deleteAppEvent = useDeleteAppEvent();
-  const importLiveList = useImportLiveList();
-
-  // Create list
-  const [newListName, setNewListName] = useState('');
-  const [createError, setCreateError] = useState('');
-
-  // Add usernames
-  const [selectedApp, setSelectedApp] = useState('');
-  const [usernamesText, setUsernamesText] = useState('');
-  const [uploadError, setUploadError] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Rename
-  const [editingApp, setEditingApp] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-
-  // Auto import
+  const [newEventName, setNewEventName] = useState('');
+  const [bulkText, setBulkText] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState('');
   const [importText, setImportText] = useState('');
-  const [importError, setImportError] = useState('');
-  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
-  const handleCreateList = async () => {
-    const name = newListName.trim();
-    if (!name) {
-      setCreateError('Please enter a list name');
-      return;
-    }
-    if (!actor) {
-      setCreateError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setCreateError('');
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!newEventName.trim()) return;
     try {
-      await addAppEvent.mutateAsync(name);
-      setNewListName('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setCreateError(`Failed to create list: ${msg}`);
+      await createEvent.mutateAsync(newEventName.trim());
+      setNewEventName('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create event');
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleCreateList();
-  };
-
-  const parseUsernames = (text: string): string[] => {
-    return text
-      .split(/[\n,]+/)
-      .map((u) => u.trim())
-      .filter((u) => u.length > 0);
-  };
-
-  const handleAddUsernames = async () => {
-    if (!selectedApp) {
-      setUploadError('Please select an app/event first');
-      return;
-    }
-    const usernames = parseUsernames(usernamesText);
-    if (usernames.length === 0) {
-      setUploadError('Please enter at least one username');
-      return;
-    }
-    if (!actor) {
-      setUploadError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setUploadError('');
-    setUploadSuccess('');
+  const handleDeleteEvent = async (name: string) => {
+    setError(null);
+    if (!confirm(`Delete event "${name}"?`)) return;
     try {
-      await addUsernames.mutateAsync({ name: selectedApp, usernames });
-      setUploadSuccess(`Successfully added ${usernames.length} username(s) to "${selectedApp}"`);
-      setUsernamesText('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setUploadError(`Failed to add usernames: ${msg}`);
+      await deleteEvent.mutateAsync(name);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete event');
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!selectedApp) {
-      setUploadError('Please select an app/event first');
-      return;
-    }
-    if (!actor) {
-      setUploadError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setUploadError('');
-    setUploadSuccess('');
+  const handleBulkUpload = async () => {
+    setError(null);
+    if (!selectedEvent || !bulkText.trim()) return;
+    const usernames = bulkText.split('\n').map(u => u.trim()).filter(Boolean);
     try {
-      const text = await file.text();
-      const usernames = parseUsernames(text);
-      if (usernames.length === 0) {
-        setUploadError('No valid usernames found in file');
-        return;
-      }
-      await addUsernames.mutateAsync({ name: selectedApp, usernames });
-      setUploadSuccess(`Successfully added ${usernames.length} username(s) from file to "${selectedApp}"`);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setUploadError(`Failed to upload file: ${msg}`);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleRenameStart = (appName: string) => {
-    setEditingApp(appName);
-    setEditName(appName);
-  };
-
-  const handleRenameConfirm = async () => {
-    if (!editingApp || !editName.trim()) return;
-    if (!actor) return;
-    try {
-      await renameAppEvent.mutateAsync({ oldName: editingApp, newName: editName.trim() });
-      setEditingApp(null);
-      setEditName('');
-    } catch (err: unknown) {
-      console.error('Rename failed:', err);
+      await addUsernames.mutateAsync({ name: selectedEvent, usernames });
+      setBulkText('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to add usernames');
     }
   };
 
-  const handleDelete = async (appName: string) => {
-    if (!actor) return;
-    if (!window.confirm(`Delete "${appName}" and all its usernames?`)) return;
-    try {
-      await deleteAppEvent.mutateAsync(appName);
-    } catch (err: unknown) {
-      console.error('Delete failed:', err);
-    }
-  };
-
-  const handleImportAndSave = async () => {
-    if (!importText.trim()) {
-      setImportError('Please paste a report first');
-      return;
-    }
-    if (!actor) {
-      setImportError('Not connected. Please refresh and try again.');
-      return;
-    }
-    setImportError('');
-    setImportSummary(null);
+  const handleAutoImport = async () => {
+    setError(null);
+    setImportResult(null);
+    if (!importText.trim()) return;
 
     const parseResult = parseLiveListReport(importText);
-    if (!parseResult.success || parseResult.entries.length === 0) {
-      // Use errorMessage (the correct field name from liveListParser)
-      setImportError(parseResult.errorMessage ?? 'Could not parse any app/event data from the report');
+    if (!parseResult.success) {
+      setError(parseResult.errorMessage || 'Failed to parse report');
       return;
     }
 
-    const imports = parseResult.entries.map((entry) => {
-      const imp: import('../../backend').AppImport = {
+    try {
+      const imports = parseResult.entries.map(entry => ({
         appName: entry.appName,
         usernames: entry.usernames,
-      };
-      if (entry.importDate) imp.importDate = entry.importDate;
-      return imp;
-    });
-
-    try {
-      const summary = await importLiveList.mutateAsync(imports);
-      setImportSummary(summary);
+        importDate: entry.importDate,
+      }));
+      const summary = await importList.mutateAsync(imports);
+      setImportResult(
+        `✅ Import complete: ${summary.totalAppsDetected} apps detected, ${summary.totalUsernamesAdded} usernames added, ${summary.totalDuplicatesSkipped} duplicates skipped`
+      );
       setImportText('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setImportError(`Import failed: ${msg}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to import live list');
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setBulkText(ev.target?.result as string || '');
+    };
+    reader.readAsText(file);
   };
 
   return (
     <div className="space-y-6">
-      {/* Create App / Event List */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-primary" />
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+
+      {importResult && (
+        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+          {importResult}
+        </div>
+      )}
+
+      {/* Create App/Event */}
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Plus className="w-4 h-4 text-primary" />
           Create App / Event List
         </h3>
-        <div className="flex gap-3">
+        <form onSubmit={handleCreateEvent} className="flex gap-2">
           <input
             type="text"
-            value={newListName}
-            onChange={(e) => setNewListName(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Name"
-            className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            value={newEventName}
+            onChange={e => setNewEventName(e.target.value)}
+            placeholder="App or event name"
+            className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
           <button
-            onClick={handleCreateList}
-            disabled={addAppEvent.isPending || !newListName.trim()}
-            className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 min-w-[90px] justify-center"
+            type="submit"
+            disabled={createEvent.isPending || !newEventName.trim()}
+            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
           >
-            {addAppEvent.isPending ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
+            {createEvent.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              'Create'
+              <Plus className="w-3.5 h-3.5" />
             )}
+            Create
           </button>
-        </div>
-        {createError && (
-          <p className="mt-2 text-sm text-destructive">{createError}</p>
-        )}
-      </div>
-
-      {/* App / Event Lists */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5 text-primary" />
-          App / Event Lists
-        </h3>
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Loading...
-          </div>
-        ) : appEvents.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No lists yet. Create one above.</p>
-        ) : (
-          <div className="space-y-2">
-            {appEvents.map((app) => (
-              <div
-                key={app.name}
-                className="flex items-center justify-between bg-background/50 border border-border rounded-lg px-4 py-3"
-              >
-                {editingApp === app.name ? (
-                  <div className="flex items-center gap-2 flex-1">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
-                      className="flex-1 bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleRenameConfirm}
-                      disabled={renameAppEvent.isPending}
-                      className="text-primary hover:text-primary/80 p-1"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setEditingApp(null)}
-                      className="text-muted-foreground hover:text-foreground p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <p className="font-medium text-foreground">{app.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {app.usernames.length} username{app.usernames.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleRenameStart(app.name)}
-                        className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                        title="Rename"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(app.name)}
-                        disabled={deleteAppEvent.isPending}
-                        className="text-muted-foreground hover:text-destructive p-1 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Add Usernames */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Upload className="w-5 h-5 text-primary" />
-          Add Usernames
-        </h3>
-        <div className="space-y-3">
-          <select
-            value={selectedApp}
-            onChange={(e) => {
-              setSelectedApp(e.target.value);
-              setUploadError('');
-              setUploadSuccess('');
-            }}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Select App / Event</option>
-            {appEvents.map((app) => (
-              <option key={app.name} value={app.name}>{app.name}</option>
-            ))}
-          </select>
-          <textarea
-            value={usernamesText}
-            onChange={(e) => setUsernamesText(e.target.value)}
-            placeholder="Enter one username per line (or comma-separated)..."
-            rows={5}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-          />
-          <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={handleAddUsernames}
-              disabled={addUsernames.isPending || !selectedApp || !usernamesText.trim()}
-              className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
-            >
-              {addUsernames.isPending ? (
-                <><RefreshCw className="w-4 h-4 animate-spin" /> Adding...</>
-              ) : (
-                'Add Usernames'
-              )}
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={addUsernames.isPending || !selectedApp}
-              className="border border-border px-5 py-2 rounded-lg font-medium text-foreground hover:bg-muted/30 disabled:opacity-50 flex items-center gap-2 transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              Upload .txt / .csv
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.csv"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </div>
-          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-          {uploadSuccess && <p className="text-sm text-green-400">{uploadSuccess}</p>}
-        </div>
+        </form>
       </div>
 
       {/* Auto Import & Save */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary" />
-          Auto Import &amp; Save
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 text-primary" />
+          Auto Import & Save
         </h3>
-        <p className="text-sm text-muted-foreground mb-3">
-          Paste a "REVIEWS WORLD Reports" formatted text to automatically extract and import app/event lists with usernames.
+        <p className="text-xs text-muted-foreground mb-3">
+          Paste a "REVIEWS WORLD Reports" formatted text to auto-detect apps and usernames.
         </p>
         <textarea
           value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          placeholder="Paste Report..."
-          rows={8}
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
+          onChange={e => setImportText(e.target.value)}
+          placeholder="Paste report text here..."
+          rows={6}
+          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-3"
         />
         <button
-          onClick={handleImportAndSave}
-          disabled={importLiveList.isPending || !importText.trim()}
-          className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+          onClick={handleAutoImport}
+          disabled={importList.isPending || !importText.trim()}
+          className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
         >
-          {importLiveList.isPending ? (
-            <><RefreshCw className="w-4 h-4 animate-spin" /> Importing...</>
+          {importList.isPending ? (
+            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            'Import & Save'
+            <RefreshCw className="w-3.5 h-3.5" />
           )}
+          Auto Import & Save
         </button>
-        {importError && <p className="mt-2 text-sm text-destructive">{importError}</p>}
-        {importSummary && (
-          <div className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-sm text-green-400 space-y-1">
-            <p className="font-semibold">Import successful!</p>
-            <p>Apps detected: {Number(importSummary.totalAppsDetected)}</p>
-            <p>Usernames added: {Number(importSummary.totalUsernamesAdded)}</p>
-            <p>Duplicates skipped: {Number(importSummary.totalDuplicatesSkipped)}</p>
+      </div>
+
+      {/* Bulk Username Upload */}
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Upload className="w-4 h-4 text-primary" />
+          Bulk Username Upload
+        </h3>
+        <div className="space-y-3">
+          <select
+            value={selectedEvent}
+            onChange={e => setSelectedEvent(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="">Select app/event...</option>
+            {appEvents.map(ev => (
+              <option key={ev.name} value={ev.name}>{ev.name}</option>
+            ))}
+          </select>
+          <textarea
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            placeholder="One username per line..."
+            rows={5}
+            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+          />
+          <div className="flex gap-2">
+            <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground text-sm cursor-pointer transition-colors">
+              <Upload className="w-3.5 h-3.5" />
+              Upload File
+              <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
+            </label>
+            <button
+              onClick={handleBulkUpload}
+              disabled={addUsernames.isPending || !selectedEvent || !bulkText.trim()}
+              className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+            >
+              {addUsernames.isPending ? (
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Users className="w-3.5 h-3.5" />
+              )}
+              Upload Usernames
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* App Events List */}
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4">App / Event Lists ({appEvents.length})</h3>
+        {isLoading ? (
+          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
+        ) : appEvents.length === 0 ? (
+          <div className="text-muted-foreground text-sm text-center py-4">No app events yet</div>
+        ) : (
+          <div className="space-y-2">
+            {appEvents.map((ev: AppEvent) => (
+              <div key={ev.name} className="border border-border/50 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 p-3 bg-background/30">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-foreground text-sm truncate">{ev.name}</div>
+                    <div className="text-xs text-muted-foreground">{ev.usernames.length} usernames</div>
+                  </div>
+                  <button
+                    onClick={() => setExpandedEvent(expandedEvent === ev.name ? null : ev.name)}
+                    className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                  >
+                    {expandedEvent === ev.name ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEvent(ev.name)}
+                    disabled={deleteEvent.isPending}
+                    className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {expandedEvent === ev.name && ev.usernames.length > 0 && (
+                  <div className="p-3 border-t border-border/50 bg-background/20">
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {ev.usernames.map((u, i) => (
+                        <div key={i} className="text-xs text-foreground/80 bg-background/30 rounded px-2 py-1">
+                          {u}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

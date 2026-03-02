@@ -1,248 +1,276 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X, RefreshCw, DollarSign, Upload } from 'lucide-react';
-import { useActor } from '../../hooks/useActor';
+import { Plus, Trash2, Upload, DollarSign, Edit2, Save, X } from 'lucide-react';
 import {
   useGetPriceList,
   useSetPriceEntry,
   useDeletePriceEntry,
   useBulkSetPrices,
 } from '../../hooks/useQueries';
+import type { PriceEntry } from '../../backend';
 
 export default function AdminPricing() {
-  const { actor } = useActor();
   const { data: priceList = [], isLoading } = useGetPriceList();
-
   const setPriceEntry = useSetPriceEntry();
   const deletePriceEntry = useDeletePriceEntry();
   const bulkSetPrices = useBulkSetPrices();
 
-  // Add/Edit form
+  const [appName, setAppName] = useState('');
+  const [price, setPrice] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [editingApp, setEditingApp] = useState<string | null>(null);
-  const [formAppName, setFormAppName] = useState('');
-  const [formPrice, setFormPrice] = useState('');
-  const [formActive, setFormActive] = useState(true);
-  const [formError, setFormError] = useState('');
-
-  // Bulk upload
+  const [editPrice, setEditPrice] = useState('');
+  const [editActive, setEditActive] = useState(true);
   const [bulkText, setBulkText] = useState('');
-  const [bulkError, setBulkError] = useState('');
-  const [bulkSuccess, setBulkSuccess] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleSave = async () => {
-    const appName = formAppName.trim();
-    const price = parseFloat(formPrice);
-    if (!appName) { setFormError('App name is required'); return; }
-    if (isNaN(price) || price < 0) { setFormError('Enter a valid price'); return; }
-    if (!actor) { setFormError('Not connected. Please refresh.'); return; }
-    setFormError('');
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    if (!appName.trim() || !price) return;
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setError('Invalid price value');
+      return;
+    }
     try {
-      await setPriceEntry.mutateAsync({ appName, pricePerEntry: price, isActive: formActive });
-      setFormAppName('');
-      setFormPrice('');
-      setFormActive(true);
-      setEditingApp(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setFormError(`Failed to save: ${msg}`);
+      await setPriceEntry.mutateAsync({ appName: appName.trim(), pricePerEntry: priceNum, isActive });
+      setAppName('');
+      setPrice('');
+      setIsActive(true);
+      setSuccess('Price entry added');
+    } catch (err: any) {
+      setError(err.message || 'Failed to add price entry');
     }
   };
 
-  const handleEdit = (appName: string, price: number, isActive: boolean) => {
-    setEditingApp(appName);
-    setFormAppName(appName);
-    setFormPrice(String(price));
-    setFormActive(isActive);
-    setFormError('');
+  const handleEdit = async (entry: PriceEntry) => {
+    setError(null);
+    const priceNum = parseFloat(editPrice);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setError('Invalid price value');
+      return;
+    }
+    try {
+      await setPriceEntry.mutateAsync({ appName: entry.appName, pricePerEntry: priceNum, isActive: editActive });
+      setEditingApp(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update price entry');
+    }
   };
 
   const handleDelete = async (appName: string) => {
-    if (!actor) return;
-    if (!window.confirm(`Delete price entry for "${appName}"?`)) return;
+    setError(null);
+    if (!confirm(`Delete price entry for "${appName}"?`)) return;
     try {
       await deletePriceEntry.mutateAsync(appName);
-    } catch (err: unknown) {
-      console.error('Delete price entry failed:', err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete price entry');
     }
   };
 
-  const handleBulkSave = async () => {
-    if (!bulkText.trim()) { setBulkError('Please enter data'); return; }
-    if (!actor) { setBulkError('Not connected. Please refresh.'); return; }
-    setBulkError('');
-    setBulkSuccess('');
+  const handleBulkUpload = async () => {
+    setError(null);
+    setSuccess(null);
+    if (!bulkText.trim()) return;
+
+    const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+    const entries: Array<[string, number, boolean]> = [];
+
+    for (const line of lines) {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 2) {
+        setError(`Invalid line format: "${line}". Expected: AppName, Price, [Active]`);
+        return;
+      }
+      const name = parts[0];
+      const priceVal = parseFloat(parts[1]);
+      const activeVal = parts[2] ? parts[2].toLowerCase() !== 'false' : true;
+      if (!name || isNaN(priceVal)) {
+        setError(`Invalid data in line: "${line}"`);
+        return;
+      }
+      entries.push([name, priceVal, activeVal]);
+    }
+
     try {
-      const entries: Array<[string, number, boolean]> = bulkText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .map((line) => {
-          const parts = line.split(',').map((p) => p.trim());
-          const appName = parts[0];
-          const price = parseFloat(parts[1] ?? '0');
-          const isActive = parts[2]?.toLowerCase() !== 'false';
-          if (!appName || isNaN(price)) throw new Error(`Invalid line: "${line}"`);
-          return [appName, price, isActive];
-        });
       await bulkSetPrices.mutateAsync(entries);
-      setBulkSuccess(`Saved ${entries.length} price entries`);
       setBulkText('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setBulkError(`Bulk save failed: ${msg}`);
+      setSuccess(`${entries.length} price entries uploaded`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to bulk upload prices');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Add / Edit Price Entry */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-primary" />
-          {editingApp ? 'Edit Price Entry' : 'Add Price Entry'}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-primary/10 border border-primary/30 text-primary rounded-xl px-4 py-3 text-sm">
+          {success}
+        </div>
+      )}
+
+      {/* Add Price Entry */}
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Plus className="w-4 h-4 text-primary" />
+          Add Price Entry
         </h3>
-        <div className="space-y-3">
+        <form onSubmit={handleAdd} className="space-y-3">
           <input
             type="text"
-            value={formAppName}
-            onChange={(e) => setFormAppName(e.target.value)}
-            placeholder="App Name"
-            disabled={!!editingApp}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+            value={appName}
+            onChange={e => setAppName(e.target.value)}
+            placeholder="App name"
+            className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
-          <input
-            type="number"
-            value={formPrice}
-            onChange={(e) => setFormPrice(e.target.value)}
-            placeholder="Price per entry (e.g. 2.5)"
-            min="0"
-            step="0.01"
-            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formActive}
-              onChange={(e) => setFormActive(e.target.checked)}
-              className="w-4 h-4 accent-primary"
-            />
-            <span className="text-sm text-foreground">Active</span>
-          </label>
           <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={setPriceEntry.isPending || !formAppName.trim() || !formPrice}
-              className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
-            >
-              {setPriceEntry.isPending ? (
-                <><RefreshCw className="w-4 h-4 animate-spin" /> Saving...</>
-              ) : (
-                <><Check className="w-4 h-4" /> Save</>
-              )}
-            </button>
-            {editingApp && (
-              <button
-                onClick={() => {
-                  setEditingApp(null);
-                  setFormAppName('');
-                  setFormPrice('');
-                  setFormActive(true);
-                  setFormError('');
-                }}
-                className="border border-border px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-            )}
+            <input
+              type="number"
+              value={price}
+              onChange={e => setPrice(e.target.value)}
+              placeholder="Price per entry"
+              step="0.01"
+              min="0"
+              className="flex-1 px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <label className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/30 border border-border text-sm text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={e => setIsActive(e.target.checked)}
+                className="rounded"
+              />
+              Active
+            </label>
           </div>
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-        </div>
+          <button
+            type="submit"
+            disabled={setPriceEntry.isPending || !appName.trim() || !price}
+            className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+          >
+            {setPriceEntry.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" />
+            )}
+            Add Entry
+          </button>
+        </form>
       </div>
 
       {/* Price List Table */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-primary" />
-          App Price List
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-primary" />
+          Price List ({priceList.length} entries)
         </h3>
         {isLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Loading...
-          </div>
+          <div className="text-muted-foreground text-sm text-center py-4">Loading...</div>
         ) : priceList.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No price entries yet. Add one above.</p>
+          <div className="text-muted-foreground text-sm text-center py-4">No price entries yet</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left py-2 pr-4">App Name</th>
-                  <th className="text-right py-2 pr-4">Price/Entry</th>
-                  <th className="text-center py-2 pr-4">Active</th>
-                  <th className="text-right py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {priceList.map((entry) => (
-                  <tr key={entry.appName} className="border-b border-border/50 hover:bg-muted/10">
-                    <td className="py-2 pr-4 font-medium text-foreground">{entry.appName}</td>
-                    <td className="py-2 pr-4 text-right text-foreground">₹{entry.pricePerEntry.toFixed(2)}</td>
-                    <td className="py-2 pr-4 text-center">
-                      <span className={`inline-block w-2 h-2 rounded-full ${entry.isActive ? 'bg-green-400' : 'bg-muted'}`} />
-                    </td>
-                    <td className="py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleEdit(entry.appName, entry.pricePerEntry, entry.isActive)}
-                          className="text-muted-foreground hover:text-primary p-1 transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(entry.appName)}
-                          disabled={deletePriceEntry.isPending}
-                          className="text-muted-foreground hover:text-destructive p-1 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {priceList.map(entry => (
+              <div key={entry.appName} className="flex items-center gap-2 p-3 bg-background/30 rounded-xl border border-border/50">
+                {editingApp === entry.appName ? (
+                  <>
+                    <div className="flex-1 font-medium text-foreground text-sm">{entry.appName}</div>
+                    <input
+                      type="number"
+                      value={editPrice}
+                      onChange={e => setEditPrice(e.target.value)}
+                      step="0.01"
+                      min="0"
+                      className="w-24 px-2 py-1 rounded bg-background/50 border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    />
+                    <label className="flex items-center gap-1 text-xs text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editActive}
+                        onChange={e => setEditActive(e.target.checked)}
+                        className="rounded"
+                      />
+                      Active
+                    </label>
+                    <button
+                      onClick={() => handleEdit(entry)}
+                      disabled={setPriceEntry.isPending}
+                      className="p-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-primary transition-colors"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setEditingApp(null)}
+                      className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground text-sm truncate">{entry.appName}</div>
+                      <div className="text-xs text-muted-foreground">₹{entry.pricePerEntry.toFixed(2)} per entry</div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${entry.isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {entry.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={() => { setEditingApp(entry.appName); setEditPrice(entry.pricePerEntry.toString()); setEditActive(entry.isActive); }}
+                      className="p-1.5 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground transition-colors"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(entry.appName)}
+                      disabled={deletePriceEntry.isPending}
+                      className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
       {/* Bulk Upload */}
-      <div className="space-card p-5">
-        <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-          <Upload className="w-5 h-5 text-primary" />
+      <div className="space-card p-5 rounded-2xl">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Upload className="w-4 h-4 text-primary" />
           Bulk Upload Prices
         </h3>
         <p className="text-xs text-muted-foreground mb-3">
-          Format: <span className="font-mono">AppName,Price,Active</span> (one per line). Active is optional, defaults to true.
+          Format: <code className="bg-background/50 px-1 rounded">AppName, Price, Active(true/false)</code> — one per line
         </p>
         <textarea
           value={bulkText}
-          onChange={(e) => setBulkText(e.target.value)}
-          placeholder={"Instagram,2.5,true\nYouTube,3.0,true\nTikTok,1.5,false"}
+          onChange={e => setBulkText(e.target.value)}
+          placeholder="Instagram, 2.50, true&#10;YouTube, 3.00, true&#10;TikTok, 1.50, false"
           rows={5}
-          className="w-full bg-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
+          className="w-full px-3 py-2 rounded-lg bg-background/50 border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none mb-3"
         />
         <button
-          onClick={handleBulkSave}
+          onClick={handleBulkUpload}
           disabled={bulkSetPrices.isPending || !bulkText.trim()}
-          className="gradient-button px-5 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+          className="gradient-button px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 flex items-center gap-2"
         >
           {bulkSetPrices.isPending ? (
-            <><RefreshCw className="w-4 h-4 animate-spin" /> Saving...</>
+            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            'Bulk Save'
+            <Upload className="w-3.5 h-3.5" />
           )}
+          Bulk Upload
         </button>
-        {bulkError && <p className="mt-2 text-sm text-destructive">{bulkError}</p>}
-        {bulkSuccess && <p className="mt-2 text-sm text-green-400">{bulkSuccess}</p>}
       </div>
     </div>
   );

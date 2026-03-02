@@ -1,55 +1,60 @@
 {
   "kind": "build_request",
-  "title": "Fix admin authorization for addCommentList (Create Comment List)",
+  "title": "Fix Admin Authorization Error & Merge Earnings into Live List Tab",
   "priority": "high",
   "requirements": [
     {
-      "id": "REQ-23",
-      "text": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix that was used to resolve the Live List and Settings authorization issues — ensure the admin identity/principal check is consistent across all admin-gated functions.",
+      "id": "REQ-1",
+      "text": "Fix the backend authorization logic so that Admin users (principals with admin role) are accepted for all actions currently gated to 'users only', including creating comment lists, adding templates, uploading, and any other actions that currently throw 'Unauthorized: Only users can add comment lists'. Admins must be treated as authorized for all user-level operations.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-4",
+          "msg-5"
         ],
         "quotes": [
-          "Unauthorized: Only admins can add comment lists"
+          "Unauthorized: Only users can add comment lists",
+          "this error is still here after entering into Admin Panel and creating list or something this error show that only user can create or upload"
         ]
       },
       "acceptanceCriteria": [
-        "Calling `addCommentList` from the Admin Panel no longer returns 'Unauthorized: Only admins can add comment lists'",
-        "A new comment list can be created successfully from AdminComments.tsx using the authenticated admin actor",
-        "The authorization check in `addCommentList` uses the same admin principal check pattern as other fixed admin-gated functions (e.g., addAppEvent, setAccessKey)",
-        "Other admin-gated functions are not broken by this change"
+        "An authenticated Admin user can create a comment list without receiving an 'Unauthorized' error.",
+        "An authenticated Admin user can add templates to comment lists without error.",
+        "An authenticated Admin user can upload content without receiving an 'Unauthorized' error.",
+        "The authorization check accepts both 'user' and 'admin' roles for all previously user-only gated operations.",
+        "Non-authenticated (anonymous) principals are still correctly rejected."
       ]
     },
     {
-      "id": "REQ-24",
-      "text": "Fix the frontend actor construction in AdminComments.tsx so that all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.) use the authenticated admin actor rather than the anonymous identity, consistent with the fix applied to AdminLiveList.tsx and AdminSettings.tsx.",
+      "id": "REQ-2",
+      "text": "Remove the separate 'Earnings' tab from the main navigation in App.tsx and merge its content (the EarningsChecker view) directly into the Live Checker tab/view, so users can access earnings lookup within the Live List/Live Checker section without a separate tab.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-3",
+          "msg-4"
         ],
         "quotes": [
-          "Unauthorized: Only admins can add comment lists"
+          "remove and merge into the live list list",
+          "shift the earnings into live list"
         ]
       },
       "acceptanceCriteria": [
-        "AdminComments.tsx retrieves and uses the authenticated actor for all mutation calls",
-        "Creating, renaming, deleting, and modifying comment lists from the Admin Panel completes without authorization errors",
-        "The pattern matches how AdminLiveList.tsx and AdminSettings.tsx obtain and pass the authenticated actor"
+        "The standalone 'Earnings' tab is no longer visible in the main navigation.",
+        "The EarningsChecker content (username lookup, wallet entry, payout request) is accessible from within the Live Checker tab.",
+        "No earnings functionality is lost — all EarningsChecker features remain fully functional after the merge.",
+        "The Live Checker tab layout is coherent with the merged earnings section (e.g., as a sub-section or secondary tab within Live Checker)."
       ]
     }
   ],
   "constraints": [
-    "Do not change any existing comment list UI layout or behavior beyond what is needed to fix the authorization error",
-    "The admin principal check fix must be consistent with the pattern already applied to Live List and Settings authorization fixes",
-    "Do not modify any immutable frontend paths"
+    "Do not remove or break any existing earnings or payout request functionality.",
+    "The fix must not loosen security for anonymous/unauthenticated principals — only admin principals should gain elevated access."
   ],
   "nonGoals": [
-    "Adding new comment list features",
-    "Changing the comment list data model",
-    "Modifying other admin tabs beyond AdminComments.tsx"
+    "Redesigning the admin panel UI beyond the tab merge.",
+    "Adding new earnings features or changing earnings calculation logic.",
+    "Changing the authentication mechanism (Internet Identity)."
   ],
   "imageRequirements": {
     "required": [],

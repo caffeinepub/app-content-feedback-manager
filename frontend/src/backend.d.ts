@@ -43,6 +43,11 @@ export interface ListMetrics {
     totalTemplates: bigint;
     listId: string;
 }
+export interface Earning {
+    walletPhone?: string;
+    username: string;
+    totalAmount: bigint;
+}
 export interface PriceEntry {
     pricePerEntry: number;
     appName: string;
@@ -72,6 +77,13 @@ export interface ImportSummary {
     totalUsernamesAdded: bigint;
     totalDuplicatesSkipped: bigint;
     totalAppsDetected: bigint;
+}
+export interface PayoutRequest {
+    walletPhone: string;
+    status: Variant_pending_approved;
+    username: string;
+    totalAmount: bigint;
+    timestamp: bigint;
 }
 export type ClaimCommentResult = {
     __kind__: "noCommentsRemaining";
@@ -107,24 +119,36 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
+export enum Variant_pending_approved {
+    pending = "pending",
+    approved = "approved"
+}
 export interface backendInterface {
     addAppEvent(name: string): Promise<boolean>;
     addChatMessage(text: string): Promise<void>;
     addCommentList(id: string, displayName: string, suffix: string): Promise<boolean>;
     addImage(name: string, tags: Array<string>, dataUrl: string, data: ExternalBlob | null): Promise<void>;
+    addOrUpdateEarning(username: string, totalAmount: bigint): Promise<void>;
     addTemplatesToList(listId: string, templates: Array<string>): Promise<boolean>;
     addUsernamesToAppEvent(name: string, usernames: Array<string>): Promise<boolean>;
+    approvePayoutRequest(username: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    bulkDeleteCommentLists(): Promise<void>;
+    bulkDeleteLiveLists(): Promise<void>;
     bulkSetPrices(entries: Array<[string, number, boolean]>): Promise<void>;
     calculateAllEarnings(): Promise<AllEarningsSummary>;
     calculateEarnings(appName: string): Promise<AppEarnings | null>;
     claimComment(listId: string): Promise<ClaimCommentResult>;
+    deleteAllPayoutRequests(): Promise<void>;
     deleteAppEvent(name: string): Promise<boolean>;
     deleteCommentList(listId: string): Promise<boolean>;
+    deleteEarningsRecords(): Promise<void>;
     deletePriceEntry(appName: string): Promise<void>;
-    exportAllData(): Promise<ExportData>;
+    exportAllData(): Promise<ExportData | null>;
     generateBulkComments(arg0: string, arg1: bigint): Promise<BulkCommentsResult>;
     getAccessKey(): Promise<string | null>;
+    getAllEarnings(): Promise<Array<Earning>>;
+    getAllPayoutRequests(): Promise<Array<PayoutRequest>>;
     getAvailableComments(listId: string): Promise<{
         count: bigint;
         comments: Array<string>;
@@ -133,6 +157,7 @@ export interface backendInterface {
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCommentListsOrder(): Promise<Array<string>>;
+    getEarning(username: string): Promise<Earning | null>;
     getListMetrics(): Promise<Array<ListMetrics>>;
     getPriceList(): Promise<Array<PriceEntry>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -143,6 +168,8 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setAccessKey(key: string): Promise<void>;
     setPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
+    setWalletPhone(username: string, phone: string): Promise<void>;
+    submitPayoutRequest(username: string, totalAmount: bigint, walletPhone: string): Promise<void>;
     toggleListLock(listId: string): Promise<boolean>;
     updateSettings(bgMusicEnabled: boolean, musicFile: ExternalBlob | null): Promise<void>;
 }

@@ -1,39 +1,46 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T10:01:46.574Z",
+  "generatedAt": "2026-03-02T05:57:17.022Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 2,
-    "implemented": 0,
+    "implemented": 1,
     "items": [
       {
-        "id": "REQ-23",
-        "summary": "Fix the backend authorization check for the `addCommentList` (Create Comment List) function in backend/main.mo so that it correctly recognizes the admin caller and allows comment list creation. The current error is 'Unauthorized: Only admins can add comment lists'. Apply the same admin principal check fix that was used to resolve the Live List and Settings authorization issues — ensure the admin identity/principal check is consistent across all admin-gated functions.",
+        "id": "REQ-1",
+        "summary": "Fix the backend authorization logic so that Admin users (principals with admin role) are accepted for all actions currently gated to 'users only', including creating comment lists, adding templates, uploading, and any other actions that currently throw 'Unauthorized: Only users can add comment lists'. Admins must be treated as authorized for all user-level operations.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-24",
-        "summary": "Fix the frontend actor construction in AdminComments.tsx so that all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.) use the authenticated admin actor rather than the anonymous identity, consistent with the fix applied to AdminLiveList.tsx and AdminSettings.tsx.",
-        "status": "missing",
+        "id": "REQ-2",
+        "summary": "Remove the separate 'Earnings' tab from the main navigation in App.tsx and merge its content (the EarningsChecker view) directly into the Live Checker tab/view, so users can access earnings lookup within the Live List/Live Checker section without a separate tab.",
+        "status": "implemented",
         "plannedFiles": [
-          "frontend/src/views/admin/AdminComments.tsx"
+          "frontend/src/App.tsx",
+          "frontend/src/views/LiveChecker.tsx"
         ],
-        "matchedFiles": []
+        "matchedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/views/LiveChecker.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/views/LiveChecker.tsx",
+    "frontend/src/views/admin/AdminView.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

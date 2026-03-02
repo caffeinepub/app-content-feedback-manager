@@ -1,10 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the admin authorization error ("Unauthorized: Only admins can add comment lists") for all comment list mutation operations in the Admin Panel.
+**Goal:** Fix the admin authorization error that blocks admins from performing user-level actions, and merge the Earnings tab into the Live Checker tab.
 
 **Planned changes:**
-- Fix the `addCommentList` backend authorization check in `backend/main.mo` to use the same admin principal check pattern applied to other admin-gated functions (e.g., `addAppEvent`, `setAccessKey`)
-- Update `AdminComments.tsx` to retrieve and use the authenticated admin actor for all mutation calls (createCommentList, renameCommentList, deleteCommentList, addTemplatesToList, etc.), matching the pattern used in `AdminLiveList.tsx` and `AdminSettings.tsx`
+- Update backend authorization logic to accept both `admin` and `user` roles for all operations currently gated to users only (creating comment lists, adding templates, uploading, etc.), while still rejecting unauthenticated principals
+- Remove the standalone `Earnings` tab from the main navigation in App.tsx
+- Embed the EarningsChecker view (username lookup, wallet entry, payout request) as a sub-section within the Live Checker tab
 
-**User-visible outcome:** Admin users can create, rename, delete, and modify comment lists from the Admin Panel without receiving authorization errors.
+**User-visible outcome:** Admin users can create comment lists, add templates, and upload content without receiving "Unauthorized" errors. The Earnings functionality is accessible directly within the Live Checker tab instead of a separate navigation tab.

@@ -1,50 +1,84 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Shield } from 'lucide-react';
 import { useAdminAuth } from '../hooks/useAdminAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Lock, ShieldCheck } from 'lucide-react';
 
-export function AdminUnlock() {
-  const { unlock, error, setError } = useAdminAuth();
+interface AdminUnlockProps {
+  onUnlocked: () => void;
+}
+
+export default function AdminUnlock({ onUnlocked }: AdminUnlockProps) {
   const [code, setCode] = useState('');
+  const { unlock, error, isLoading, isUnlocked } = useAdminAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Auto-skip if already unlocked via localStorage
+  useEffect(() => {
+    const storedCode = localStorage.getItem('adminCode');
+    const storedIsAdmin = localStorage.getItem('isAdmin');
+    if (storedCode === '7898' && storedIsAdmin === 'true') {
+      onUnlocked();
+    }
+  }, [onUnlocked]);
+
+  // Also respond to isUnlocked state changes
+  useEffect(() => {
+    if (isUnlocked) {
+      onUnlocked();
+    }
+  }, [isUnlocked, onUnlocked]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    unlock(code);
+    const success = await unlock(code);
+    if (success) {
+      onUnlocked();
+    }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
-      <div className="glass-card rounded-2xl p-8 w-full max-w-sm text-center space-y-6">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, oklch(0.55 0.18 200), oklch(0.65 0.2 160))' }}>
-            <Lock className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="space-card p-8 rounded-2xl w-full max-w-md text-center">
+        <div className="flex justify-center mb-6">
+          <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+            <Shield className="w-8 h-8 text-primary" />
           </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-display font-bold text-foreground">Admin Access</h2>
-          <p className="text-muted-foreground mt-1 text-sm">Enter your 4-digit admin code</p>
-        </div>
+        <h2 className="text-2xl font-bold gradient-heading mb-2">Admin Panel</h2>
+        <p className="text-muted-foreground mb-8">Enter your admin code to continue</p>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
+          <input
             type="password"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="Enter code..."
             value={code}
-            onChange={(e) => {
-              setCode(e.target.value);
-              if (error) setError('');
-            }}
-            className="text-center text-2xl tracking-widest bg-secondary border-border focus:border-neon-teal"
+            onChange={e => setCode(e.target.value)}
+            placeholder="Enter admin code"
+            className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 text-center text-xl tracking-widest"
+            autoFocus
+            disabled={isLoading}
           />
+
           {error && (
-            <p className="text-destructive text-sm font-medium animate-fade-in">{error}</p>
+            <div className="text-destructive text-sm bg-destructive/10 rounded-lg px-4 py-2">
+              {error}
+            </div>
           )}
-          <Button type="submit" className="w-full gradient-btn text-white font-semibold">
-            <ShieldCheck className="w-4 h-4 mr-2" />
-            Unlock Admin
-          </Button>
+
+          <button
+            type="submit"
+            disabled={isLoading || !code}
+            className="gradient-button w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Unlocking...
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                Unlock Admin Panel
+              </>
+            )}
+          </button>
         </form>
       </div>
     </div>
