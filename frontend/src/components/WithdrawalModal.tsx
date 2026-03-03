@@ -28,10 +28,11 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
       return;
     }
     try {
-      await withdrawalMutation.mutateAsync({ username, walletNumber });
+      await withdrawalMutation.mutateAsync({ username, walletNumber, amount: totalEarnings });
       setSubmitted(true);
-    } catch (err: any) {
-      setValidationError(err?.message ?? 'Submission failed. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Submission failed. Please try again.';
+      setValidationError(msg);
     }
   };
 
@@ -57,7 +58,7 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
               {/* Header */}
               <div className="text-center mb-6">
                 <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse-gold"
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
                   style={{
                     background: 'linear-gradient(135deg, oklch(0.75 0.18 65 / 0.2), oklch(0.70 0.20 185 / 0.2))',
                     border: '1px solid oklch(0.75 0.18 65 / 0.4)',
@@ -90,13 +91,12 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
                     {username}
                   </span>
                 </div>
-                <div className="section-divider my-2" />
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
                     <span className="text-sm font-rajdhani" style={{ color: 'oklch(0.60 0.04 260)' }}>Total Earnings</span>
                   </div>
-                  <span className="font-orbitron font-bold text-lg gold-text">
+                  <span className="font-orbitron font-bold text-lg" style={{ color: 'oklch(0.82 0.20 70)' }}>
                     ₹{totalEarnings.toFixed(2)}
                   </span>
                 </div>
@@ -118,13 +118,10 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
                     required
                     maxLength={10}
                     className="glass-input w-full px-4 py-3 text-base"
-                    style={{
-                      fontFamily: 'Orbitron, monospace',
-                      letterSpacing: '0.1em',
-                    }}
+                    style={{ fontFamily: 'Orbitron, monospace', letterSpacing: '0.1em' }}
                   />
                   {validationError && (
-                    <p className="mt-1.5 text-xs font-rajdhani animate-fadeIn" style={{ color: 'oklch(0.65 0.22 25)' }}>
+                    <p className="mt-1.5 text-xs font-rajdhani" style={{ color: 'oklch(0.65 0.22 25)' }}>
                       {validationError}
                     </p>
                   )}
@@ -137,7 +134,7 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
                   <button
                     type="button"
                     onClick={onClose}
-                    className="flex-1 py-3 rounded-xl font-rajdhani font-600 text-sm transition-all duration-300 hover-lift"
+                    className="flex-1 py-3 rounded-xl font-rajdhani font-600 text-sm transition-all duration-300"
                     style={{
                       background: 'oklch(0.14 0.03 260 / 0.6)',
                       border: '1px solid oklch(0.28 0.06 260 / 0.4)',
@@ -149,15 +146,12 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
                   <button
                     type="submit"
                     disabled={withdrawalMutation.isPending || walletNumber.length !== 10}
-                    className="flex-1 py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300 hover-lift flex items-center justify-center gap-2"
+                    className="flex-1 py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2"
                     style={{
                       background: walletNumber.length === 10
                         ? 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))'
                         : 'oklch(0.16 0.03 260)',
                       color: walletNumber.length === 10 ? 'oklch(0.08 0.02 260)' : 'oklch(0.40 0.04 260)',
-                      boxShadow: walletNumber.length === 10
-                        ? '0 4px 15px oklch(0.75 0.18 65 / 0.3)'
-                        : 'none',
                     }}
                   >
                     {withdrawalMutation.isPending ? (
@@ -174,7 +168,7 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
             </>
           ) : (
             /* Success state */
-            <div className="text-center py-4 animate-fadeInUp">
+            <div className="text-center py-4">
               <div
                 className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
                 style={{
@@ -206,24 +200,19 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Amount:</span>
-                  <span className="font-orbitron font-bold text-xs gold-text">₹{totalEarnings.toFixed(2)}</span>
+                  <span className="font-orbitron font-bold text-xs" style={{ color: 'oklch(0.82 0.20 70)' }}>₹{totalEarnings.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Wallet:</span>
                   <span className="font-orbitron font-bold text-xs" style={{ color: 'oklch(0.70 0.20 185)' }}>{walletNumber}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Status:</span>
-                  <span className="badge-pending">PENDING</span>
-                </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-full py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300 hover-lift"
+                className="w-full py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300"
                 style={{
                   background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
                   color: 'oklch(0.08 0.02 260)',
-                  boxShadow: '0 4px 15px oklch(0.75 0.18 65 / 0.3)',
                 }}
               >
                 Close

@@ -14,20 +14,7 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface ExportData {
-    chatMessages: Array<ChatMessage>;
-    settings: Settings;
-    appsEvents: Array<AppEvent>;
-    commentLists: Array<CommentList>;
-    images: Array<ImageMeta>;
-}
 export type Time = bigint;
-export interface AllEarningsSummary {
-    totalAppsWithPrices: bigint;
-    totalValidEntries: bigint;
-    appEarnings: Array<AppEarnings>;
-    totalEarnings: number;
-}
 export interface PublicSettings {
     bgMusicEnabled: boolean;
     musicFile?: ExternalBlob;
@@ -57,38 +44,15 @@ export interface PriceEntry {
     appName: string;
     isActive: boolean;
 }
-export interface AppImport {
-    appName: string;
-    importDate?: string;
-    usernames: Array<string>;
-}
 export interface Settings {
     accessKey?: string;
     bgMusicEnabled: boolean;
     musicFile?: ExternalBlob;
 }
-export interface BulkCommentsResult {
-    commentListId: string;
-    templateCount: bigint;
-    generatedCount: bigint;
-    comments: Array<string>;
-}
 export interface AppEvent {
     name: string;
     usernames: Array<string>;
 }
-export interface ImportSummary {
-    totalUsernamesAdded: bigint;
-    totalDuplicatesSkipped: bigint;
-    totalAppsDetected: bigint;
-}
-export type ClaimCommentResult = {
-    __kind__: "noCommentsRemaining";
-    noCommentsRemaining: null;
-} | {
-    __kind__: "claimSuccess";
-    claimSuccess: string;
-};
 export interface ChatMessage {
     id: bigint;
     text: string;
@@ -100,13 +64,6 @@ export interface WithdrawalRequest {
     timestamp: Time;
     walletNumber: string;
     amount: number;
-}
-export interface AppEarnings {
-    totalUsernamesFound: bigint;
-    pricePerEntry: number;
-    appName: string;
-    isActive: boolean;
-    totalAmount: number;
 }
 export interface ImageMeta {
     id: bigint;
@@ -129,54 +86,31 @@ export enum WithdrawalStatus {
     rejected = "rejected"
 }
 export interface backendInterface {
-    addAppEvent(name: string): Promise<boolean>;
-    addChatMessage(text: string): Promise<void>;
-    addCommentList(id: string, displayName: string, suffix: string): Promise<boolean>;
-    addImage(name: string, tags: Array<string>, dataUrl: string, data: ExternalBlob | null): Promise<void>;
-    addTemplatesToList(listId: string, templates: Array<string>): Promise<boolean>;
-    addUsernamesToAppEvent(name: string, usernames: Array<string>): Promise<boolean>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    bulkSetPrices(entries: Array<[string, number, boolean]>): Promise<void>;
-    calculateAllEarnings(): Promise<AllEarningsSummary>;
-    calculateEarnings(appName: string): Promise<AppEarnings | null>;
-    checkAndRequestWithdrawal(username: string, walletNumber: string): Promise<number | null>;
-    claimComment(listId: string): Promise<ClaimCommentResult>;
-    deleteAppEvent(name: string): Promise<boolean>;
-    deleteCommentList(listId: string): Promise<boolean>;
-    deletePriceEntry(appName: string): Promise<void>;
-    exportAllData(): Promise<ExportData | null>;
-    generateBulkComments(arg0: string, arg1: bigint): Promise<BulkCommentsResult>;
-    getAccessKey(): Promise<string | null>;
+    createAppEvent(appName: string, event: AppEvent): Promise<void>;
+    createCommentList(list: CommentList): Promise<void>;
+    getAllAppEvents(): Promise<Array<AppEvent>>;
+    getAllChatMessages(): Promise<Array<ChatMessage>>;
+    getAllCommentLists(): Promise<Array<CommentList>>;
+    getAllImages(): Promise<Array<ImageMeta>>;
     getAllInventory(): Promise<Array<[string, bigint]>>;
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
-    getAvailableComments(listId: string): Promise<{
-        count: bigint;
-        comments: Array<string>;
-    }>;
-    getAvailableCount(listId: string): Promise<bigint>;
+    getAppEvent(name: string): Promise<AppEvent | null>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getCommentListsOrder(): Promise<Array<string>>;
+    getChatMessage(id: bigint): Promise<ChatMessage | null>;
+    getCommentList(id: string): Promise<CommentList | null>;
     getCountdownState(): Promise<CountdownState>;
+    getImage(id: bigint): Promise<ImageMeta | null>;
     getInventoryCount(listId: string): Promise<bigint>;
     getListMetrics(): Promise<Array<ListMetrics>>;
+    getPriceEntry(appName: string): Promise<PriceEntry | null>;
     getPriceList(): Promise<Array<PriceEntry>>;
     getPublicSettings(): Promise<PublicSettings>;
     getSettings(): Promise<Settings>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
-    importLiveList(imports: Array<AppImport>): Promise<ImportSummary>;
     isCallerAdmin(): Promise<boolean>;
-    pauseCountdown(): Promise<void>;
-    renameAppEvent(oldName: string, newName: string): Promise<boolean>;
-    renameCommentList(oldId: string, newId: string, newDisplayName: string): Promise<boolean>;
-    resetCountdown(): Promise<void>;
-    resumeCountdown(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setAccessKey(key: string): Promise<void>;
-    setCountdown(targetTime: Time): Promise<void>;
-    setInventoryCount(commentListId: string, count: bigint): Promise<void>;
-    setPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
-    toggleListLock(listId: string): Promise<boolean>;
-    updateInventory(commentListId: string, quantity: bigint): Promise<boolean>;
-    updateSettings(bgMusicEnabled: boolean, musicFile: ExternalBlob | null): Promise<void>;
+    uploadMusicFile(blob: ExternalBlob): Promise<void>;
 }

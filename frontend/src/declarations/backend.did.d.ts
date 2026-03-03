@@ -10,38 +10,12 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface AllEarningsSummary {
-  'totalAppsWithPrices' : bigint,
-  'totalValidEntries' : bigint,
-  'appEarnings' : Array<AppEarnings>,
-  'totalEarnings' : number,
-}
-export interface AppEarnings {
-  'totalUsernamesFound' : bigint,
-  'pricePerEntry' : number,
-  'appName' : string,
-  'isActive' : boolean,
-  'totalAmount' : number,
-}
 export interface AppEvent { 'name' : string, 'usernames' : Array<string> }
-export interface AppImport {
-  'appName' : string,
-  'importDate' : [] | [string],
-  'usernames' : Array<string>,
-}
-export interface BulkCommentsResult {
-  'commentListId' : string,
-  'templateCount' : bigint,
-  'generatedCount' : bigint,
-  'comments' : Array<string>,
-}
 export interface ChatMessage {
   'id' : bigint,
   'text' : string,
   'timestamp' : Time,
 }
-export type ClaimCommentResult = { 'noCommentsRemaining' : null } |
-  { 'claimSuccess' : string };
 export interface CommentList {
   'id' : string,
   'templates' : Array<string>,
@@ -54,13 +28,6 @@ export interface CountdownState {
   'isActive' : boolean,
   'targetTime' : [] | [Time],
 }
-export interface ExportData {
-  'chatMessages' : Array<ChatMessage>,
-  'settings' : Settings,
-  'appsEvents' : Array<AppEvent>,
-  'commentLists' : Array<CommentList>,
-  'images' : Array<ImageMeta>,
-}
 export type ExternalBlob = Uint8Array;
 export interface ImageMeta {
   'id' : bigint,
@@ -68,11 +35,6 @@ export interface ImageMeta {
   'data' : [] | [ExternalBlob],
   'name' : string,
   'tags' : Array<string>,
-}
-export interface ImportSummary {
-  'totalUsernamesAdded' : bigint,
-  'totalDuplicatesSkipped' : bigint,
-  'totalAppsDetected' : bigint,
 }
 export interface ListMetrics {
   'usedTemplates' : bigint,
@@ -139,59 +101,33 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'addAppEvent' : ActorMethod<[string], boolean>,
-  'addChatMessage' : ActorMethod<[string], undefined>,
-  'addCommentList' : ActorMethod<[string, string, string], boolean>,
-  'addImage' : ActorMethod<
-    [string, Array<string>, string, [] | [ExternalBlob]],
-    undefined
-  >,
-  'addTemplatesToList' : ActorMethod<[string, Array<string>], boolean>,
-  'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], boolean>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'bulkSetPrices' : ActorMethod<[Array<[string, number, boolean]>], undefined>,
-  'calculateAllEarnings' : ActorMethod<[], AllEarningsSummary>,
-  'calculateEarnings' : ActorMethod<[string], [] | [AppEarnings]>,
-  'checkAndRequestWithdrawal' : ActorMethod<[string, string], [] | [number]>,
-  'claimComment' : ActorMethod<[string], ClaimCommentResult>,
-  'deleteAppEvent' : ActorMethod<[string], boolean>,
-  'deleteCommentList' : ActorMethod<[string], boolean>,
-  'deletePriceEntry' : ActorMethod<[string], undefined>,
-  'exportAllData' : ActorMethod<[], [] | [ExportData]>,
-  'generateBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
-  'getAccessKey' : ActorMethod<[], [] | [string]>,
+  'createAppEvent' : ActorMethod<[string, AppEvent], undefined>,
+  'createCommentList' : ActorMethod<[CommentList], undefined>,
+  'getAllAppEvents' : ActorMethod<[], Array<AppEvent>>,
+  'getAllChatMessages' : ActorMethod<[], Array<ChatMessage>>,
+  'getAllCommentLists' : ActorMethod<[], Array<CommentList>>,
+  'getAllImages' : ActorMethod<[], Array<ImageMeta>>,
   'getAllInventory' : ActorMethod<[], Array<[string, bigint]>>,
   'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
-  'getAvailableComments' : ActorMethod<
-    [string],
-    { 'count' : bigint, 'comments' : Array<string> }
-  >,
-  'getAvailableCount' : ActorMethod<[string], bigint>,
+  'getAppEvent' : ActorMethod<[string], [] | [AppEvent]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getCommentListsOrder' : ActorMethod<[], Array<string>>,
+  'getChatMessage' : ActorMethod<[bigint], [] | [ChatMessage]>,
+  'getCommentList' : ActorMethod<[string], [] | [CommentList]>,
   'getCountdownState' : ActorMethod<[], CountdownState>,
+  'getImage' : ActorMethod<[bigint], [] | [ImageMeta]>,
   'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
+  'getPriceEntry' : ActorMethod<[string], [] | [PriceEntry]>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getPublicSettings' : ActorMethod<[], PublicSettings>,
   'getSettings' : ActorMethod<[], Settings>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'importLiveList' : ActorMethod<[Array<AppImport>], ImportSummary>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  'pauseCountdown' : ActorMethod<[], undefined>,
-  'renameAppEvent' : ActorMethod<[string, string], boolean>,
-  'renameCommentList' : ActorMethod<[string, string, string], boolean>,
-  'resetCountdown' : ActorMethod<[], undefined>,
-  'resumeCountdown' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string], undefined>,
-  'setCountdown' : ActorMethod<[Time], undefined>,
-  'setInventoryCount' : ActorMethod<[string, bigint], undefined>,
-  'setPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
-  'toggleListLock' : ActorMethod<[string], boolean>,
-  'updateInventory' : ActorMethod<[string, bigint], boolean>,
-  'updateSettings' : ActorMethod<[boolean, [] | [ExternalBlob]], undefined>,
+  'uploadMusicFile' : ActorMethod<[ExternalBlob], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

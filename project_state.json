@@ -1,71 +1,50 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "App with admin panel (Internet Identity auth, principal-based access control), admin music upload (all users can toggle playback via top-right button), countdown timer with reset, and day/night light/dark mode toggle in the top navigation bar.",
+  "summary": "Music/streaming app with an admin panel. Multiple backend canister methods are missing (create list, app event, set access key, upload music) causing 'backend does not support' errors. Fixing all four missing Motoko backend methods.",
   "architectural_notes": [
-    "Uses Internet Identity (ICP) for admin authentication with principal-based access control"
+    "Backend is a Motoko canister; admin panel operations must have corresponding public methods defined in the canister",
+    "Light/dark mode toggle with proper contrast is implemented"
   ],
-  "known_issues": [],
-  "isFixRequest": false,
-  "existing_features": [],
-  "new_feature_requests": [
+  "known_issues": [
+    "Admin panel: 'backend does not support' error on create list, app event, set access key, and upload music — missing Motoko canister methods"
+  ],
+  "isFixRequest": true,
+  "existing_features": [
     {
-      "id": "AR-1",
-      "summary": "Admin panel with Internet Identity authentication and principal-based access control",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Admin can upload background music; all users hear it and can toggle play/pause via top-right button",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Countdown timer with set duration and reset/set-back functionality",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Day/night light/dark mode toggle in the top navigation bar",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-5",
-      "summary": "Replace the existing password-based AdminUnlock screen with Internet Identity authentication. Only users whose principal is in a hardcoded or backend-stored admin principal allowlist can access the admin panel. Non-admin principals are shown an 'Access Denied' message after login. The AdminView must gate all admin sub-views behind this II-based check.",
+      "id": "feature-add-a-public-motoko-backend-method-to-create-a-new-comment-list-it-must-accept-a-list-name-persist-the-new-list-in-stable-mutable-storage-and-return-a-success-or-error-result-the-frontend-admincomments-view-must-be-wired-to-call-this-method-so-that-creating-a-list-no-longer-returns-backend-does-not-support",
+      "title": "Add a public Motoko backend method to create a new comment list. It must accept a list name, persist the new list in stable/mutable storage, and return a success or error result. The frontend AdminComments view must be wired to call this method so that creating a list no longer returns 'backend does not support'.",
       "reqIds": [
         "REQ-1"
       ],
-      "status": "pending"
+      "version": 1
     },
     {
-      "id": "AR-6",
-      "summary": "Add a music upload feature to the AdminSettings panel. The admin can upload an audio file (e.g. MP3) which is stored in the backend as a blob. All users' clients fetch and play this track as background music. A play/pause toggle button is placed in the top-right corner of the top navigation bar and is visible to all users regardless of login state.",
+      "id": "feature-add-a-public-motoko-backend-method-to-create-record-an-app-event-it-must-accept-the-required-event-fields-e-g-app-name-date-usernames-payload-persist-the-event-in-stable-storage-and-return-a-result-the-frontend-adminlivelist-view-must-be-wired-to-call-this-method-so-that-creating-an-app-event-no-longer-returns-backend-does-not-support",
+      "title": "Add a public Motoko backend method to create/record an app event. It must accept the required event fields (e.g., app name, date/usernames payload), persist the event in stable storage, and return a result. The frontend AdminLiveList view must be wired to call this method so that creating an app event no longer returns 'backend does not support'.",
       "reqIds": [
         "REQ-2"
       ],
-      "status": "pending"
+      "version": 1
     },
     {
-      "id": "AR-7",
-      "summary": "Implement a configurable countdown timer visible to all users. The admin can set a target duration or target datetime from the admin panel. The timer displays hours, minutes, and seconds counting down. The admin can also reset/set-back the timer to a new value at any time. The timer state (target time) is persisted in the backend so all users see the same countdown.",
+      "id": "feature-add-a-public-motoko-backend-method-to-set-and-store-the-access-key-it-must-accept-a-text-key-persist-it-in-stable-mutable-state-and-return-a-confirmation-the-frontend-adminsettings-view-must-be-wired-to-call-this-method-so-that-setting-the-access-key-no-longer-returns-backend-does-not-support",
+      "title": "Add a public Motoko backend method to set and store the access key. It must accept a text key, persist it in stable/mutable state, and return a confirmation. The frontend AdminSettings view must be wired to call this method so that setting the access key no longer returns 'backend does not support'.",
       "reqIds": [
         "REQ-3"
       ],
-      "status": "pending"
+      "version": 1
     },
     {
-      "id": "AR-8",
-      "summary": "Add a day/night (light/dark mode) toggle button to the top navigation bar. Clicking it switches the entire app between light and dark themes. The user's preference is persisted in localStorage. The toggle should use a sun/moon icon and be placed alongside other top-bar controls.",
+      "id": "feature-add-a-public-motoko-backend-method-to-upload-and-store-music-url-or-binary-blob-it-must-accept-the-music-data-url-and-any-relevant-metadata-persist-it-in-stable-storage-and-return-a-result-the-frontend-adminsettings-background-music-upload-and-any-relevant-upload-views-must-be-wired-to-call-this-method-so-that-uploading-music-no-longer-returns-backend-does-not-support",
+      "title": "Add a public Motoko backend method to upload and store music (URL or binary blob). It must accept the music data/URL and any relevant metadata, persist it in stable storage, and return a result. The frontend AdminSettings (background music upload) and any relevant upload views must be wired to call this method so that uploading music no longer returns 'backend does not support'.",
       "reqIds": [
         "REQ-4"
       ],
-      "status": "pending"
+      "version": 1
     }
   ],
+  "new_feature_requests": [],
   "gameProjectType": "none",
   "projectName": "Content & Feedback Manager",
   "clarification_mode": "instant",

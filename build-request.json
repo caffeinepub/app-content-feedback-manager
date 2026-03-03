@@ -1,115 +1,99 @@
 {
   "kind": "build_request",
-  "title": "Add Internet Identity admin login, music upload, countdown timer, and day/night toggle",
+  "title": "Fix missing admin panel backend methods (create list, app event, set access key, upload music)",
   "projectName": "Content & Feedback Manager",
-  "priority": "normal",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Replace the existing password-based AdminUnlock screen with Internet Identity authentication. Only users whose principal is in a hardcoded or backend-stored admin principal allowlist can access the admin panel. Non-admin principals are shown an 'Access Denied' message after login. The AdminView must gate all admin sub-views behind this II-based check.",
+      "text": "Add a public Motoko backend method to create a new comment list. It must accept a list name, persist the new list in stable/mutable storage, and return a success or error result. The frontend AdminComments view must be wired to call this method so that creating a list no longer returns 'backend does not support'.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-4",
           "msg-6",
-          "msg-8"
+          "msg-7"
         ],
         "quotes": [
-          "only for admin panel",
-          "Admin panel — Internet Identity authentication required, with principal-based access control"
+          "Create List — backend method missing or not wired up",
+          "they show backend does not support"
         ]
       },
       "acceptanceCriteria": [
-        "Clicking 'Admin' tab shows an Internet Identity login prompt instead of a password form",
-        "After II login, only principals on the admin allowlist can view the admin panel",
-        "Non-allowlisted principals see an 'Access Denied' message",
-        "Admin can log out and the panel returns to the login prompt",
-        "The useAdminAuth hook or AdminUnlock component is replaced/updated to use useInternetIdentity"
+        "Calling the create-list method from the admin panel stores the new list in the backend without error.",
+        "No 'backend does not support' error appears when submitting the create list form.",
+        "The newly created list appears in subsequent list fetch queries."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add a music upload feature to the AdminSettings panel. The admin can upload an audio file (e.g. MP3) which is stored in the backend as a blob. All users' clients fetch and play this track as background music. A play/pause toggle button is placed in the top-right corner of the top navigation bar and is visible to all users regardless of login state.",
+      "text": "Add a public Motoko backend method to create/record an app event. It must accept the required event fields (e.g., app name, date/usernames payload), persist the event in stable storage, and return a result. The frontend AdminLiveList view must be wired to call this method so that creating an app event no longer returns 'backend does not support'.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-5",
-          "msg-7",
-          "msg-8"
+          "msg-6",
+          "msg-7"
         ],
         "quotes": [
-          "admin upload music everyone listen it only also through button turn it off",
-          "Admin can upload a background music track; all users can toggle it on/off with a play/pause button in the top-right corner"
+          "App Event — backend doesn't support this operation",
+          "they show backend does not support"
         ]
       },
       "acceptanceCriteria": [
-        "AdminSettings has a file input to upload an audio file; the file is saved to the backend",
-        "All users' clients automatically load and loop the uploaded track",
-        "A music play/pause button appears in the top-right corner of the top nav bar",
-        "Clicking the button toggles playback on/off for that user",
-        "If no music has been uploaded, the button is hidden or disabled",
-        "The existing useBackgroundMusic hook is wired to the backend-stored music URL"
+        "Calling the app event method from the admin panel stores the event without error.",
+        "No 'backend does not support' error appears when creating an app event.",
+        "Created events are retrievable from the backend in subsequent queries."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Implement a configurable countdown timer visible to all users. The admin can set a target duration or target datetime from the admin panel. The timer displays hours, minutes, and seconds counting down. The admin can also reset/set-back the timer to a new value at any time. The timer state (target time) is persisted in the backend so all users see the same countdown.",
+      "text": "Add a public Motoko backend method to set and store the access key. It must accept a text key, persist it in stable/mutable state, and return a confirmation. The frontend AdminSettings view must be wired to call this method so that setting the access key no longer returns 'backend does not support'.",
       "target": "both",
       "source": {
         "messageIds": [
-          "msg-4",
-          "msg-8"
+          "msg-6",
+          "msg-7"
         ],
         "quotes": [
-          "a countdown",
-          "Countdown timer — Set a duration and reset/set it back, visible to users"
+          "Set Access Key — backend method not implemented",
+          "they show backend does not support"
         ]
       },
       "acceptanceCriteria": [
-        "A countdown timer (HH:MM:SS) is visible on the main UI for all users",
-        "Admin panel includes a form to set a new countdown duration or target datetime",
-        "Admin can reset or update the timer at any time",
-        "The countdown target is stored in the backend and fetched by all clients",
-        "When the timer reaches zero it displays '00:00:00' and does not go negative",
-        "The existing useCountdown hook is replaced or extended to use the backend-stored target time"
+        "Submitting a new access key from AdminSettings persists it in the backend without error.",
+        "No 'backend does not support' error appears when calling set access key.",
+        "The stored access key can be retrieved and is used for subsequent key-gated operations."
       ]
     },
     {
       "id": "REQ-4",
-      "text": "Add a day/night (light/dark mode) toggle button to the top navigation bar. Clicking it switches the entire app between light and dark themes. The user's preference is persisted in localStorage. The toggle should use a sun/moon icon and be placed alongside other top-bar controls.",
-      "target": "frontend",
+      "text": "Add a public Motoko backend method to upload and store music (URL or binary blob). It must accept the music data/URL and any relevant metadata, persist it in stable storage, and return a result. The frontend AdminSettings (background music upload) and any relevant upload views must be wired to call this method so that uploading music no longer returns 'backend does not support'.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-4",
           "msg-6",
-          "msg-8"
+          "msg-7"
         ],
         "quotes": [
-          "light/dark mode",
-          "Day/Night toggle — Light/dark mode switch in the top navigation bar"
+          "Upload Music — backend storage/method not available",
+          "they show backend does not support"
         ]
       },
       "acceptanceCriteria": [
-        "A sun/moon icon button appears in the top navigation bar",
-        "Clicking the button toggles between light and dark themes app-wide",
-        "The selected theme is persisted in localStorage and restored on page reload",
-        "Both light and dark themes use the existing CSS custom properties defined in index.css",
-        "The toggle is visible and functional without any login"
+        "Uploading music from the admin panel stores the music data/URL in the backend without error.",
+        "No 'backend does not support' error appears when uploading music.",
+        "The stored music URL/data is returned by the background music settings query and plays correctly in the frontend."
       ]
     }
   ],
   "constraints": [
-    "Internet Identity integration must use the existing useInternetIdentity hook at frontend/src/hooks/useInternetIdentity.ts — do not create a new auth provider",
-    "All immutable paths (frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, frontend/src/components/ui) must not be modified",
-    "All Motoko logic must remain in backend/main.mo as a single actor",
-    "Music files must be stored as blobs in the backend, not served from external URLs"
+    "All Motoko logic must remain in the single main actor file (backend/main.mo).",
+    "Do not break or remove any existing backend methods or stored state.",
+    "Do not modify any immutable frontend paths listed in the system context."
   ],
   "nonGoals": [
-    "General user authentication — II login is only for the admin panel",
-    "Multiple admin roles or granular permissions beyond a single admin allowlist",
-    "Volume control for background music (only play/pause toggle)",
-    "User-uploadable music — only the admin can upload tracks",
-    "Server-side theme persistence — localStorage is sufficient for the day/night preference"
+    "Adding new frontend UI screens or redesigning the admin panel layout.",
+    "Implementing authentication beyond what already exists.",
+    "Changing any existing working admin panel features."
   ],
   "imageRequirements": {
     "required": [],

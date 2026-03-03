@@ -1,165 +1,170 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Music, Music2, Shield } from 'lucide-react';
-import AdminView from './views/admin/AdminView';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { Sun, Moon, Music, VolumeX } from 'lucide-react';
+import { usePublicSettings } from './hooks/useQueries';
 import UserView from './views/UserView';
 import LiveChecker from './views/LiveChecker';
-import { UploadView } from './views/UploadView';
-import { useGetSettings } from './hooks/useQueries';
+import UploadView from './views/UploadView';
+import AdminView from './views/admin/AdminView';
+import { Toaster } from './components/ui/sonner';
+
+function CountdownBanner() {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const getMidnight = () => {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      return midnight.getTime() - now.getTime();
+    };
+
+    const format = (ms: number) => {
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    };
+
+    const tick = () => setTimeLeft(format(getMidnight()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="countdown-banner mx-auto w-fit px-4 py-1.5 rounded-full text-xs font-mono font-semibold tracking-widest mb-3">
+      ⏳ Resets in {timeLeft}
+    </div>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark' || theme === 'system';
+  return (
+    <button
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className="p-2 rounded-full border border-border hover:bg-muted transition-colors"
+      title="Toggle theme"
+    >
+      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
+}
+
+function MusicToggle() {
+  const { data: publicSettings } = usePublicSettings();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const musicUrl = publicSettings?.musicFile ? publicSettings.musicFile.getDirectURL() : null;
+
+  useEffect(() => {
+    if (!musicUrl) return;
+    if (!audioRef.current) {
+      audioRef.current = new Audio(musicUrl);
+      audioRef.current.loop = true;
+    }
+  }, [musicUrl]);
+
+  if (!musicUrl) return null;
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className="p-2 rounded-full border border-border hover:bg-muted transition-colors"
+      title={playing ? 'Pause music' : 'Play music'}
+    >
+      {playing ? <Music className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+    </button>
+  );
+}
 
 type Tab = 'comment' | 'live' | 'upload' | 'admin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('comment');
-  const [musicPlaying, setMusicPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const { data: settings } = useGetSettings();
-
-  // Countdown timer state
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-
-  useEffect(() => {
-    const target = new Date();
-    target.setDate(target.getDate() + 7);
-    const interval = setInterval(() => {
-      const now = new Date();
-      const diff = target.getTime() - now.getTime();
-      if (diff <= 0) {
-        clearInterval(interval);
-        return;
-      }
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((diff / (1000 * 60)) % 60),
-        seconds: Math.floor((diff / 1000) % 60),
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Music control
-  useEffect(() => {
-    if (settings?.bgMusicEnabled && settings?.musicFile) {
-      const url = settings.musicFile.getDirectURL();
-      if (!audioRef.current) {
-        audioRef.current = new Audio(url);
-        audioRef.current.loop = true;
-      }
-      if (musicPlaying) {
-        audioRef.current.play().catch(() => {});
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [musicPlaying, settings]);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'comment', label: 'Comment' },
-    { id: 'live', label: 'Live' },
-    { id: 'upload', label: 'Upload' },
-    { id: 'admin', label: 'Admin' },
+    { id: 'comment', label: '💬 Comment' },
+    { id: 'live', label: '🔴 Live' },
+    { id: 'upload', label: '📤 Upload' },
+    { id: 'admin', label: '⚙️ Admin' },
   ];
 
   return (
-    <div className="min-h-screen app-bg-gradient flex flex-col">
-      <div className="floating-shapes" aria-hidden="true">
-        <div className="shape" />
-        <div className="shape" />
-        <div className="shape" />
-      </div>
-
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="relative z-10 px-4 pt-4 pb-2">
-        <div className="max-w-2xl mx-auto">
-          <div className="space-card px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src="/assets/generated/app-avatar-icon.dim_128x128.png"
-                alt="Reviews World"
-                className="w-9 h-9 rounded-xl"
-              />
-              <div>
-                <h1 className="gradient-heading text-lg font-bold leading-tight">Reviews World</h1>
-                <p className="text-xs text-muted-foreground">Comment Tools</p>
-              </div>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <img src="/assets/generated/app-avatar-icon.dim_128x128.png" alt="Logo" className="w-8 h-8 rounded-lg" />
+              <span className="font-bold text-base gradient-text">Reviews World</span>
             </div>
             <div className="flex items-center gap-2">
-              {/* Countdown */}
-              <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-                {[
-                  { v: timeLeft.days, l: 'd' },
-                  { v: timeLeft.hours, l: 'h' },
-                  { v: timeLeft.minutes, l: 'm' },
-                  { v: timeLeft.seconds, l: 's' },
-                ].map(({ v, l }) => (
-                  <span key={l} className="bg-primary/10 px-1.5 py-0.5 rounded font-mono">
-                    {String(v).padStart(2, '0')}{l}
-                  </span>
-                ))}
-              </div>
-              {/* Music toggle */}
-              <button
-                onClick={() => setMusicPlaying((p) => !p)}
-                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary"
-                title={musicPlaying ? 'Pause music' : 'Play music'}
-              >
-                {musicPlaying ? <Music2 size={16} /> : <Music size={16} />}
-              </button>
+              <MusicToggle />
+              <ThemeToggle />
             </div>
           </div>
-        </div>
-      </header>
-
-      {/* Tab Navigation */}
-      <nav className="relative z-10 px-4 py-2">
-        <div className="max-w-2xl mx-auto">
-          <div className="space-card p-1 flex gap-1">
+          <CountdownBanner />
+          {/* Tabs */}
+          <nav className="flex gap-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'gradient-button text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-primary/10'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted text-muted-foreground'
                 }`}
               >
-                {tab.id === 'admin' && <Shield size={12} className="inline mr-1" />}
                 {tab.label}
               </button>
             ))}
-          </div>
+          </nav>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 px-4 py-2 pb-6">
-        <div className="max-w-2xl mx-auto">
-          {activeTab === 'comment' && <UserView />}
-          {activeTab === 'live' && <LiveChecker />}
-          {activeTab === 'upload' && <UploadView />}
-          {activeTab === 'admin' && <AdminView />}
-        </div>
+      {/* Main content */}
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
+        {activeTab === 'comment' && <UserView />}
+        {activeTab === 'live' && <LiveChecker />}
+        {activeTab === 'upload' && <UploadView />}
+        {activeTab === 'admin' && <AdminView />}
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 px-4 py-4 text-center text-xs text-muted-foreground">
+      <footer className="border-t border-border py-4 text-center text-xs text-muted-foreground">
         <p>
           © {new Date().getFullYear()} Reviews World · Built with{' '}
-          <span className="text-red-400">♥</span> using{' '}
+          <span className="text-red-500">♥</span> using{' '}
           <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(
-              typeof window !== 'undefined' ? window.location.hostname : 'reviews-world'
-            )}`}
+            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'reviews-world')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
+            className="underline hover:text-foreground transition-colors"
           >
             caffeine.ai
           </a>
         </p>
       </footer>
+
+      <Toaster />
     </div>
   );
 }

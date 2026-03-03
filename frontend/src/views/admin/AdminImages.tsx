@@ -1,153 +1,171 @@
-import { useState, useRef } from 'react';
-import { useGetImages, useAddImage } from '../../hooks/useQueries';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ImageIcon, Upload, Tag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Image, Upload, Loader2, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { useGetAllImages, useAddImage } from '../../hooks/useQueries';
 
-export function AdminImages() {
-  const { data: images, isLoading } = useGetImages();
+export default function AdminImages() {
+  const { data: images = [], isLoading } = useGetAllImages();
   const addImage = useAddImage();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
   const [tags, setTags] = useState('');
-  const [preview, setPreview] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState('');
+  const [preview, setPreview] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => setPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
+    setFeedback(null);
   };
 
   const handleUpload = async () => {
-    const file = fileRef.current?.files?.[0];
-    if (!file || !name.trim()) return;
-    setIsUploading(true);
-    setError('');
+    if (!preview || !name.trim()) return;
+    setFeedback(null);
+    const tagList = tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
     try {
-      const tagList = tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
-      await addImage.mutateAsync({ name: name.trim(), tags: tagList, dataUrl: preview, data: null });
+      await addImage.mutateAsync({ name: name.trim(), tags: tagList, dataUrl: preview });
+      setFeedback({ type: 'success', message: `Image "${name}" uploaded!` });
       setName('');
       setTags('');
-      setPreview('');
-      if (fileRef.current) fileRef.current.value = '';
-    } catch {
-      setError('Upload failed. Please try again.');
-    } finally {
-      setIsUploading(false);
+      setPreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to upload image';
+      setFeedback({ type: 'error', message: msg });
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading images…</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-fadeInUp">
-      {/* Upload Form */}
-      <div className="glass-card-gold rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Upload className="w-5 h-5" style={{ color: 'oklch(0.82 0.20 70)' }} />
-          <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider gradient-heading">Upload Image</h3>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Image className="w-5 h-5 text-primary" />
         </div>
-
-        <div className="space-y-3">
-          <Input
-            placeholder="Image name..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="glass-input border-0"
-          />
-          <Input
-            placeholder="Tags (comma-separated)..."
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            className="glass-input border-0"
-          />
-
-          <div
-            className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-300"
-            style={{ borderColor: 'oklch(0.28 0.06 260 / 0.5)' }}
-            onClick={() => fileRef.current?.click()}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'oklch(0.75 0.18 65 / 0.6)')}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'oklch(0.28 0.06 260 / 0.5)')}
-          >
-            {preview ? (
-              <img src={preview} alt="Preview" className="max-h-40 mx-auto rounded-lg object-contain" />
-            ) : (
-              <>
-                <ImageIcon className="w-10 h-10 mx-auto mb-2" style={{ color: 'oklch(0.45 0.04 260)' }} />
-                <p className="font-rajdhani text-sm" style={{ color: 'oklch(0.55 0.04 260)' }}>Click to select an image</p>
-              </>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-
-          {error && <p className="text-sm font-rajdhani" style={{ color: 'oklch(0.65 0.22 25)' }}>{error}</p>}
-
-          <Button
-            onClick={handleUpload}
-            disabled={!name.trim() || !fileRef.current?.files?.[0] || isUploading}
-            className="w-full font-orbitron font-bold text-xs uppercase tracking-wider"
-            style={{
-              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
-              color: 'oklch(0.08 0.02 260)',
-              border: 'none',
-            }}
-          >
-            {isUploading ? 'Uploading...' : <><Upload className="w-4 h-4 mr-2" />Upload Image</>}
-          </Button>
+        <div>
+          <h2 className="text-lg font-semibold">Images</h2>
+          <p className="text-sm text-muted-foreground">{images.length} image{images.length !== 1 ? 's' : ''} stored</p>
         </div>
       </div>
 
-      {/* Gallery */}
-      <div className="space-y-3">
-        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider" style={{ color: 'oklch(0.78 0.22 188)' }}>
-          Image Gallery
-        </h3>
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-40 rounded-xl" style={{ background: 'oklch(0.16 0.03 260)' }} />)}
+      {/* Upload form */}
+      <div className="space-card p-5 space-y-4">
+        <h3 className="font-semibold text-sm">Upload New Image</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Image Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. 5-star-rating"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
           </div>
-        ) : images && images.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3">
-            {images.map((img) => (
-              <div key={String(img.id)} className="glass-card rounded-xl overflow-hidden">
-                {img.data ? (
-                  <img
-                    src={img.data.getDirectURL()}
-                    alt={img.name}
-                    className="w-full h-32 object-cover"
-                  />
-                ) : img.dataUrl ? (
-                  <img src={img.dataUrl} alt={img.name} className="w-full h-32 object-cover" />
-                ) : (
-                  <div className="w-full h-32 flex items-center justify-center" style={{ background: 'oklch(0.12 0.03 260)' }}>
-                    <ImageIcon className="w-8 h-8" style={{ color: 'oklch(0.35 0.04 260)' }} />
-                  </div>
-                )}
-                <div className="p-2">
-                  <p className="text-sm font-rajdhani font-600 truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>{img.name}</p>
-                  {img.tags.length > 0 && (
-                    <div className="flex items-center gap-1 mt-1 flex-wrap">
-                      <Tag className="w-3 h-3" style={{ color: 'oklch(0.50 0.04 260)' }} />
-                      {img.tags.map((tag) => (
-                        <span key={tag} className="text-xs font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Tags (comma-separated)</label>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="e.g. rating, 5-star"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
           </div>
-        ) : (
-          <div className="text-center py-12" style={{ color: 'oklch(0.45 0.04 260)' }}>
-            <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
-            <p className="font-rajdhani">No images uploaded yet.</p>
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
+            <Upload className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {preview ? 'Image selected ✓' : 'Choose image file…'}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </label>
+          {preview && (
+            <div className="relative">
+              <img src={preview} alt="Preview" className="w-full max-h-40 object-contain rounded-lg border border-border" />
+              <button
+                onClick={() => { setPreview(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                className="absolute top-1 right-1 p-1 rounded-full bg-background/80 hover:bg-background border border-border"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={handleUpload}
+          disabled={!preview || !name.trim() || addImage.isPending}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {addImage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+          Upload Image
+        </button>
+        {feedback && (
+          <div
+            className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
+              feedback.type === 'success'
+                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'bg-destructive/10 text-destructive'
+            }`}
+          >
+            {feedback.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            {feedback.message}
           </div>
         )}
       </div>
+
+      {/* Images grid */}
+      {images.length === 0 ? (
+        <div className="space-card p-8 text-center">
+          <p className="text-muted-foreground text-sm">No images uploaded yet.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {images.map((img) => (
+            <div key={String(img.id)} className="space-card overflow-hidden">
+              {img.dataUrl ? (
+                <img src={img.dataUrl} alt={img.name} className="w-full h-32 object-cover" />
+              ) : img.data ? (
+                <img src={img.data.getDirectURL()} alt={img.name} className="w-full h-32 object-cover" />
+              ) : (
+                <div className="w-full h-32 bg-muted flex items-center justify-center">
+                  <Image className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="p-2">
+                <p className="text-xs font-medium truncate">{img.name}</p>
+                {img.tags.length > 0 && (
+                  <p className="text-xs text-muted-foreground truncate">{img.tags.join(', ')}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

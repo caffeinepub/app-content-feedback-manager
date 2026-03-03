@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Lock, MessageSquare, List, DollarSign, BarChart2, Settings, Wallet, Image, Sparkles } from 'lucide-react';
 import AdminUnlock from '../../components/AdminUnlock';
 import AdminComments from './AdminComments';
@@ -7,8 +7,8 @@ import AdminPricing from './AdminPricing';
 import AdminEarnings from './AdminEarnings';
 import AdminSettings from './AdminSettings';
 import AdminWithdrawals from './AdminWithdrawals';
-import { AdminChat } from './AdminChat';
-import { AdminImages } from './AdminImages';
+import AdminChat from './AdminChat';
+import AdminImages from './AdminImages';
 import AdminAITemplates from './AdminAITemplates';
 import { useAdminAuth } from '../../hooks/useAdminAuth';
 
@@ -40,66 +40,49 @@ export default function AdminView() {
   ];
 
   return (
-    <div className="space-y-4 animate-fadeInUp">
+    <div className="space-y-4">
       {/* Admin Header */}
-      <div className="glass-card-gold p-4 rounded-2xl flex items-center justify-between">
+      <div className="space-card p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, oklch(0.75 0.18 65 / 0.3), oklch(0.70 0.20 185 / 0.3))',
-              border: '1px solid oklch(0.75 0.18 65 / 0.4)',
-            }}
-          >
-            <Lock className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Lock className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <h2 className="font-orbitron font-bold text-sm gradient-heading">Admin Panel</h2>
-            <p className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>Full access granted</p>
+            <h2 className="font-semibold text-sm">Admin Panel</h2>
+            <p className="text-xs text-muted-foreground">Manage your Reviews World app</p>
           </div>
         </div>
         <button
           onClick={lockAdmin}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs transition-all duration-300 hover-lift"
-          style={{
-            background: 'oklch(0.55 0.22 25 / 0.15)',
-            border: '1px solid oklch(0.55 0.22 25 / 0.3)',
-            color: 'oklch(0.65 0.22 25)',
-          }}
+          className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors text-muted-foreground"
         >
-          <Lock className="w-3.5 h-3.5" />
-          Lock Admin
+          Lock
         </button>
       </div>
 
       {/* Tab Navigation */}
-      <div className="glass-card p-1.5 rounded-2xl">
-        <div className="flex flex-wrap gap-1">
-          {tabs.map(({ id, label, icon: Icon }) => {
-            const isActive = activeTab === id;
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs transition-all duration-300"
-                style={{
-                  background: isActive
-                    ? 'linear-gradient(135deg, oklch(0.75 0.18 65 / 0.25), oklch(0.70 0.20 185 / 0.25))'
-                    : 'transparent',
-                  color: isActive ? 'oklch(0.90 0.10 80)' : 'oklch(0.50 0.04 260)',
-                  border: isActive ? '1px solid oklch(0.75 0.18 65 / 0.3)' : '1px solid transparent',
-                }}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex gap-1 flex-wrap">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border hover:bg-muted text-muted-foreground'
+              }`}
+            >
+              <Icon className="w-3 h-3" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab Content */}
-      <div className="animate-fadeInUp">
+      <div>
         {activeTab === 'comments' && <AdminComments />}
         {activeTab === 'livelist' && <AdminLiveList />}
         {activeTab === 'pricing' && <AdminPricing />}

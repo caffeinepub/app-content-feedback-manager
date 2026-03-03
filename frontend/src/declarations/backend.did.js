@@ -19,39 +19,10 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
-export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
-});
-export const AppEarnings = IDL.Record({
-  'totalUsernamesFound' : IDL.Nat,
-  'pricePerEntry' : IDL.Float64,
-  'appName' : IDL.Text,
-  'isActive' : IDL.Bool,
-  'totalAmount' : IDL.Float64,
-});
-export const AllEarningsSummary = IDL.Record({
-  'totalAppsWithPrices' : IDL.Nat,
-  'totalValidEntries' : IDL.Nat,
-  'appEarnings' : IDL.Vec(AppEarnings),
-  'totalEarnings' : IDL.Float64,
-});
-export const ClaimCommentResult = IDL.Variant({
-  'noCommentsRemaining' : IDL.Null,
-  'claimSuccess' : IDL.Text,
-});
-export const Time = IDL.Int;
-export const ChatMessage = IDL.Record({
-  'id' : IDL.Nat,
-  'text' : IDL.Text,
-  'timestamp' : Time,
-});
-export const Settings = IDL.Record({
-  'accessKey' : IDL.Opt(IDL.Text),
-  'bgMusicEnabled' : IDL.Bool,
-  'musicFile' : IDL.Opt(ExternalBlob),
 });
 export const AppEvent = IDL.Record({
   'name' : IDL.Text,
@@ -64,25 +35,19 @@ export const CommentList = IDL.Record({
   'locked' : IDL.Bool,
   'suffix' : IDL.Text,
 });
+export const Time = IDL.Int;
+export const ChatMessage = IDL.Record({
+  'id' : IDL.Nat,
+  'text' : IDL.Text,
+  'timestamp' : Time,
+});
+export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const ImageMeta = IDL.Record({
   'id' : IDL.Nat,
   'dataUrl' : IDL.Text,
   'data' : IDL.Opt(ExternalBlob),
   'name' : IDL.Text,
   'tags' : IDL.Vec(IDL.Text),
-});
-export const ExportData = IDL.Record({
-  'chatMessages' : IDL.Vec(ChatMessage),
-  'settings' : Settings,
-  'appsEvents' : IDL.Vec(AppEvent),
-  'commentLists' : IDL.Vec(CommentList),
-  'images' : IDL.Vec(ImageMeta),
-});
-export const BulkCommentsResult = IDL.Record({
-  'commentListId' : IDL.Text,
-  'templateCount' : IDL.Nat,
-  'generatedCount' : IDL.Nat,
-  'comments' : IDL.Vec(IDL.Text),
 });
 export const WithdrawalStatus = IDL.Variant({
   'pending' : IDL.Null,
@@ -119,15 +84,10 @@ export const PublicSettings = IDL.Record({
   'bgMusicEnabled' : IDL.Bool,
   'musicFile' : IDL.Opt(ExternalBlob),
 });
-export const AppImport = IDL.Record({
-  'appName' : IDL.Text,
-  'importDate' : IDL.Opt(IDL.Text),
-  'usernames' : IDL.Vec(IDL.Text),
-});
-export const ImportSummary = IDL.Record({
-  'totalUsernamesAdded' : IDL.Nat,
-  'totalDuplicatesSkipped' : IDL.Nat,
-  'totalAppsDetected' : IDL.Nat,
+export const Settings = IDL.Record({
+  'accessKey' : IDL.Opt(IDL.Text),
+  'bgMusicEnabled' : IDL.Bool,
+  'musicFile' : IDL.Opt(ExternalBlob),
 });
 
 export const idlService = IDL.Service({
@@ -158,48 +118,13 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'addAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'addChatMessage' : IDL.Func([IDL.Text], [], []),
-  'addCommentList' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
-  'addImage' : IDL.Func(
-      [IDL.Text, IDL.Vec(IDL.Text), IDL.Text, IDL.Opt(ExternalBlob)],
-      [],
-      [],
-    ),
-  'addTemplatesToList' : IDL.Func(
-      [IDL.Text, IDL.Vec(IDL.Text)],
-      [IDL.Bool],
-      [],
-    ),
-  'addUsernamesToAppEvent' : IDL.Func(
-      [IDL.Text, IDL.Vec(IDL.Text)],
-      [IDL.Bool],
-      [],
-    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'bulkSetPrices' : IDL.Func(
-      [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
-      [],
-      [],
-    ),
-  'calculateAllEarnings' : IDL.Func([], [AllEarningsSummary], ['query']),
-  'calculateEarnings' : IDL.Func([IDL.Text], [IDL.Opt(AppEarnings)], ['query']),
-  'checkAndRequestWithdrawal' : IDL.Func(
-      [IDL.Text, IDL.Text],
-      [IDL.Opt(IDL.Float64)],
-      [],
-    ),
-  'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
-  'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
-  'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
-  'generateBulkComments' : IDL.Func(
-      [IDL.Text, IDL.Nat],
-      [BulkCommentsResult],
-      [],
-    ),
-  'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'createAppEvent' : IDL.Func([IDL.Text, AppEvent], [], []),
+  'createCommentList' : IDL.Func([CommentList], [], []),
+  'getAllAppEvents' : IDL.Func([], [IDL.Vec(AppEvent)], ['query']),
+  'getAllChatMessages' : IDL.Func([], [IDL.Vec(ChatMessage)], ['query']),
+  'getAllCommentLists' : IDL.Func([], [IDL.Vec(CommentList)], ['query']),
+  'getAllImages' : IDL.Func([], [IDL.Vec(ImageMeta)], ['query']),
   'getAllInventory' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat))],
@@ -210,18 +135,16 @@ export const idlService = IDL.Service({
       [IDL.Vec(WithdrawalRequest)],
       ['query'],
     ),
-  'getAvailableComments' : IDL.Func(
-      [IDL.Text],
-      [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
-      ['query'],
-    ),
-  'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+  'getAppEvent' : IDL.Func([IDL.Text], [IDL.Opt(AppEvent)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+  'getChatMessage' : IDL.Func([IDL.Nat], [IDL.Opt(ChatMessage)], ['query']),
+  'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
   'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+  'getImage' : IDL.Func([IDL.Nat], [IDL.Opt(ImageMeta)], ['query']),
   'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
+  'getPriceEntry' : IDL.Func([IDL.Text], [IDL.Opt(PriceEntry)], ['query']),
   'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
   'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
   'getSettings' : IDL.Func([], [Settings], ['query']),
@@ -230,25 +153,10 @@ export const idlService = IDL.Service({
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
-  'importLiveList' : IDL.Func([IDL.Vec(AppImport)], [ImportSummary], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'pauseCountdown' : IDL.Func([], [], []),
-  'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
-  'renameCommentList' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text],
-      [IDL.Bool],
-      [],
-    ),
-  'resetCountdown' : IDL.Func([], [], []),
-  'resumeCountdown' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setAccessKey' : IDL.Func([IDL.Text], [], []),
-  'setCountdown' : IDL.Func([Time], [], []),
-  'setInventoryCount' : IDL.Func([IDL.Text, IDL.Nat], [], []),
-  'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
-  'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
-  'updateInventory' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Bool], []),
-  'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
+  'uploadMusicFile' : IDL.Func([ExternalBlob], [], []),
 });
 
 export const idlInitArgs = [];
@@ -265,39 +173,10 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
-  const ExternalBlob = IDL.Vec(IDL.Nat8);
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
-  });
-  const AppEarnings = IDL.Record({
-    'totalUsernamesFound' : IDL.Nat,
-    'pricePerEntry' : IDL.Float64,
-    'appName' : IDL.Text,
-    'isActive' : IDL.Bool,
-    'totalAmount' : IDL.Float64,
-  });
-  const AllEarningsSummary = IDL.Record({
-    'totalAppsWithPrices' : IDL.Nat,
-    'totalValidEntries' : IDL.Nat,
-    'appEarnings' : IDL.Vec(AppEarnings),
-    'totalEarnings' : IDL.Float64,
-  });
-  const ClaimCommentResult = IDL.Variant({
-    'noCommentsRemaining' : IDL.Null,
-    'claimSuccess' : IDL.Text,
-  });
-  const Time = IDL.Int;
-  const ChatMessage = IDL.Record({
-    'id' : IDL.Nat,
-    'text' : IDL.Text,
-    'timestamp' : Time,
-  });
-  const Settings = IDL.Record({
-    'accessKey' : IDL.Opt(IDL.Text),
-    'bgMusicEnabled' : IDL.Bool,
-    'musicFile' : IDL.Opt(ExternalBlob),
   });
   const AppEvent = IDL.Record({
     'name' : IDL.Text,
@@ -310,25 +189,19 @@ export const idlFactory = ({ IDL }) => {
     'locked' : IDL.Bool,
     'suffix' : IDL.Text,
   });
+  const Time = IDL.Int;
+  const ChatMessage = IDL.Record({
+    'id' : IDL.Nat,
+    'text' : IDL.Text,
+    'timestamp' : Time,
+  });
+  const ExternalBlob = IDL.Vec(IDL.Nat8);
   const ImageMeta = IDL.Record({
     'id' : IDL.Nat,
     'dataUrl' : IDL.Text,
     'data' : IDL.Opt(ExternalBlob),
     'name' : IDL.Text,
     'tags' : IDL.Vec(IDL.Text),
-  });
-  const ExportData = IDL.Record({
-    'chatMessages' : IDL.Vec(ChatMessage),
-    'settings' : Settings,
-    'appsEvents' : IDL.Vec(AppEvent),
-    'commentLists' : IDL.Vec(CommentList),
-    'images' : IDL.Vec(ImageMeta),
-  });
-  const BulkCommentsResult = IDL.Record({
-    'commentListId' : IDL.Text,
-    'templateCount' : IDL.Nat,
-    'generatedCount' : IDL.Nat,
-    'comments' : IDL.Vec(IDL.Text),
   });
   const WithdrawalStatus = IDL.Variant({
     'pending' : IDL.Null,
@@ -365,15 +238,10 @@ export const idlFactory = ({ IDL }) => {
     'bgMusicEnabled' : IDL.Bool,
     'musicFile' : IDL.Opt(ExternalBlob),
   });
-  const AppImport = IDL.Record({
-    'appName' : IDL.Text,
-    'importDate' : IDL.Opt(IDL.Text),
-    'usernames' : IDL.Vec(IDL.Text),
-  });
-  const ImportSummary = IDL.Record({
-    'totalUsernamesAdded' : IDL.Nat,
-    'totalDuplicatesSkipped' : IDL.Nat,
-    'totalAppsDetected' : IDL.Nat,
+  const Settings = IDL.Record({
+    'accessKey' : IDL.Opt(IDL.Text),
+    'bgMusicEnabled' : IDL.Bool,
+    'musicFile' : IDL.Opt(ExternalBlob),
   });
   
   return IDL.Service({
@@ -404,52 +272,13 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'addAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'addChatMessage' : IDL.Func([IDL.Text], [], []),
-    'addCommentList' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Bool], []),
-    'addImage' : IDL.Func(
-        [IDL.Text, IDL.Vec(IDL.Text), IDL.Text, IDL.Opt(ExternalBlob)],
-        [],
-        [],
-      ),
-    'addTemplatesToList' : IDL.Func(
-        [IDL.Text, IDL.Vec(IDL.Text)],
-        [IDL.Bool],
-        [],
-      ),
-    'addUsernamesToAppEvent' : IDL.Func(
-        [IDL.Text, IDL.Vec(IDL.Text)],
-        [IDL.Bool],
-        [],
-      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'bulkSetPrices' : IDL.Func(
-        [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Float64, IDL.Bool))],
-        [],
-        [],
-      ),
-    'calculateAllEarnings' : IDL.Func([], [AllEarningsSummary], ['query']),
-    'calculateEarnings' : IDL.Func(
-        [IDL.Text],
-        [IDL.Opt(AppEarnings)],
-        ['query'],
-      ),
-    'checkAndRequestWithdrawal' : IDL.Func(
-        [IDL.Text, IDL.Text],
-        [IDL.Opt(IDL.Float64)],
-        [],
-      ),
-    'claimComment' : IDL.Func([IDL.Text], [ClaimCommentResult], []),
-    'deleteAppEvent' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'deleteCommentList' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
-    'exportAllData' : IDL.Func([], [IDL.Opt(ExportData)], []),
-    'generateBulkComments' : IDL.Func(
-        [IDL.Text, IDL.Nat],
-        [BulkCommentsResult],
-        [],
-      ),
-    'getAccessKey' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'createAppEvent' : IDL.Func([IDL.Text, AppEvent], [], []),
+    'createCommentList' : IDL.Func([CommentList], [], []),
+    'getAllAppEvents' : IDL.Func([], [IDL.Vec(AppEvent)], ['query']),
+    'getAllChatMessages' : IDL.Func([], [IDL.Vec(ChatMessage)], ['query']),
+    'getAllCommentLists' : IDL.Func([], [IDL.Vec(CommentList)], ['query']),
+    'getAllImages' : IDL.Func([], [IDL.Vec(ImageMeta)], ['query']),
     'getAllInventory' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat))],
@@ -460,18 +289,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(WithdrawalRequest)],
         ['query'],
       ),
-    'getAvailableComments' : IDL.Func(
-        [IDL.Text],
-        [IDL.Record({ 'count' : IDL.Nat, 'comments' : IDL.Vec(IDL.Text) })],
-        ['query'],
-      ),
-    'getAvailableCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+    'getAppEvent' : IDL.Func([IDL.Text], [IDL.Opt(AppEvent)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getCommentListsOrder' : IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'getChatMessage' : IDL.Func([IDL.Nat], [IDL.Opt(ChatMessage)], ['query']),
+    'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
     'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+    'getImage' : IDL.Func([IDL.Nat], [IDL.Opt(ImageMeta)], ['query']),
     'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
+    'getPriceEntry' : IDL.Func([IDL.Text], [IDL.Opt(PriceEntry)], ['query']),
     'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
     'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
     'getSettings' : IDL.Func([], [Settings], ['query']),
@@ -480,25 +307,10 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
-    'importLiveList' : IDL.Func([IDL.Vec(AppImport)], [ImportSummary], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'pauseCountdown' : IDL.Func([], [], []),
-    'renameAppEvent' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
-    'renameCommentList' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text],
-        [IDL.Bool],
-        [],
-      ),
-    'resetCountdown' : IDL.Func([], [], []),
-    'resumeCountdown' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setAccessKey' : IDL.Func([IDL.Text], [], []),
-    'setCountdown' : IDL.Func([Time], [], []),
-    'setInventoryCount' : IDL.Func([IDL.Text, IDL.Nat], [], []),
-    'setPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
-    'toggleListLock' : IDL.Func([IDL.Text], [IDL.Bool], []),
-    'updateInventory' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Bool], []),
-    'updateSettings' : IDL.Func([IDL.Bool, IDL.Opt(ExternalBlob)], [], []),
+    'uploadMusicFile' : IDL.Func([ExternalBlob], [], []),
   });
 };
 

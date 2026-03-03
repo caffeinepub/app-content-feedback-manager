@@ -1,245 +1,203 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Lock, Unlock, Save, X, Package } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp, Save, X, BarChart2, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import {
   useCommentLists,
   useAddCommentList,
-  useRenameCommentList,
-  useDeleteCommentList,
-  useAddTemplatesToList,
-  useToggleListLock,
-  useGetListMetrics,
-  useGetInventoryCount,
-  useSetInventoryCount,
+  useListMetrics,
 } from '../../hooks/useQueries';
 import { MetricsDonutChart } from '../../components/MetricsDonutChart';
 import type { CommentList } from '../../backend';
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function InventoryRow({ listId }: { listId: string }) {
-  const { data: inventoryCount } = useGetInventoryCount(listId);
-  const setInventory = useSetInventoryCount();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-
-  const current = inventoryCount !== undefined ? Number(inventoryCount) : 0;
-
-  const handleSave = async () => {
-    const num = parseInt(value, 10);
-    if (isNaN(num) || num < 0) return;
-    await setInventory.mutateAsync({ commentListId: listId, count: BigInt(num) });
-    setEditing(false);
-  };
-
-  return (
-    <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)' }}>
-      <Package className="w-3.5 h-3.5" style={{ color: 'oklch(0.70 0.20 185)' }} />
-      <span className="text-xs font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Inventory:</span>
-      {editing ? (
-        <>
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-20 px-2 py-0.5 rounded text-xs glass-input"
-            min={0}
-          />
-          <button onClick={handleSave} className="text-xs px-2 py-0.5 rounded font-rajdhani" style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)', border: '1px solid oklch(0.65 0.18 145 / 0.3)' }}>
-            Save
-          </button>
-          <button onClick={() => setEditing(false)} className="text-xs px-2 py-0.5 rounded font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>
-            Cancel
-          </button>
-        </>
-      ) : (
-        <>
-          <span
-            className="font-orbitron font-bold text-xs px-2 py-0.5 rounded-full"
-            style={{
-              background: current > 10 ? 'oklch(0.65 0.18 145 / 0.12)' : current > 0 ? 'oklch(0.75 0.18 65 / 0.12)' : 'oklch(0.55 0.22 25 / 0.12)',
-              color: current > 10 ? 'oklch(0.72 0.20 145)' : current > 0 ? 'oklch(0.82 0.20 70)' : 'oklch(0.65 0.22 25)',
-              border: `1px solid ${current > 10 ? 'oklch(0.65 0.18 145 / 0.3)' : current > 0 ? 'oklch(0.75 0.18 65 / 0.3)' : 'oklch(0.55 0.22 25 / 0.3)'}`,
-            }}
-          >
-            {current} remaining
-          </span>
-          <button
-            onClick={() => { setValue(String(current)); setEditing(true); }}
-            className="text-xs px-2 py-0.5 rounded font-rajdhani transition-all duration-200 hover:scale-105"
-            style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)', border: '1px solid oklch(0.70 0.20 185 / 0.25)' }}
-          >
-            Set
-          </button>
-        </>
-      )}
-    </div>
-  );
+function generateId(): string {
+  return `list_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function AdminComments() {
-  const { data: rawCommentLists = [], isLoading } = useCommentLists();
-  const commentLists: CommentList[] = rawCommentLists as CommentList[];
-  const { data: metrics = [] } = useGetListMetrics();
-  const createList = useAddCommentList();
-  const renameList = useRenameCommentList();
-  const deleteList = useDeleteCommentList();
-  const addTemplates = useAddTemplatesToList();
-  const toggleLock = useToggleListLock();
+  const { data: commentLists = [], isLoading } = useCommentLists();
+  const { data: metrics = [] } = useListMetrics();
+  const addListMutation = useAddCommentList();
 
-  const [newDisplayName, setNewDisplayName] = useState('');
-  const [newSuffix, setNewSuffix] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [expandedList, setExpandedList] = useState<string | null>(null);
-  const [templateText, setTemplateText] = useState('');
-  const [showMetrics, setShowMetrics] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Create list form state
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListSuffix, setNewListSuffix] = useState('');
+  const [newListTemplates, setNewListTemplates] = useState('');
+  const [createFeedback, setCreateFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!newDisplayName.trim()) return;
-    const id = slugify(newDisplayName);
+  // Expanded list state
+  const [expandedListId, setExpandedListId] = useState<string | null>(null);
+
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return;
+    setCreateFeedback(null);
+
+    const templates = newListTemplates
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const newList: CommentList = {
+      id: generateId(),
+      displayName: newListName.trim(),
+      templates,
+      locked: false,
+      suffix: newListSuffix.trim(),
+    };
+
     try {
-      await createList.mutateAsync({ id, displayName: newDisplayName.trim(), suffix: newSuffix.trim() });
-      setNewDisplayName('');
-      setNewSuffix('');
+      await addListMutation.mutateAsync(newList);
+      setCreateFeedback({ type: 'success', message: `List "${newList.displayName}" created successfully!` });
+      setNewListName('');
+      setNewListSuffix('');
+      setNewListTemplates('');
+      setShowCreateForm(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create list');
+      const msg = err instanceof Error ? err.message : 'Failed to create list';
+      setCreateFeedback({ type: 'error', message: msg });
     }
   };
 
-  const handleRename = async (list: CommentList) => {
-    setError(null);
-    if (!editName.trim()) return;
-    const newId = slugify(editName);
-    try {
-      await renameList.mutateAsync({ oldId: list.id, newId, newDisplayName: editName.trim() });
-      setEditingId(null);
-      setEditName('');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to rename list');
-    }
-  };
+  const getMetricsForList = (listId: string) =>
+    metrics.find((m) => m.listId === listId);
 
-  const handleDelete = async (listId: string) => {
-    setError(null);
-    if (!confirm('Delete this comment list?')) return;
-    try {
-      await deleteList.mutateAsync(listId);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete list');
-    }
-  };
-
-  const handleAddTemplates = async (listId: string) => {
-    setError(null);
-    if (!templateText.trim()) return;
-    const templates = templateText.split('\n').map((t) => t.trim()).filter(Boolean);
-    try {
-      await addTemplates.mutateAsync({ listId, templates });
-      setTemplateText('');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to add templates');
-    }
-  };
-
-  const handleToggleLock = async (listId: string) => {
-    setError(null);
-    try {
-      await toggleLock.mutateAsync(listId);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle lock');
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading comment lists…</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 animate-fadeInUp">
-      {error && (
-        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
-          {error}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Comment Lists</h2>
+          <p className="text-sm text-muted-foreground">{commentLists.length} list{commentLists.length !== 1 ? 's' : ''} total</p>
+        </div>
+        <button
+          onClick={() => { setShowCreateForm((v) => !v); setCreateFeedback(null); }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          New List
+        </button>
+      </div>
+
+      {/* Create form */}
+      {showCreateForm && (
+        <div className="space-card p-5 space-y-4 border-primary/30">
+          <h3 className="font-semibold text-sm">Create New Comment List</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Display Name *</label>
+              <input
+                type="text"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="e.g. Positive Reviews"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Suffix (appended to each comment)</label>
+              <input
+                type="text"
+                value={newListSuffix}
+                onChange={(e) => setNewListSuffix(e.target.value)}
+                placeholder="e.g. 👍"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Templates (one per line)</label>
+              <textarea
+                value={newListTemplates}
+                onChange={(e) => setNewListTemplates(e.target.value)}
+                placeholder={"Great app!\nLove this!\nHighly recommend."}
+                rows={5}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreateList}
+              disabled={!newListName.trim() || addListMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {addListMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Create List
+            </button>
+            <button
+              onClick={() => { setShowCreateForm(false); setCreateFeedback(null); }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
+          </div>
+          {createFeedback && (
+            <div
+              className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
+                createFeedback.type === 'success'
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : 'bg-destructive/10 text-destructive'
+              }`}
+            >
+              {createFeedback.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              {createFeedback.message}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Create New List */}
-      <div className="glass-card-gold p-5 rounded-2xl">
-        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2 gradient-heading">
-          <Plus className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
-          Create Comment List
-        </h3>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <input
-            type="text"
-            value={newDisplayName}
-            onChange={(e) => setNewDisplayName(e.target.value)}
-            placeholder="List display name"
-            className="glass-input w-full px-3 py-2.5 text-sm"
-          />
-          <input
-            type="text"
-            value={newSuffix}
-            onChange={(e) => setNewSuffix(e.target.value)}
-            placeholder="Suffix (optional, e.g. ❤️)"
-            className="glass-input w-full px-3 py-2.5 text-sm"
-          />
-          <button
-            type="submit"
-            disabled={createList.isPending || !newDisplayName.trim()}
-            className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
-            style={{
-              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
-              color: 'oklch(0.08 0.02 260)',
-              opacity: (createList.isPending || !newDisplayName.trim()) ? 0.5 : 1,
-            }}
-          >
-            {createList.isPending ? (
-              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Plus className="w-3.5 h-3.5" />
-            )}
-            Create List
-          </button>
-        </form>
-      </div>
+      {/* Feedback outside form */}
+      {!showCreateForm && createFeedback && (
+        <div
+          className={`flex items-center gap-2 text-sm p-3 rounded-lg ${
+            createFeedback.type === 'success'
+              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+              : 'bg-destructive/10 text-destructive'
+          }`}
+        >
+          {createFeedback.type === 'success' ? (
+            <CheckCircle className="w-4 h-4 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0" />
+          )}
+          {createFeedback.message}
+        </div>
+      )}
 
-      {/* Metrics Toggle */}
-      <button
-        onClick={() => setShowMetrics((v) => !v)}
-        className="w-full py-2.5 rounded-xl font-rajdhani font-600 text-sm transition-all duration-300 flex items-center justify-center gap-2"
-        style={{
-          background: showMetrics ? 'oklch(0.70 0.20 185 / 0.15)' : 'oklch(0.12 0.03 260 / 0.6)',
-          border: `1px solid ${showMetrics ? 'oklch(0.70 0.20 185 / 0.3)' : 'oklch(0.22 0.05 260 / 0.4)'}`,
-          color: showMetrics ? 'oklch(0.78 0.22 188)' : 'oklch(0.55 0.04 260)',
-        }}
-      >
-        {showMetrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        {showMetrics ? 'Hide Metrics' : 'Show Usage Metrics'}
-      </button>
-
-      {/* Metrics */}
-      {showMetrics && metrics.length > 0 && (
-        <div className="glass-card p-5 rounded-2xl animate-fadeInUp">
-          <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'oklch(0.78 0.22 188)' }}>
-            Usage Metrics
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
+      {/* Usage Metrics */}
+      {metrics.length > 0 && (
+        <div className="space-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm">Usage Metrics</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {metrics.map((m) => (
-              <div key={m.listId} className="text-center">
+              <div key={m.listId} className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30">
                 <MetricsDonutChart
                   usedTemplates={Number(m.usedTemplates)}
                   totalTemplates={Number(m.totalTemplates)}
-                  size={80}
+                  size={64}
                   strokeWidth={8}
                 />
-                <p className="text-xs font-rajdhani mt-1 truncate" style={{ color: 'oklch(0.65 0.04 260)' }}>{m.listName}</p>
-                <p className="text-xs font-orbitron font-bold" style={{ color: 'oklch(0.82 0.20 70)' }}>
-                  {Number(m.availableTemplates)} left
-                </p>
+                <div className="text-center">
+                  <p className="text-xs font-medium truncate max-w-[100px]">{m.listName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {Number(m.availableTemplates)}/{Number(m.totalTemplates)} available
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -247,152 +205,66 @@ export default function AdminComments() {
       )}
 
       {/* Comment Lists */}
-      <div className="glass-card p-5 rounded-2xl">
-        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4" style={{ color: 'oklch(0.78 0.22 188)' }}>
-          Comment Lists ({commentLists.length})
-        </h3>
-        {isLoading ? (
-          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>Loading...</div>
-        ) : commentLists.length === 0 ? (
-          <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>No comment lists yet</div>
-        ) : (
-          <div className="space-y-3">
-            {commentLists.map((list: CommentList) => (
-              <div
-                key={list.id}
-                className="rounded-xl overflow-hidden"
-                style={{ border: '1px solid oklch(0.22 0.05 260 / 0.5)' }}
-              >
+      {commentLists.length === 0 ? (
+        <div className="space-card p-8 text-center">
+          <p className="text-muted-foreground text-sm">No comment lists yet. Create your first list above.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {commentLists.map((list) => {
+            const m = getMetricsForList(list.id);
+            const isExpanded = expandedListId === list.id;
+            return (
+              <div key={list.id} className="space-card overflow-hidden">
                 <div
-                  className="flex items-center gap-2 p-3"
-                  style={{ background: 'oklch(0.10 0.025 260 / 0.6)' }}
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors"
+                  onClick={() => setExpandedListId(isExpanded ? null : list.id)}
                 >
-                  {editingId === list.id ? (
-                    <>
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="glass-input flex-1 px-2 py-1 text-sm"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleRename(list)}
-                        disabled={renameList.isPending}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)' }}
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ color: 'oklch(0.55 0.04 260)' }}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-rajdhani font-600 text-sm truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>
-                          {list.displayName}
-                          {list.locked && <span className="ml-2 text-xs" style={{ color: 'oklch(0.65 0.22 25)' }}>🔒</span>}
-                        </div>
-                        <div className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>
-                          {list.templates.length} templates
-                          {list.suffix && <span className="ml-2">· suffix: {list.suffix}</span>}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setExpandedList(expandedList === list.id ? null : list.id)}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ background: 'oklch(0.16 0.03 260 / 0.6)', color: 'oklch(0.55 0.04 260)' }}
-                      >
-                        {expandedList === list.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        onClick={() => { setEditingId(list.id); setEditName(list.displayName); }}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)' }}
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleLock(list.id)}
-                        disabled={toggleLock.isPending}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ background: 'oklch(0.75 0.18 65 / 0.12)', color: 'oklch(0.82 0.20 70)' }}
-                      >
-                        {list.locked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(list.id)}
-                        disabled={deleteList.isPending}
-                        className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                        style={{ background: 'oklch(0.55 0.22 25 / 0.12)', color: 'oklch(0.65 0.22 25)' }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{list.displayName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {list.templates.length} template{list.templates.length !== 1 ? 's' : ''}
+                        {list.suffix ? ` · suffix: "${list.suffix}"` : ''}
+                        {list.locked ? ' · 🔒 locked' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {m && (
+                      <span className="text-xs text-muted-foreground hidden sm:block">
+                        {m.percentUsed.toFixed(0)}% used
+                      </span>
+                    )}
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
 
-                {/* Inventory row */}
-                <div className="px-3 pb-2" style={{ background: 'oklch(0.10 0.025 260 / 0.6)' }}>
-                  <InventoryRow listId={list.id} />
-                </div>
-
-                {/* Expanded: add templates */}
-                {expandedList === list.id && (
-                  <div className="p-3" style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)', background: 'oklch(0.08 0.02 260 / 0.4)' }}>
-                    <textarea
-                      value={templateText}
-                      onChange={(e) => setTemplateText(e.target.value)}
-                      placeholder="One template per line..."
-                      rows={4}
-                      className="glass-input w-full px-3 py-2 text-sm resize-none mb-2"
-                    />
-                    <button
-                      onClick={() => handleAddTemplates(list.id)}
-                      disabled={addTemplates.isPending || !templateText.trim()}
-                      className="px-3 py-2 rounded-lg font-rajdhani font-600 text-xs transition-all duration-300 hover-lift flex items-center gap-1.5"
-                      style={{
-                        background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
-                        color: 'oklch(0.08 0.02 260)',
-                        opacity: (addTemplates.isPending || !templateText.trim()) ? 0.5 : 1,
-                      }}
-                    >
-                      {addTemplates.isPending ? (
-                        <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Plus className="w-3 h-3" />
-                      )}
-                      Add Templates
-                    </button>
-
-                    {/* Template preview */}
-                    {list.templates.length > 0 && (
-                      <div className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                        {list.templates.slice(0, 10).map((t, i) => (
-                          <div key={i} className="text-xs font-rajdhani px-2 py-1 rounded" style={{ background: 'oklch(0.12 0.03 260 / 0.6)', color: 'oklch(0.70 0.04 260)' }}>
-                            {i + 1}. {t}
-                          </div>
+                {isExpanded && (
+                  <div className="border-t border-border px-4 pb-4 pt-3">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">Templates:</p>
+                    {list.templates.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No templates.</p>
+                    ) : (
+                      <ul className="space-y-1 max-h-48 overflow-y-auto">
+                        {list.templates.map((t, i) => (
+                          <li key={i} className="text-xs p-2 rounded bg-muted/30 font-mono">
+                            {t}
+                          </li>
                         ))}
-                        {list.templates.length > 10 && (
-                          <div className="text-xs font-rajdhani text-center" style={{ color: 'oklch(0.45 0.04 260)' }}>
-                            +{list.templates.length - 10} more
-                          </div>
-                        )}
-                      </div>
+                      </ul>
                     )}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
