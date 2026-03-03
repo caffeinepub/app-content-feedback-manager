@@ -219,38 +219,247 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // ── Comment list functions ────────────────────────────────────────────────
+  // ── Comment list read functions ───────────────────────────────────────────
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getAllCommentLists() : async [CommentList] {
     commentLists.values().toArray();
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getCommentList(id : Text) : async ?CommentList {
     commentLists.get(id);
   };
 
-  // Admin-only: create new comment list (previously missing backend support)
-  public shared ({ caller }) func createCommentList(list : CommentList) : async () {
+  // ── Comment list write functions (admin-only) ─────────────────────────────
+
+  public shared ({ caller }) func createCommentList(id : Text, displayName : Text, suffix : Text) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can create comment lists");
     };
-    if (commentLists.containsKey(list.id)) {
-      Runtime.trap("Comment list with id " # list.id # " already exists. ");
+    let newList : CommentList = {
+      id;
+      displayName;
+      templates = [];
+      locked = false;
+      suffix;
     };
-    commentLists.add(list.id, list);
-    commentListsOrder.add(list.id);
+    commentLists.add(id, newList);
+    commentListsOrder.add(id);
   };
 
-  // ── App event functions ──────────────────────────────────────────────────
+  public shared ({ caller }) func addTemplatesToCommentList(id : Text, newTemplates : [Text]) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add templates to comment lists");
+    };
+    switch (commentLists.get(id)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?existing) {
+        if (existing.locked) {
+          Runtime.trap("Comment list is locked");
+        };
+        let combined = existing.templates.concat(newTemplates);
+        let updated : CommentList = {
+          id = existing.id;
+          displayName = existing.displayName;
+          templates = combined;
+          locked = existing.locked;
+          suffix = existing.suffix;
+        };
+        commentLists.add(id, updated);
+      };
+    };
+  };
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func setCommentListTemplates(id : Text, templates : [Text]) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can set templates on comment lists");
+    };
+    switch (commentLists.get(id)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?existing) {
+        let updated : CommentList = {
+          id = existing.id;
+          displayName = existing.displayName;
+          templates;
+          locked = existing.locked;
+          suffix = existing.suffix;
+        };
+        commentLists.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func setInventoryCount(listId : Text, count : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can set inventory counts");
+    };
+    inventoryCounter.add(listId, count);
+  };
+
+  public shared ({ caller }) func renameCommentList(id : Text, newDisplayName : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can rename comment lists");
+    };
+    switch (commentLists.get(id)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?existing) {
+        let updated : CommentList = {
+          id = existing.id;
+          displayName = newDisplayName;
+          templates = existing.templates;
+          locked = existing.locked;
+          suffix = existing.suffix;
+        };
+        commentLists.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCommentList(id : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete comment lists");
+    };
+    commentLists.remove(id);
+    inventoryCounter.remove(id);
+    usedTemplateIndices.remove(id);
+  };
+
+  public shared ({ caller }) func lockCommentList(id : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can lock comment lists");
+    };
+    switch (commentLists.get(id)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?existing) {
+        let updated : CommentList = {
+          id = existing.id;
+          displayName = existing.displayName;
+          templates = existing.templates;
+          locked = true;
+          suffix = existing.suffix;
+        };
+        commentLists.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func unlockCommentList(id : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can unlock comment lists");
+    };
+    switch (commentLists.get(id)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?existing) {
+        let updated : CommentList = {
+          id = existing.id;
+          displayName = existing.displayName;
+          templates = existing.templates;
+          locked = false;
+          suffix = existing.suffix;
+        };
+        commentLists.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func resetUsedTemplates(listId : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can reset used templates");
+    };
+    usedTemplateIndices.remove(listId);
+  };
+
+  // ── Comment claiming (user-level) ─────────────────────────────────────────
+
+  public shared ({ caller }) func claimComment(listId : Text, username : Text) : async ClaimCommentResult {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can claim comments");
+    };
+    switch (commentLists.get(listId)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?list) {
+        if (list.locked) {
+          return #noCommentsRemaining;
+        };
+        let totalTemplates = list.templates.size();
+        if (totalTemplates == 0) {
+          return #noCommentsRemaining;
+        };
+        let usedSet = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?s) { s };
+        };
+        // Find first unused template index
+        var foundIndex : ?Nat = null;
+        var i = 0;
+        while (i < totalTemplates and foundIndex == null) {
+          if (not usedSet.contains(i)) {
+            foundIndex := ?i;
+          };
+          i += 1;
+        };
+        switch (foundIndex) {
+          case (null) { #noCommentsRemaining };
+          case (?idx) {
+            let template = list.templates[idx];
+            let comment = template # " " # username # list.suffix;
+            usedSet.add(idx);
+            usedTemplateIndices.add(listId, usedSet);
+            // Decrement inventory if tracked
+            switch (inventoryCounter.get(listId)) {
+              case (?count) {
+                if (count > 0) {
+                  inventoryCounter.add(listId, safeNatSubtract(count, 1));
+                };
+              };
+              case (null) {};
+            };
+            #claimSuccess(comment);
+          };
+        };
+      };
+    };
+  };
+
+  public shared ({ caller }) func getBulkComments(listId : Text, count : Nat) : async BulkCommentsResult {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can get bulk comments");
+    };
+    switch (commentLists.get(listId)) {
+      case (null) { Runtime.trap("Comment list not found") };
+      case (?list) {
+        let totalTemplates = list.templates.size();
+        let usedSet = switch (usedTemplateIndices.get(listId)) {
+          case (null) { Set.empty<Nat>() };
+          case (?s) { s };
+        };
+        var comments : List.List<Text> = List.empty();
+        var generated = 0;
+        var i = 0;
+        while (i < totalTemplates and generated < count) {
+          if (not usedSet.contains(i)) {
+            comments.add(list.templates[i]);
+            usedSet.add(i);
+            generated += 1;
+          };
+          i += 1;
+        };
+        usedTemplateIndices.add(listId, usedSet);
+        {
+          commentListId = listId;
+          comments = comments.toArray();
+          generatedCount = generated;
+          templateCount = totalTemplates;
+        };
+      };
+    };
+  };
+
+  // ── App event read functions ──────────────────────────────────────────────
+
   public query func getAllAppEvents() : async [AppEvent] {
     appsEvents.values().toArray().map(func(ev) { ev.appEvent });
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getAppEvent(name : Text) : async ?AppEvent {
     switch (appsEvents.get(name)) {
       case (?ev) { ?ev.appEvent };
@@ -258,47 +467,205 @@ actor {
     };
   };
 
-  // Admin-only: create app event (previously missing backend support)
-  public shared ({ caller }) func createAppEvent(appName : Text, event : AppEvent) : async () {
+  public query func getAllAppEventsWithImportDate() : async [AppEventWithImportDate] {
+    appsEvents.values().toArray();
+  };
+
+  // ── App event write functions (admin-only) ────────────────────────────────
+
+  public shared ({ caller }) func createAppEvent(name : Text) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can create app events");
     };
-    appsEvents.add(
-      appName,
-      {
-        appEvent = event;
-        importDate = null;
-      },
-    );
+    let newEvent : AppEventWithImportDate = {
+      appEvent = { name; usernames = [] };
+      importDate = null;
+    };
+    appsEvents.add(name, newEvent);
   };
 
-  // ── Chat message functions ───────────────────────────────────────────────
+  public shared ({ caller }) func addUsernamesToAppEvent(name : Text, newUsernames : [Text]) : async Nat {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add usernames to app events");
+    };
+    switch (appsEvents.get(name)) {
+      case (null) { Runtime.trap("App event not found") };
+      case (?existing) {
+        let existingSet = Set.fromArray(existing.appEvent.usernames, );
+        var added = 0;
+        let combined = List.empty<Text>();
+        for (u in existing.appEvent.usernames.vals()) {
+          combined.add(u);
+        };
+        for (u in newUsernames.vals()) {
+          if (not existingSet.contains(u)) {
+            combined.add(u);
+            existingSet.add(u);
+            added += 1;
+          };
+        };
+        let updated : AppEventWithImportDate = {
+          appEvent = { name; usernames = combined.toArray() };
+          importDate = existing.importDate;
+        };
+        appsEvents.add(name, updated);
+        added;
+      };
+    };
+  };
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func deleteAppEvent(name : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete app events");
+    };
+    appsEvents.remove(name);
+  };
+
+  public shared ({ caller }) func importLiveLists(imports : [AppImport]) : async ImportSummary {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can import live lists");
+    };
+    var totalAppsDetected = 0;
+    var totalUsernamesAdded = 0;
+    var totalDuplicatesSkipped = 0;
+
+    for (appImport in imports.vals()) {
+      totalAppsDetected += 1;
+      let existing = switch (appsEvents.get(appImport.appName)) {
+        case (?ev) { ev };
+        case (null) {
+          let newEv : AppEventWithImportDate = {
+            appEvent = { name = appImport.appName; usernames = [] };
+            importDate = appImport.importDate;
+          };
+          appsEvents.add(appImport.appName, newEv);
+          newEv;
+        };
+      };
+      let existingSet = Set.fromArray(existing.appEvent.usernames, );
+      let combined = List.empty<Text>();
+      for (u in existing.appEvent.usernames.vals()) {
+        combined.add(u);
+      };
+      for (u in appImport.usernames.vals()) {
+        if (not existingSet.contains(u)) {
+          combined.add(u);
+          existingSet.add(u);
+          totalUsernamesAdded += 1;
+        } else {
+          totalDuplicatesSkipped += 1;
+        };
+      };
+      let updated : AppEventWithImportDate = {
+        appEvent = { name = appImport.appName; usernames = combined.toArray() };
+        importDate = appImport.importDate;
+      };
+      appsEvents.add(appImport.appName, updated);
+    };
+
+    {
+      totalAppsDetected;
+      totalUsernamesAdded;
+      totalDuplicatesSkipped;
+    };
+  };
+
+  // ── Chat message read functions ───────────────────────────────────────────
+
   public query func getAllChatMessages() : async [ChatMessage] {
     chatMessages.toArray();
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getChatMessage(id : Nat) : async ?ChatMessage {
     chatMessages.toArray().find(func(msg) { msg.id == id });
   };
 
-  // ── Image functions ─────────────────────────────────────────────────────
+  // ── Chat message write functions (user-level) ─────────────────────────────
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func addChatMessage(text : Text) : async ChatMessage {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add chat messages");
+    };
+    let msg : ChatMessage = {
+      id = nextMessageId;
+      text;
+      timestamp = Time.now();
+    };
+    nextMessageId += 1;
+    chatMessages.add(msg);
+    msg;
+  };
+
+  public shared ({ caller }) func deleteChatMessage(id : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete chat messages");
+    };
+    // Filter out the message with the given id
+    let remaining = chatMessages.toArray().filter(func(msg) { msg.id != id });
+    // Clear and re-add
+    chatMessages.clear();
+    for (msg in remaining.vals()) {
+      chatMessages.add(msg);
+    };
+  };
+
+  // ── Image read functions ─────────────────────────────────────────────────-
+
   public query func getAllImages() : async [ImageMeta] {
     images.values().toArray();
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getImage(id : Nat) : async ?ImageMeta {
     images.get(id);
   };
 
-  // ── Settings functions ─────────────────────────────────────────────────
+  // ── Image write functions (admin-only) ─────────────────────────────────---
 
-  // Publicly accessible read query - returns only non-sensitive settings
+  public shared ({ caller }) func uploadImage(name : Text, tags : [Text], dataUrl : Text) : async ImageMeta {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can upload images");
+    };
+    let id = nextImageId;
+    nextImageId += 1;
+    let img : ImageMeta = {
+      id;
+      name;
+      tags;
+      dataUrl;
+      data = null;
+    };
+    images.add(id, img);
+    img;
+  };
+
+  public shared ({ caller }) func updateImageTags(id : Nat, tags : [Text]) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update image tags");
+    };
+    switch (images.get(id)) {
+      case (null) { Runtime.trap("Image not found") };
+      case (?existing) {
+        let updated : ImageMeta = {
+          id = existing.id;
+          name = existing.name;
+          tags;
+          dataUrl = existing.dataUrl;
+          data = existing.data;
+        };
+        images.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteImage(id : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete images");
+    };
+    images.remove(id);
+  };
+
+  // ── Settings read functions ───────────────────────────────────────────────
+
   public query func getPublicSettings() : async PublicSettings {
     {
       bgMusicEnabled = settings.bgMusicEnabled;
@@ -306,7 +673,6 @@ actor {
     };
   };
 
-  // Admin-only: exposes sensitive accessKey field
   public query ({ caller }) func getSettings() : async Settings {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can access full settings");
@@ -314,25 +680,100 @@ actor {
     settings;
   };
 
-  // Admin-only: set new access key (previously missing backend support)
+  // ── Settings write functions (admin-only) ─────────────────────────────────
+
   public shared ({ caller }) func setAccessKey(key : Text) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can set access key");
+      Runtime.trap("Unauthorized: Only admins can set the access key");
     };
-    settings := { settings with accessKey = ?key };
+    settings := {
+      bgMusicEnabled = settings.bgMusicEnabled;
+      musicFile = settings.musicFile;
+      accessKey = ?key;
+    };
   };
 
-  // Admin-only: upload music file (previously missing backend support)
-  public shared ({ caller }) func uploadMusicFile(blob : Storage.ExternalBlob) : async () {
+  public shared ({ caller }) func regenerateAccessKey() : async Text {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
-      Runtime.trap("Unauthorized: Only admins can upload music file");
+      Runtime.trap("Unauthorized: Only admins can regenerate the access key");
     };
-    settings := { settings with musicFile = ?blob };
+    // Generate a pseudo-random key based on current time
+    let now = Time.now();
+    let key = "ak-" # now.toText();
+    settings := {
+      bgMusicEnabled = settings.bgMusicEnabled;
+      musicFile = settings.musicFile;
+      accessKey = ?key;
+    };
+    key;
   };
 
-  // ── Price list functions ────────────────────────────────────────────────
+  public shared ({ caller }) func clearAccessKey() : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can clear the access key");
+    };
+    settings := {
+      bgMusicEnabled = settings.bgMusicEnabled;
+      musicFile = settings.musicFile;
+      accessKey = null;
+    };
+  };
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func setBgMusicEnabled(enabled : Bool) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can change music settings");
+    };
+    settings := {
+      bgMusicEnabled = enabled;
+      musicFile = settings.musicFile;
+      accessKey = settings.accessKey;
+    };
+  };
+
+  public shared ({ caller }) func setMusicUrl(url : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can set the music URL");
+    };
+    // Store music URL as a reference in settings (using dataUrl approach)
+    // musicFile is ExternalBlob; we store null and rely on dataUrl pattern
+    settings := {
+      bgMusicEnabled = settings.bgMusicEnabled;
+      musicFile = settings.musicFile;
+      accessKey = settings.accessKey;
+    };
+    // Note: actual music URL storage handled via separate musicUrl var
+    musicUrl := ?url;
+  };
+
+  var musicUrl : ?Text = null;
+
+  public query func getMusicUrl() : async ?Text {
+    musicUrl;
+  };
+
+  public shared ({ caller }) func updateSettings(bgMusicEnabled : Bool, newMusicUrl : ?Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update settings");
+    };
+    settings := {
+      bgMusicEnabled;
+      musicFile = settings.musicFile;
+      accessKey = settings.accessKey;
+    };
+    musicUrl := newMusicUrl;
+  };
+
+  // ── Access key validation (public) ───────────────────────────────────────
+
+  public query func validateAccessKey(key : Text) : async Bool {
+    switch (settings.accessKey) {
+      case (null) { false };
+      case (?storedKey) { storedKey == key };
+    };
+  };
+
+  // ── Price list read functions ─────────────────────────────────────────────
+
   public query func getPriceList() : async [PriceEntry] {
     priceList.toArray().map(
       func((appName, entry)) {
@@ -345,7 +786,6 @@ actor {
     );
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getPriceEntry(appName : Text) : async ?PriceEntry {
     switch (priceList.get(appName)) {
       case (?entry) {
@@ -359,14 +799,105 @@ actor {
     };
   };
 
-  // ── Inventory functions ────────────────────────────────────────────────
+  // ── Price list write functions (admin-only) ───────────────────────────────
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func addPriceEntry(appName : Text, pricePerEntry : Float, isActive : Bool) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add price entries");
+    };
+    priceList.add(appName, { pricePerEntry; isActive });
+  };
+
+  public shared ({ caller }) func editPriceEntry(appName : Text, pricePerEntry : Float, isActive : Bool) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can edit price entries");
+    };
+    switch (priceList.get(appName)) {
+      case (null) { Runtime.trap("Price entry not found") };
+      case (?_) {
+        priceList.add(appName, { pricePerEntry; isActive });
+      };
+    };
+  };
+
+  public shared ({ caller }) func deletePriceEntry(appName : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete price entries");
+    };
+    priceList.remove(appName);
+  };
+
+  public shared ({ caller }) func bulkUploadPrices(entries : [PriceEntry]) : async Nat {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can bulk upload prices");
+    };
+    var count = 0;
+    for (entry in entries.vals()) {
+      priceList.add(entry.appName, { pricePerEntry = entry.pricePerEntry; isActive = entry.isActive });
+      count += 1;
+    };
+    count;
+  };
+
+  public shared ({ caller }) func setPriceListInitialized(value : Bool) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can set price list initialization state");
+    };
+    priceListInitialized := value;
+  };
+
+  public query func isPriceListInitialized() : async Bool {
+    priceListInitialized;
+  };
+
+  // ── Earnings calculation (admin-only) ─────────────────────────────────────
+
+  public query ({ caller }) func getAllEarningsSummary() : async AllEarningsSummary {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view earnings summary");
+    };
+    let appEarningsList = List.empty<AppEarnings>();
+    var totalAppsWithPrices = 0;
+    var totalValidEntries = 0;
+    var totalEarnings : Float = 0.0;
+
+    for ((appName, priceEntry) in priceList.toArray().vals()) {
+      totalAppsWithPrices += 1;
+      let usernameCount = switch (appsEvents.get(appName)) {
+        case (null) { 0 };
+        case (?ev) { ev.appEvent.usernames.size() };
+      };
+      let amount = switch (usernameCount) {
+        case (0) { 0.0 };
+        case (_) { usernameCount.toFloat() * priceEntry.pricePerEntry };
+      };
+      if (priceEntry.isActive) {
+        totalValidEntries += usernameCount;
+        totalEarnings += amount;
+      };
+      appEarningsList.add({
+        appName;
+        totalUsernamesFound = usernameCount;
+        pricePerEntry = priceEntry.pricePerEntry;
+        totalAmount = amount;
+        isActive = priceEntry.isActive;
+      });
+    };
+
+    {
+      appEarnings = appEarningsList.toArray();
+      totalAppsWithPrices;
+      totalValidEntries;
+      totalEarnings;
+    };
+  };
+
+  // ── Inventory read functions ──────────────────────────────────────────────
+
   public query func getAllInventory() : async [(Text, Nat)] {
     inventoryCounter.toArray();
   };
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getInventoryCount(listId : Text) : async Nat {
     switch (inventoryCounter.get(listId)) {
       case (?count) { count };
@@ -374,9 +905,8 @@ actor {
     };
   };
 
-  // ── Withdrawal request functions ───────────────────────────────────────
+  // ── Withdrawal request functions ──────────────────────────────────────────
 
-  // Admin-only: exposes sensitive financial data (wallet numbers, amounts, usernames)
   public query ({ caller }) func getAllWithdrawalRequests() : async [WithdrawalRequest] {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can view withdrawal requests");
@@ -384,9 +914,61 @@ actor {
     withdrawalRequests.values().toArray();
   };
 
-  // ── Metrics and utilities ──────────────────────────────────────────────
+  public query ({ caller }) func getMyWithdrawalRequests(username : Text) : async [WithdrawalRequest] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view their withdrawal requests");
+    };
+    withdrawalRequests.values().toArray().filter(func(req) { req.username == username });
+  };
 
-  // Publicly accessible read query (no auth required per implementation plan)
+  public shared ({ caller }) func submitWithdrawalRequest(username : Text, walletNumber : Text, amount : Float) : async WithdrawalRequest {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can submit withdrawal requests");
+    };
+    let key = username # "-" # Time.now().toText();
+    let req : WithdrawalRequest = {
+      username;
+      walletNumber;
+      amount;
+      status = #pending;
+      timestamp = Time.now();
+    };
+    withdrawalRequests.add(key, req);
+    req;
+  };
+
+  public shared ({ caller }) func updateWithdrawalStatus(key : Text, status : WithdrawalStatus) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update withdrawal request status");
+    };
+    switch (withdrawalRequests.get(key)) {
+      case (null) { Runtime.trap("Withdrawal request not found") };
+      case (?existing) {
+        let updated : WithdrawalRequest = {
+          username = existing.username;
+          walletNumber = existing.walletNumber;
+          amount = existing.amount;
+          status;
+          timestamp = existing.timestamp;
+        };
+        withdrawalRequests.add(key, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func checkWithdrawalEligibility(username : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can check withdrawal eligibility");
+    };
+    // Check if user has any pending requests
+    let pending = withdrawalRequests.values().toArray().filter(
+      func(req) { req.username == username and req.status == #pending }
+    );
+    pending.size() == 0;
+  };
+
+  // ── Metrics and utilities ─────────────────────────────────────────────────
+
   public query func getListMetrics() : async [ListMetrics] {
     commentLists.values().toArray().map(
       func(list) {
@@ -417,11 +999,42 @@ actor {
     );
   };
 
-  // ── Countdown timer functions ──────────────────────────────────────────
+  // ── Countdown timer functions ─────────────────────────────────────────────
 
-  // Publicly accessible read query (no auth required per implementation plan)
   public query func getCountdownState() : async CountdownState {
     countdownState;
   };
-};
 
+  public shared ({ caller }) func setCountdown(targetTime : Time.Time) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can set the countdown");
+    };
+    countdownState := {
+      targetTime = ?targetTime;
+      isActive = true;
+      startedBy = ?caller;
+    };
+  };
+
+  public shared ({ caller }) func stopCountdown() : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can stop the countdown");
+    };
+    countdownState := {
+      targetTime = countdownState.targetTime;
+      isActive = false;
+      startedBy = countdownState.startedBy;
+    };
+  };
+
+  public shared ({ caller }) func clearCountdown() : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can clear the countdown");
+    };
+    countdownState := {
+      targetTime = null;
+      isActive = false;
+      startedBy = null;
+    };
+  };
+};

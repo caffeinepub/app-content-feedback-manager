@@ -10,12 +10,42 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AllEarningsSummary {
+  'totalAppsWithPrices' : bigint,
+  'totalValidEntries' : bigint,
+  'appEarnings' : Array<AppEarnings>,
+  'totalEarnings' : number,
+}
+export interface AppEarnings {
+  'totalUsernamesFound' : bigint,
+  'pricePerEntry' : number,
+  'appName' : string,
+  'isActive' : boolean,
+  'totalAmount' : number,
+}
 export interface AppEvent { 'name' : string, 'usernames' : Array<string> }
+export interface AppEventWithImportDate {
+  'importDate' : [] | [string],
+  'appEvent' : AppEvent,
+}
+export interface AppImport {
+  'appName' : string,
+  'importDate' : [] | [string],
+  'usernames' : Array<string>,
+}
+export interface BulkCommentsResult {
+  'commentListId' : string,
+  'templateCount' : bigint,
+  'generatedCount' : bigint,
+  'comments' : Array<string>,
+}
 export interface ChatMessage {
   'id' : bigint,
   'text' : string,
   'timestamp' : Time,
 }
+export type ClaimCommentResult = { 'noCommentsRemaining' : null } |
+  { 'claimSuccess' : string };
 export interface CommentList {
   'id' : string,
   'templates' : Array<string>,
@@ -35,6 +65,11 @@ export interface ImageMeta {
   'data' : [] | [ExternalBlob],
   'name' : string,
   'tags' : Array<string>,
+}
+export interface ImportSummary {
+  'totalUsernamesAdded' : bigint,
+  'totalDuplicatesSkipped' : bigint,
+  'totalAppsDetected' : bigint,
 }
 export interface ListMetrics {
   'usedTemplates' : bigint,
@@ -101,16 +136,37 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addChatMessage' : ActorMethod<[string], ChatMessage>,
+  'addPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
+  'addTemplatesToCommentList' : ActorMethod<[string, Array<string>], undefined>,
+  'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createAppEvent' : ActorMethod<[string, AppEvent], undefined>,
-  'createCommentList' : ActorMethod<[CommentList], undefined>,
+  'bulkUploadPrices' : ActorMethod<[Array<PriceEntry>], bigint>,
+  'checkWithdrawalEligibility' : ActorMethod<[string], boolean>,
+  'claimComment' : ActorMethod<[string, string], ClaimCommentResult>,
+  'clearAccessKey' : ActorMethod<[], undefined>,
+  'clearCountdown' : ActorMethod<[], undefined>,
+  'createAppEvent' : ActorMethod<[string], undefined>,
+  'createCommentList' : ActorMethod<[string, string, string], undefined>,
+  'deleteAppEvent' : ActorMethod<[string], undefined>,
+  'deleteChatMessage' : ActorMethod<[bigint], undefined>,
+  'deleteCommentList' : ActorMethod<[string], undefined>,
+  'deleteImage' : ActorMethod<[bigint], undefined>,
+  'deletePriceEntry' : ActorMethod<[string], undefined>,
+  'editPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
   'getAllAppEvents' : ActorMethod<[], Array<AppEvent>>,
+  'getAllAppEventsWithImportDate' : ActorMethod<
+    [],
+    Array<AppEventWithImportDate>
+  >,
   'getAllChatMessages' : ActorMethod<[], Array<ChatMessage>>,
   'getAllCommentLists' : ActorMethod<[], Array<CommentList>>,
+  'getAllEarningsSummary' : ActorMethod<[], AllEarningsSummary>,
   'getAllImages' : ActorMethod<[], Array<ImageMeta>>,
   'getAllInventory' : ActorMethod<[], Array<[string, bigint]>>,
   'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getAppEvent' : ActorMethod<[string], [] | [AppEvent]>,
+  'getBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getChatMessage' : ActorMethod<[bigint], [] | [ChatMessage]>,
@@ -119,15 +175,39 @@ export interface _SERVICE {
   'getImage' : ActorMethod<[bigint], [] | [ImageMeta]>,
   'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
+  'getMusicUrl' : ActorMethod<[], [] | [string]>,
+  'getMyWithdrawalRequests' : ActorMethod<[string], Array<WithdrawalRequest>>,
   'getPriceEntry' : ActorMethod<[string], [] | [PriceEntry]>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getPublicSettings' : ActorMethod<[], PublicSettings>,
   'getSettings' : ActorMethod<[], Settings>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'importLiveLists' : ActorMethod<[Array<AppImport>], ImportSummary>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isPriceListInitialized' : ActorMethod<[], boolean>,
+  'lockCommentList' : ActorMethod<[string], undefined>,
+  'regenerateAccessKey' : ActorMethod<[], string>,
+  'renameCommentList' : ActorMethod<[string, string], undefined>,
+  'resetUsedTemplates' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string], undefined>,
-  'uploadMusicFile' : ActorMethod<[ExternalBlob], undefined>,
+  'setBgMusicEnabled' : ActorMethod<[boolean], undefined>,
+  'setCommentListTemplates' : ActorMethod<[string, Array<string>], undefined>,
+  'setCountdown' : ActorMethod<[Time], undefined>,
+  'setInventoryCount' : ActorMethod<[string, bigint], undefined>,
+  'setMusicUrl' : ActorMethod<[string], undefined>,
+  'setPriceListInitialized' : ActorMethod<[boolean], undefined>,
+  'stopCountdown' : ActorMethod<[], undefined>,
+  'submitWithdrawalRequest' : ActorMethod<
+    [string, string, number],
+    WithdrawalRequest
+  >,
+  'unlockCommentList' : ActorMethod<[string], undefined>,
+  'updateImageTags' : ActorMethod<[bigint, Array<string>], undefined>,
+  'updateSettings' : ActorMethod<[boolean, [] | [string]], undefined>,
+  'updateWithdrawalStatus' : ActorMethod<[string, WithdrawalStatus], undefined>,
+  'uploadImage' : ActorMethod<[string, Array<string>, string], ImageMeta>,
+  'validateAccessKey' : ActorMethod<[string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

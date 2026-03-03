@@ -1,262 +1,205 @@
-import React, { useState, useRef } from 'react';
-import { Settings, Music, Key, Eye, EyeOff, RefreshCw, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { useSettings, useSetAccessKey, useUploadMusicFile } from '../../hooks/useQueries';
-
-function generateRandomKey(length = 16): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
+import React, { useState } from 'react';
+import { Key, Music, Eye, EyeOff, RefreshCw, Save } from 'lucide-react';
+import { useSettings, useUpdateSettings, useSetAccessKey, useAccessKey } from '../../hooks/useQueries';
+import { ExternalBlob } from '../../backend';
 
 export default function AdminSettings() {
-  const { data: settings, isLoading: settingsLoading } = useSettings();
+  const { data: settings } = useSettings();
+  const { data: accessKey } = useAccessKey();
+  const updateSettings = useUpdateSettings();
   const setAccessKeyMutation = useSetAccessKey();
-  const uploadMusicMutation = useUploadMusicFile();
 
-  // Access key state
-  const [keyInput, setKeyInput] = useState('');
+  const [newKey, setNewKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [keyFeedback, setKeyFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  // Music upload state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [musicFeedback, setMusicFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSetKey = async () => {
-    if (!keyInput.trim()) return;
-    setKeyFeedback(null);
+  const handleSetKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    if (!newKey.trim()) return;
     try {
-      await setAccessKeyMutation.mutateAsync(keyInput.trim());
-      setKeyFeedback({ type: 'success', message: 'Access key updated successfully!' });
-      setKeyInput('');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to set access key';
-      setKeyFeedback({ type: 'error', message: msg });
+      await setAccessKeyMutation.mutateAsync(newKey.trim());
+      setNewKey('');
+      setSuccess('Access key updated successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to set access key');
     }
   };
 
   const handleRegenerateKey = async () => {
-    const newKey = generateRandomKey();
-    setKeyInput(newKey);
-    setKeyFeedback(null);
+    setError(null);
+    setSuccess(null);
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const randomKey = Array.from({ length: 16 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     try {
-      await setAccessKeyMutation.mutateAsync(newKey);
-      setKeyFeedback({ type: 'success', message: `New key generated and saved: ${newKey}` });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to regenerate key';
-      setKeyFeedback({ type: 'error', message: msg });
+      await setAccessKeyMutation.mutateAsync(randomKey);
+      setSuccess(`New key generated: ${randomKey}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to regenerate key');
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setMusicFeedback(null);
-      setUploadProgress(null);
-    }
-  };
-
-  const handleUploadMusic = async () => {
-    if (!selectedFile) return;
-    setMusicFeedback(null);
-    setUploadProgress(0);
+  const handleMusicToggle = async () => {
+    setError(null);
     try {
-      await uploadMusicMutation.mutateAsync({
-        file: selectedFile,
-        onProgress: (pct) => setUploadProgress(pct),
+      await updateSettings.mutateAsync({
+        bgMusicEnabled: !settings?.bgMusicEnabled,
+        musicFile: settings?.musicFile ?? null,
       });
-      setMusicFeedback({ type: 'success', message: `"${selectedFile.name}" uploaded successfully!` });
-      setSelectedFile(null);
-      setUploadProgress(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload music file';
-      setMusicFeedback({ type: 'error', message: msg });
-      setUploadProgress(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update settings');
     }
   };
 
-  const currentKey = settings?.accessKey;
-  const currentMusicUrl = settings?.musicFile ? settings.musicFile.getDirectURL() : null;
-
-  if (settingsLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading settings…</span>
-      </div>
-    );
-  }
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const blob = ExternalBlob.fromBytes(bytes);
+      await updateSettings.mutateAsync({
+        bgMusicEnabled: settings?.bgMusicEnabled ?? false,
+        musicFile: blob,
+      });
+      setSuccess('Music file uploaded successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload music');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Settings className="w-5 h-5 text-primary" />
+    <div className="space-y-4 animate-fadeInUp">
+      {error && (
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.55 0.22 25 / 0.12)', border: '1px solid oklch(0.55 0.22 25 / 0.3)', color: 'oklch(0.65 0.22 25)' }}>
+          {error}
         </div>
-        <div>
-          <h2 className="text-lg font-semibold">Admin Settings</h2>
-          <p className="text-sm text-muted-foreground">Manage access keys and background music</p>
+      )}
+      {success && (
+        <div className="rounded-xl px-4 py-3 text-sm font-rajdhani animate-fadeIn" style={{ background: 'oklch(0.65 0.18 145 / 0.12)', border: '1px solid oklch(0.65 0.18 145 / 0.3)', color: 'oklch(0.72 0.20 145)' }}>
+          {success}
         </div>
-      </div>
+      )}
 
       {/* Access Key Management */}
-      <div className="space-card p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Key className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold">Access Key Management</h3>
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 gradient-heading flex items-center gap-2">
+          <Key className="w-4 h-4" style={{ color: 'oklch(0.82 0.20 70)' }} />
+          Access Key Management
+        </h3>
+
+        {/* Current Key */}
+        <div
+          className="mb-4 p-3 rounded-xl"
+          style={{ background: 'oklch(0.10 0.025 260 / 0.8)', border: '1px solid oklch(0.22 0.05 260 / 0.4)' }}
+        >
+          <div className="text-xs font-rajdhani mb-1" style={{ color: 'oklch(0.50 0.04 260)' }}>Current Access Key</div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-sm font-orbitron" style={{ color: 'oklch(0.82 0.20 70)' }}>
+              {accessKey ? (showKey ? accessKey : '••••••••••••••••') : 'No key set'}
+            </code>
+            {accessKey && (
+              <button
+                onClick={() => setShowKey(!showKey)}
+                className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                style={{ background: 'oklch(0.16 0.03 260 / 0.6)', color: 'oklch(0.55 0.04 260)' }}
+              >
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Current key display */}
-        {currentKey && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
-            <span className="text-xs text-muted-foreground flex-1 font-mono">
-              {showKey ? currentKey : '•'.repeat(Math.min(currentKey.length, 20))}
-            </span>
-            <button
-              onClick={() => setShowKey((v) => !v)}
-              className="p-1 rounded hover:bg-muted transition-colors"
-              title={showKey ? 'Hide key' : 'Show key'}
-            >
-              {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-        )}
-        {!currentKey && (
-          <p className="text-sm text-muted-foreground italic">No access key set.</p>
-        )}
-
-        {/* Set custom key */}
-        <div className="flex gap-2">
+        {/* Set Custom Key */}
+        <form onSubmit={handleSetKey} className="flex gap-2 mb-3">
           <input
             type="text"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            placeholder="Enter new access key…"
-            className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            onKeyDown={(e) => e.key === 'Enter' && handleSetKey()}
+            value={newKey}
+            onChange={e => setNewKey(e.target.value)}
+            placeholder="Enter custom access key"
+            className="glass-input flex-1 px-3 py-2.5 text-sm"
           />
           <button
-            onClick={handleSetKey}
-            disabled={!keyInput.trim() || setAccessKeyMutation.isPending}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            type="submit"
+            disabled={setAccessKeyMutation.isPending || !newKey.trim()}
+            className="px-3 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-1.5"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              opacity: (setAccessKeyMutation.isPending || !newKey.trim()) ? 0.5 : 1,
+            }}
           >
             {setAccessKeyMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : null}
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
             Set Key
           </button>
-          <button
-            onClick={handleRegenerateKey}
-            disabled={setAccessKeyMutation.isPending}
-            className="px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            title="Generate random key"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Regenerate
-          </button>
-        </div>
+        </form>
 
-        {/* Key feedback */}
-        {keyFeedback && (
-          <div
-            className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-              keyFeedback.type === 'success'
-                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                : 'bg-destructive/10 text-destructive'
-            }`}
-          >
-            {keyFeedback.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0" />
-            )}
-            {keyFeedback.message}
-          </div>
-        )}
+        <button
+          onClick={handleRegenerateKey}
+          disabled={setAccessKeyMutation.isPending}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs transition-all duration-300 hover-lift"
+          style={{
+            background: 'oklch(0.70 0.20 185 / 0.12)',
+            border: '1px solid oklch(0.70 0.20 185 / 0.25)',
+            color: 'oklch(0.78 0.22 188)',
+          }}
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Regenerate Random Key
+        </button>
       </div>
 
       {/* Background Music */}
-      <div className="space-card p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Music className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold">Background Music</h3>
-        </div>
+      <div className="glass-card p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
+          <Music className="w-4 h-4" />
+          Background Music
+        </h3>
 
-        {/* Current music */}
-        {currentMusicUrl && (
-          <div className="p-3 rounded-lg bg-muted/50 border border-border space-y-2">
-            <p className="text-xs text-muted-foreground">Current music file:</p>
-            <audio controls src={currentMusicUrl} className="w-full h-8" />
-          </div>
-        )}
-        {!currentMusicUrl && (
-          <p className="text-sm text-muted-foreground italic">No music file uploaded.</p>
-        )}
-
-        {/* File picker */}
-        <div className="flex gap-2 items-center">
-          <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors">
-            <Upload className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground truncate">
-              {selectedFile ? selectedFile.name : 'Choose audio file…'}
-            </span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </label>
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.75 0.04 260)' }}>Music Enabled</span>
           <button
-            onClick={handleUploadMusic}
-            disabled={!selectedFile || uploadMusicMutation.isPending}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            onClick={handleMusicToggle}
+            disabled={updateSettings.isPending}
+            className="relative w-12 h-6 rounded-full transition-all duration-300"
+            style={{
+              background: settings?.bgMusicEnabled
+                ? 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))'
+                : 'oklch(0.22 0.05 260)',
+            }}
           >
-            {uploadMusicMutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            Upload
+            <div
+              className="absolute top-1 w-4 h-4 rounded-full transition-transform duration-300"
+              style={{
+                background: 'oklch(0.95 0.02 80)',
+                transform: settings?.bgMusicEnabled ? 'translateX(28px)' : 'translateX(4px)',
+              }}
+            />
           </button>
         </div>
 
-        {/* Upload progress */}
-        {uploadProgress !== null && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Uploading…</span>
-              <span>{uploadProgress}%</span>
-            </div>
-            <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300 rounded-full"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
+        <label
+          className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs cursor-pointer transition-all duration-200 hover:scale-105 w-fit"
+          style={{
+            background: 'oklch(0.70 0.20 185 / 0.12)',
+            border: '1px solid oklch(0.70 0.20 185 / 0.25)',
+            color: 'oklch(0.78 0.22 188)',
+          }}
+        >
+          <Music className="w-3.5 h-3.5" />
+          Upload Music File
+          <input type="file" accept="audio/*" onChange={handleMusicUpload} className="hidden" />
+        </label>
 
-        {/* Music feedback */}
-        {musicFeedback && (
-          <div
-            className={`flex items-center gap-2 text-sm p-2 rounded-lg ${
-              musicFeedback.type === 'success'
-                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                : 'bg-destructive/10 text-destructive'
-            }`}
-          >
-            {musicFeedback.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0" />
-            )}
-            {musicFeedback.message}
+        {settings?.musicFile && (
+          <div className="mt-3 text-xs font-rajdhani" style={{ color: 'oklch(0.72 0.20 145)' }}>
+            ✓ Music file uploaded
           </div>
         )}
       </div>

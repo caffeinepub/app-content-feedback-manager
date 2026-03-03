@@ -1,66 +1,49 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-03T02:20:10.919Z",
+  "generatedAt": "2026-03-03T02:42:59.157Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 4,
-    "implemented": 4,
+    "total": 5,
+    "implemented": 0,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Add a public Motoko backend method to create a new comment list. It must accept a list name, persist the new list in stable/mutable storage, and return a success or error result. The frontend AdminComments view must be wired to call this method so that creating a list no longer returns 'backend does not support'.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminComments.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminComments.tsx"
-        ]
+        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for comment lists — including creating new lists, adding templates, setting inventory counts, renaming, deleting, and locking/unlocking — so that no 'Backend does not support creating comment lists yet' errors are returned.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "Add a public Motoko backend method to create/record an app event. It must accept the required event fields (e.g., app name, date/usernames payload), persist the event in stable storage, and return a result. The frontend AdminLiveList view must be wired to call this method so that creating an app event no longer returns 'backend does not support'.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminLiveList.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminLiveList.tsx"
-        ]
+        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for app events (live lists) — including creating new events, adding usernames in bulk, deleting events, and auto-importing parsed live list reports — so that all admin live list operations succeed.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-3",
-        "summary": "Add a public Motoko backend method to set and store the access key. It must accept a text key, persist it in stable/mutable state, and return a confirmation. The frontend AdminSettings view must be wired to call this method so that setting the access key no longer returns 'backend does not support'.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ]
+        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/set/regenerate operations for the access key — so that setting and regenerating an access key from the admin settings panel persists and is validated correctly.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-4",
-        "summary": "Add a public Motoko backend method to upload and store music (URL or binary blob). It must accept the music data/URL and any relevant metadata, persist it in stable storage, and return a result. The frontend AdminSettings (background music upload) and any relevant upload views must be wired to call this method so that uploading music no longer returns 'backend does not support'.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/views/admin/AdminSettings.tsx"
-        ]
+        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement music upload and settings operations — including enabling/disabling background music and storing/updating the music URL — so that all admin music/settings operations succeed.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Audit and fix the Motoko backend actor to ensure all other backend-supported operations work correctly end-to-end: chat messages (addChatMessage, fetching messages), images (upload, list, tags), pricing (add, edit, delete, bulk upload), withdrawal requests (check, submit, list), and the midnight countdown — ensuring no operation returns a stub or unsupported error.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
@@ -70,26 +53,12 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
-    "frontend/src/components/BulkCommentGenerator.tsx",
-    "frontend/src/components/MetricsDonutChart.tsx",
-    "frontend/src/components/WithdrawalModal.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/views/LiveChecker.tsx",
-    "frontend/src/views/UploadView.tsx",
     "frontend/src/views/UserView.tsx",
-    "frontend/src/views/admin/AdminChat.tsx",
-    "frontend/src/views/admin/AdminComments.tsx",
-    "frontend/src/views/admin/AdminEarnings.tsx",
-    "frontend/src/views/admin/AdminImages.tsx",
-    "frontend/src/views/admin/AdminLiveList.tsx",
-    "frontend/src/views/admin/AdminPricing.tsx",
-    "frontend/src/views/admin/AdminSettings.tsx",
-    "frontend/src/views/admin/AdminView.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

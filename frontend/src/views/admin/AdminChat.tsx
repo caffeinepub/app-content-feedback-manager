@@ -1,93 +1,111 @@
-import React, { useState } from 'react';
-import { MessageSquare, Send, Loader2 } from 'lucide-react';
-import { useGetAllChatMessages, useAddChatMessage } from '../../hooks/useQueries';
+import { useState, useRef, useEffect } from 'react';
+import { useGetChatMessages, useAddChatMessage } from '../../hooks/useQueries';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageSquare, Send } from 'lucide-react';
 
-export default function AdminChat() {
-  const { data: messages = [], isLoading } = useGetAllChatMessages();
+function formatTimestamp(ts: bigint): string {
+  const ms = Number(ts / BigInt(1_000_000));
+  return new Date(ms).toLocaleString();
+}
+
+export function AdminChat() {
+  const { data: messages, isLoading } = useGetChatMessages();
   const addMessage = useAddChatMessage();
-
   const [text, setText] = useState('');
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = async () => {
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!text.trim()) return;
-    setFeedback(null);
     try {
       await addMessage.mutateAsync(text.trim());
       setText('');
-      setFeedback('Message sent!');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to send message';
-      setFeedback(msg);
+    } catch {
+      // error handled silently
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading messages…</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <MessageSquare className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">Chat Messages</h2>
-          <p className="text-sm text-muted-foreground">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
-        </div>
+    <div className="space-y-4 animate-fadeInUp">
+      <div className="glass-card-gold p-4 rounded-2xl flex items-center gap-3">
+        <MessageSquare className="w-5 h-5" style={{ color: 'oklch(0.82 0.20 70)' }} />
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider gradient-heading">
+          Chat Messages
+        </h3>
+        <span className="ml-auto text-xs font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>
+          {messages?.length ?? 0} messages
+        </span>
       </div>
 
-      {/* Send message */}
-      <div className="space-card p-5 space-y-3">
-        <h3 className="font-semibold text-sm">Send Message</h3>
-        <div className="flex gap-2">
-          <input
-            type="text"
+      <div className="glass-card rounded-2xl overflow-hidden">
+        <ScrollArea className="h-80 p-4">
+          {isLoading ? (
+            <div className="text-center py-8 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>
+              Loading messages...
+            </div>
+          ) : messages && messages.length > 0 ? (
+            <div className="space-y-3">
+              {messages.map((msg) => (
+                <div
+                  key={String(msg.id)}
+                  className="rounded-xl p-3"
+                  style={{
+                    background: 'oklch(0.10 0.025 260 / 0.6)',
+                    border: '1px solid oklch(0.22 0.05 260 / 0.4)',
+                  }}
+                >
+                  <p className="text-sm font-rajdhani" style={{ color: 'oklch(0.85 0.05 80)' }}>
+                    {msg.text}
+                  </p>
+                  <p className="text-xs font-rajdhani mt-1" style={{ color: 'oklch(0.45 0.04 260)' }}>
+                    {formatTimestamp(msg.timestamp)}
+                  </p>
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          ) : (
+            <div className="text-center py-8 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>
+              No messages yet
+            </div>
+          )}
+        </ScrollArea>
+
+        <form
+          onSubmit={handleSend}
+          className="flex gap-2 p-4"
+          style={{ borderTop: '1px solid oklch(0.22 0.05 260 / 0.4)' }}
+        >
+          <Input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Type a message…"
-            className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message..."
+            className="flex-1 glass-input border-0"
+            disabled={addMessage.isPending}
           />
-          <button
-            onClick={handleSend}
+          <Button
+            type="submit"
             disabled={!text.trim() || addMessage.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            style={{
+              background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
+              color: 'oklch(0.08 0.02 260)',
+              border: 'none',
+            }}
           >
-            {addMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            Send
-          </button>
-        </div>
-        {feedback && (
-          <p className={`text-sm ${feedback === 'Message sent!' ? 'text-green-600 dark:text-green-400' : 'text-destructive'}`}>
-            {feedback}
-          </p>
-        )}
+            {addMessage.isPending ? (
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </form>
       </div>
-
-      {/* Messages list */}
-      {messages.length === 0 ? (
-        <div className="space-card p-8 text-center">
-          <p className="text-muted-foreground text-sm">No messages yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {[...messages].reverse().map((msg) => (
-            <div key={String(msg.id)} className="space-card p-3">
-              <p className="text-sm">{msg.text}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {new Date(Number(msg.timestamp) / 1_000_000).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

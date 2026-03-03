@@ -1,99 +1,127 @@
 {
   "kind": "build_request",
-  "title": "Fix missing admin panel backend methods (create list, app event, set access key, upload music)",
+  "title": "Fix Motoko backend to support all create/upload operations across all four admin sections",
   "projectName": "Content & Feedback Manager",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a public Motoko backend method to create a new comment list. It must accept a list name, persist the new list in stable/mutable storage, and return a success or error result. The frontend AdminComments view must be wired to call this method so that creating a list no longer returns 'backend does not support'.",
-      "target": "both",
+      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for comment lists — including creating new lists, adding templates, setting inventory counts, renaming, deleting, and locking/unlocking — so that no 'Backend does not support creating comment lists yet' errors are returned.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-7"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "Create List — backend method missing or not wired up",
-          "they show backend does not support"
+          "Backend does not support creating comment lists yet.",
+          "All of them"
         ]
       },
       "acceptanceCriteria": [
-        "Calling the create-list method from the admin panel stores the new list in the backend without error.",
-        "No 'backend does not support' error appears when submitting the create list form.",
-        "The newly created list appears in subsequent list fetch queries."
+        "Creating a new comment list via the admin panel succeeds without error",
+        "Adding templates to a comment list persists and returns correctly",
+        "Setting inventory count on a list persists correctly",
+        "Renaming, deleting, and locking/unlocking comment lists all work without errors",
+        "No 'does not support' error messages are returned for any comment list operation"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add a public Motoko backend method to create/record an app event. It must accept the required event fields (e.g., app name, date/usernames payload), persist the event in stable storage, and return a result. The frontend AdminLiveList view must be wired to call this method so that creating an app event no longer returns 'backend does not support'.",
-      "target": "both",
+      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for app events (live lists) — including creating new events, adding usernames in bulk, deleting events, and auto-importing parsed live list reports — so that all admin live list operations succeed.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-7"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "App Event — backend doesn't support this operation",
-          "they show backend does not support"
+          "All of them",
+          "all four admin section method also check full website features ensure all work smoothly"
         ]
       },
       "acceptanceCriteria": [
-        "Calling the app event method from the admin panel stores the event without error.",
-        "No 'backend does not support' error appears when creating an app event.",
-        "Created events are retrievable from the backend in subsequent queries."
+        "Creating a new app event/live list entry via the admin panel persists correctly",
+        "Bulk uploading usernames to an event succeeds and data is stored",
+        "Deleting an event removes it from storage",
+        "Auto-importing a parsed live list report populates the backend correctly",
+        "No 'does not support' errors are returned for any app event operation"
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Add a public Motoko backend method to set and store the access key. It must accept a text key, persist it in stable/mutable state, and return a confirmation. The frontend AdminSettings view must be wired to call this method so that setting the access key no longer returns 'backend does not support'.",
-      "target": "both",
+      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/set/regenerate operations for the access key — so that setting and regenerating an access key from the admin settings panel persists and is validated correctly.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-7"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "Set Access Key — backend method not implemented",
-          "they show backend does not support"
+          "All of them",
+          "all four admin section method also check full website features ensure all work smoothly"
         ]
       },
       "acceptanceCriteria": [
-        "Submitting a new access key from AdminSettings persists it in the backend without error.",
-        "No 'backend does not support' error appears when calling set access key.",
-        "The stored access key can be retrieved and is used for subsequent key-gated operations."
+        "Setting a new access key from admin settings persists in backend state",
+        "Regenerating the access key produces a new value and persists it",
+        "The stored access key is correctly validated when users attempt to generate comments",
+        "No 'does not support' errors are returned for access key operations"
       ]
     },
     {
       "id": "REQ-4",
-      "text": "Add a public Motoko backend method to upload and store music (URL or binary blob). It must accept the music data/URL and any relevant metadata, persist it in stable storage, and return a result. The frontend AdminSettings (background music upload) and any relevant upload views must be wired to call this method so that uploading music no longer returns 'backend does not support'.",
-      "target": "both",
+      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement music upload and settings operations — including enabling/disabling background music and storing/updating the music URL — so that all admin music/settings operations succeed.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-6",
-          "msg-7"
+          "msg-1",
+          "msg-2"
         ],
         "quotes": [
-          "Upload Music — backend storage/method not available",
-          "they show backend does not support"
+          "All of them",
+          "all four admin section method also check full website features ensure all work smoothly"
         ]
       },
       "acceptanceCriteria": [
-        "Uploading music from the admin panel stores the music data/URL in the backend without error.",
-        "No 'backend does not support' error appears when uploading music.",
-        "The stored music URL/data is returned by the background music settings query and plays correctly in the frontend."
+        "Uploading or updating the background music URL via admin settings persists correctly",
+        "Toggling background music enabled/disabled state persists correctly",
+        "The frontend background music hook reads the correct state from the backend",
+        "No 'does not support' errors are returned for music/settings operations"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Audit and fix the Motoko backend actor to ensure all other backend-supported operations work correctly end-to-end: chat messages (addChatMessage, fetching messages), images (upload, list, tags), pricing (add, edit, delete, bulk upload), withdrawal requests (check, submit, list), and the midnight countdown — ensuring no operation returns a stub or unsupported error.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-2"
+        ],
+        "quotes": [
+          "check full website features ensure all work smoothly"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Chat messages can be added and fetched without errors",
+        "Images can be uploaded with name and tags and listed correctly",
+        "Pricing entries can be added, edited, deleted, and bulk uploaded",
+        "Withdrawal requests can be submitted and listed by admin",
+        "Countdown and settings data are returned correctly by the backend",
+        "No backend function returns a placeholder or 'not supported' error"
       ]
     }
   ],
   "constraints": [
-    "All Motoko logic must remain in the single main actor file (backend/main.mo).",
-    "Do not break or remove any existing backend methods or stored state.",
-    "Do not modify any immutable frontend paths listed in the system context."
+    "No frontend UI changes — backend Motoko code only",
+    "All logic must remain in a single actor in backend/main.mo",
+    "Do not change existing data type definitions unless strictly required to fix a broken operation"
   ],
   "nonGoals": [
-    "Adding new frontend UI screens or redesigning the admin panel layout.",
-    "Implementing authentication beyond what already exists.",
-    "Changing any existing working admin panel features."
+    "Any frontend UI modifications",
+    "Adding new frontend features or views",
+    "Changing the admin authentication flow",
+    "Adding new data types or features not already present in the codebase"
   ],
   "imageRequirements": {
     "required": [],
