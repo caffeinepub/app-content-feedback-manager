@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Copy, Zap, CheckCircle, Loader2, Package } from 'lucide-react';
-import { useCommentLists, useCommentListsOrder, useInventoryCount, useUpdateInventory, useAccessKey } from '../hooks/useQueries';
+import { useGetAllCommentLists, useGetInventoryCount, useSetInventoryCount, useGetSettings } from '../hooks/useQueries';
 import { useCommentGenerator } from '../hooks/useCommentGenerator';
 import type { CommentList } from '../backend';
 
@@ -17,17 +17,14 @@ export default function BulkCommentGenerator({ onGenerated }: BulkCommentGenerat
   const [error, setError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: commentLists = [] } = useCommentLists();
-  const { data: listsOrder = [] } = useCommentListsOrder();
-  const { data: accessKey } = useAccessKey();
+  const { data: commentLists = [] } = useGetAllCommentLists();
+  const { data: settings } = useGetSettings();
   const { generateBulk } = useCommentGenerator();
 
-  const { data: inventoryCount } = useInventoryCount(selectedListId);
-  const updateInventoryMutation = useUpdateInventory();
+  const { data: inventoryCount } = useGetInventoryCount(selectedListId);
+  const updateInventoryMutation = useSetInventoryCount();
 
-  const orderedLists: CommentList[] = listsOrder
-    .map((id) => commentLists.find((l) => l.id === id))
-    .filter((l): l is CommentList => l !== undefined);
+  const accessKey = settings?.accessKey ?? null;
 
   const selectedList: CommentList | undefined = commentLists.find((l) => l.id === selectedListId);
   const maxQuantity = selectedList ? selectedList.templates.length : 50;
@@ -63,10 +60,11 @@ export default function BulkCommentGenerator({ onGenerated }: BulkCommentGenerat
       onGenerated?.(comments);
 
       // Decrement inventory
-      if (comments.length > 0) {
+      if (comments.length > 0 && inventoryRemaining !== null && inventoryRemaining > 0) {
+        const newCount = Math.max(0, inventoryRemaining - comments.length);
         await updateInventoryMutation.mutateAsync({
-          commentListId: selectedListId,
-          quantity: BigInt(comments.length),
+          listId: selectedListId,
+          count: BigInt(newCount),
         });
       }
     } catch (err: unknown) {
@@ -137,7 +135,7 @@ export default function BulkCommentGenerator({ onGenerated }: BulkCommentGenerat
           className="glass-input w-full px-4 py-2.5 text-sm"
         >
           <option value="">— Select a list —</option>
-          {orderedLists.map((list) => (
+          {commentLists.map((list) => (
             <option key={list.id} value={list.id}>
               {list.displayName} ({list.templates.length} templates)
             </option>

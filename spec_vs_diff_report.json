@@ -1,51 +1,75 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-03-03T02:42:59.154Z",
-  "summary": "The diff modifies backend/main.mo (Motoko actor) and several frontend files. The backend/main.mo file is truncated but shows data type definitions, state variables, and the beginning of actor logic consistent with implementing the required operations. Frontend hooks in useQueries.ts are confirmed to wire all mutation functions to real backend actor methods. However, due to truncation of backend/main.mo, full verification of all backend function implementations is limited. Frontend files were modified despite the constraint of 'No frontend UI changes', though the changes appear to be bug fixes/wiring rather than new UI features.",
+  "generatedAt": "2026-03-03T06:48:00.050Z",
+  "summary": "The diff implements most of the required changes: backend comment pool refactoring with status-based records, migration module, generateSingle/generateBulk rewrites, getPoolStats update, and frontend modal error handling in both SingleGeneratorView.tsx and BulkGeneratorView.tsx. However, several specific acceptance criteria have concerns based on the available evidence.",
   "missing_requirements": [
     {
-      "id": "REQ-3",
-      "requirement": "Fix the Motoko backend actor to fully implement create/set/regenerate operations for the access key — so that setting and regenerating an access key from the admin settings panel persists and is validated correctly.",
-      "reason": "The backend/main.mo diff is truncated and does not show the implementation of setAccessKey, regenerateAccessKey, or access key validation logic. The settings struct includes accessKey field but actual function bodies are not visible.",
+      "id": "REQ-22",
+      "requirement": "The modal displays the exact error message string from the backend. When generateSingle returns 'Pool is empty', the modal should show 'Pool is empty' exactly.",
+      "reason": "SingleGeneratorView.tsx maps the backend error 'Pool is empty' to the user-facing string 'No comments left. Please try later.' instead of displaying the exact backend error message string as required by the AC.",
       "evidence": [
-        "backend/main.mo"
+        "frontend/src/views/SingleGeneratorView.tsx"
       ]
     },
     {
-      "id": "REQ-4",
-      "requirement": "Fix the Motoko backend actor to fully implement music upload and settings operations — including enabling/disabling background music and storing/updating the music URL.",
-      "reason": "The backend/main.mo diff is truncated and does not show the implementation of setBgMusicEnabled or setMusicUrl functions. The settings struct includes bgMusicEnabled and musicFile fields but actual function implementations are not visible.",
+      "id": "REQ-22",
+      "requirement": "After a successful generation, immediately refetch pool stats so the displayed 'Comments left: X' count is accurate.",
+      "reason": "The diff for SingleGeneratorView.tsx shows no explicit call to invalidate or refetch the poolStats query after a successful generateSingle. The useGenerateSingle mutation in useQueries.ts would need an onSuccess invalidation for the poolStats query key, but the truncated diff does not confirm this is present.",
       "evidence": [
-        "backend/main.mo"
+        "frontend/src/views/SingleGeneratorView.tsx",
+        "frontend/src/hooks/useQueries.ts"
       ]
     },
     {
-      "id": "REQ-5",
-      "requirement": "Audit and fix all other backend-supported operations: chat messages, images, pricing, withdrawal requests, and countdown — ensuring no operation returns a stub or unsupported error.",
-      "reason": "The backend/main.mo is heavily truncated and none of the function implementations for addChatMessage, uploadImage, addPriceEntry, submitWithdrawalRequest, countdown management, etc. are visible in the diff to confirm they are fully implemented without stubs.",
+      "id": "REQ-23",
+      "requirement": "The modal shows the backend error message text exactly (e.g., 'Only X comments left. Reduce quantity.').",
+      "reason": "BulkGeneratorView.tsx conditionally maps the error to 'No comments left. Please try later.' when available === 0, rather than always showing the exact backend error string. This may cause mismatch when the backend returns the specific 'Only X comments left. Reduce quantity.' message.",
       "evidence": [
-        "backend/main.mo"
+        "frontend/src/views/BulkGeneratorView.tsx"
+      ]
+    },
+    {
+      "id": "REQ-18",
+      "requirement": "Each comment record must use the field name 'commentId' (Nat) as specified.",
+      "reason": "Both backend/main.mo and backend/migration.mo define the Comment record with field 'id' instead of 'commentId' as specified in the requirement.",
+      "evidence": [
+        "backend/main.mo",
+        "backend/migration.mo"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Frontend file modifications including UserView.tsx, useQueries.ts, and frontend-file-summaries.txt were changed despite the backend-only constraint.",
-      "reason": "The build request explicitly states 'No frontend UI changes — backend Motoko code only', yet multiple frontend files were modified. While some changes appear to be wiring fixes, the constraint prohibits any frontend modifications.",
+      "description": "A separate migration.mo module file was created as a standalone file.",
+      "reason": "The build request constraint states all Motoko logic must remain in backend/main.mo (single-actor architecture). Creating a separate backend/migration.mo module may violate this constraint, even if imported into main.mo.",
       "evidence": [
-        "frontend/src/views/UserView.tsx",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend-file-summaries.txt"
+        "backend/migration.mo"
+      ]
+    },
+    {
+      "description": "BulkGeneratorView maps 'Not authorized' error to a custom message and checks available === 0 to override backend error messages with custom strings.",
+      "reason": "The spec only requires showing the backend error message in the modal. Custom error message mapping and special-casing for 'Not authorized' or available count were not requested.",
+      "evidence": [
+        "frontend/src/views/BulkGeneratorView.tsx"
+      ]
+    },
+    {
+      "description": "SingleGeneratorView maps 'Pool is empty' and 'Not authorized' to custom user-friendly strings instead of passing the backend message through directly.",
+      "reason": "The spec requires the modal to display the exact error message string from the backend. Custom mapping logic was not requested.",
+      "evidence": [
+        "frontend/src/views/SingleGeneratorView.tsx"
       ]
     }
   ],
-  "confidence": 0.45,
+  "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
+    "backend/migration.mo",
     "frontend-file-summaries.txt",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/views/UserView.tsx",
+    "frontend/src/views/BulkGeneratorView.tsx",
+    "frontend/src/views/SingleGeneratorView.tsx",
     "project_state.json"
   ]
 }

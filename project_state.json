@@ -1,16 +1,84 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 3,
-  "summary": "Project with admin panel backend fixes. User wants Motoko backend updated to properly handle all create/upload operations for all four admin sections: comment lists, app events, access keys, and music uploads. No UI changes needed — backend only. Full website feature sweep required after fix.",
+  "projectStateVersion": 9,
+  "summary": "Review Empire app with a Global Shared Master Comment Pool system. Features: atomic decrement operations, single generator (pulls one comment), bulk generator (batch with partial fulfillment), admin panel (manual entry + live inventory stats), and real-time count updates via polling. No authentication required.",
   "architectural_notes": [
     "Backend is Motoko (ICP). Admin panel has four sections: comment lists, app events, access keys, music uploads.",
-    "No UI changes should be made — all fixes are backend-only."
+    "No UI changes should be made — all fixes are backend-only.",
+    "App is called Review Empire with no user authentication.",
+    "Comment pool uses status-based model: each comment has commentId, text, status (available→used). Bulk generation is strict all-or-nothing (no partial fulfillment). Errors displayed via modal popup with OK button."
   ],
   "known_issues": [
-    "Backend does not support creating/uploading for comment lists, app events, access keys, or music uploads — returns 'Backend does not support creating X yet' errors."
+    "Backend does not support creating/uploading for comment lists, app events, access keys, or music uploads — returns 'Backend does not support creating X yet' errors.",
+    "Single generator returns a failed/silent error instead of a clear message when comment generation fails."
   ],
   "isFixRequest": true,
-  "existing_features": [],
+  "existing_features": [
+    {
+      "id": "feature-build-a-single-generator-ui-panel-that-displays-the-current-global-pool-inventory-count-polled-every-3-seconds-has-a-generate-one-button-that-calls-the-single-generator-backend-function-shows-the-returned-comment-in-a-copyable-text-area-and-displays-an-error-message-if-the-pool-is-empty",
+      "title": "Build a Single Generator UI panel that displays the current global pool inventory count (polled every 3 seconds), has a 'Generate One' button that calls the single generator backend function, shows the returned comment in a copyable text area, and displays an error message if the pool is empty.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-a-bulk-generator-ui-panel-that-displays-the-current-global-pool-inventory-count-polled-every-3-seconds-has-a-numeric-input-for-batch-size-a-generate-bulk-button-and-after-generation-displays-the-list-of-dispensed-comments-in-a-copyable-area-how-many-were-dispensed-how-many-were-requested-and-a-clear-message-if-partial-fulfillment-occurred",
+      "title": "Build a Bulk Generator UI panel that displays the current global pool inventory count (polled every 3 seconds), has a numeric input for batch size, a 'Generate Bulk' button, and after generation displays: the list of dispensed comments in a copyable area, how many were dispensed, how many were requested, and a clear message if partial fulfillment occurred.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-an-admin-pool-management-panel-accessible-within-the-existing-admin-view-that-shows-live-pool-stats-current-inventory-count-total-comments-in-pool-refreshed-via-polling-every-3-seconds-a-text-area-for-manually-entering-one-or-multiple-comment-strings-to-add-to-the-pool-and-a-submit-button-that-calls-the-backend-add-function-and-refreshes-stats-on-success",
+      "title": "Build an Admin Pool Management panel (accessible within the existing Admin view) that shows live pool stats (current inventory count, total comments in pool, refreshed via polling every 3 seconds), a text area for manually entering one or multiple comment strings to add to the pool, and a submit button that calls the backend add function and refreshes stats on success.",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-integrate-the-single-generator-bulk-generator-and-admin-pool-management-sections-into-the-existing-app-tab-navigation-structure-the-single-generator-and-bulk-generator-should-be-accessible-from-the-main-user-facing-navigation-the-admin-pool-management-panel-should-be-added-as-a-tab-within-the-existing-admin-view",
+      "title": "Integrate the Single Generator, Bulk Generator, and Admin Pool Management sections into the existing app tab/navigation structure. The Single Generator and Bulk Generator should be accessible from the main user-facing navigation. The Admin Pool Management panel should be added as a tab within the existing Admin view.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-singlegeneratorview-tsx-frontend-component-to-correctly-handle-the-error-result-returned-by-the-backend-generatesingle-function-when-the-backend-returns-an-err-variant-display-the-error-message-visibly-in-the-ui-instead-of-showing-a-blank-state-or-swallowing-the-error-silently",
+      "title": "Fix the `SingleGeneratorView.tsx` frontend component to correctly handle the error result returned by the backend `generateSingle` function. When the backend returns an `#err` variant, display the error message visibly in the UI instead of showing a blank state or swallowing the error silently.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-bulkgeneratorview-tsx-frontend-component-to-correctly-reflect-the-updated-pool-inventory-count-after-a-bulk-generation-request-after-generatebulk-returns-immediately-invalidate-or-refetch-the-pool-stats-query-so-the-displayed-inventory-count-accurately-shows-the-reduced-pool-size",
+      "title": "Fix the `BulkGeneratorView.tsx` frontend component to correctly reflect the updated pool inventory count after a bulk generation request. After `generateBulk` returns, immediately invalidate or refetch the pool stats query so the displayed inventory count accurately shows the reduced pool size.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-singlegeneratorview-tsx-to-display-a-modal-popup-with-an-ok-button-to-dismiss-when-generatesingle-returns-an-err-variant-the-modal-must-show-the-error-message-text-after-a-successful-generation-immediately-refetch-pool-stats-so-the-displayed-comments-left-x-count-is-accurate",
+      "title": "Update `SingleGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateSingle` returns an `#err` variant. The modal must show the error message text. After a successful generation, immediately refetch pool stats so the displayed 'Comments left: X' count is accurate.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-bulkgeneratorview-tsx-to-display-a-modal-popup-with-an-ok-button-to-dismiss-when-generatebulk-returns-an-err-variant-the-modal-must-show-the-error-message-e-g-only-x-comments-left-reduce-quantity-remove-all-partial-fulfillment-ui-messaging-after-any-generate-attempt-success-or-error-immediately-invalidate-or-refetch-the-pool-stats-query-so-comments-left-x-is-accurate",
+      "title": "Update `BulkGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateBulk` returns an `#err` variant. The modal must show the error message (e.g., 'Only X comments left. Reduce quantity.'). Remove all partial fulfillment UI messaging. After any generate attempt (success or error), immediately invalidate or refetch the pool stats query so 'Comments left: X' is accurate.",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "version": 1
+    }
+  ],
   "new_feature_requests": [
     {
       "id": "AR-1",
@@ -61,6 +129,116 @@
       "summary": "Audit and fix the Motoko backend actor to ensure all other backend-supported operations work correctly end-to-end: chat messages (addChatMessage, fetching messages), images (upload, list, tags), pricing (add, edit, delete, bulk upload), withdrawal requests (check, submit, list), and the midnight countdown — ensuring no operation returns a stub or unsupported error.",
       "reqIds": [
         "REQ-5"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Global shared master comment pool with atomic decrement operations to prevent race conditions",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Single Generator: pulls one comment at a time, atomically decrements pool count by 1",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Bulk Generator: decrements by exact batch size with partial fulfillment and user feedback on how many were dispensed vs requested",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Admin Panel: manual comment entry to add to pool, plus live inventory stats showing current counts",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Real-time count updates via polling across both generators and admin panel",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Implement a global shared master comment pool in the Motoko backend as a single stable data structure storing a list of comment strings and a total inventory count. All read/write operations on the pool must be atomic to prevent race conditions and double-dispensing.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Implement a Single Generator backend function that atomically pulls one comment from the global pool and decrements the pool count by exactly 1. Return an error if the pool is empty.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "Implement a Bulk Generator backend function that accepts a requested batch size, fulfills as many comments as are available (partial fulfillment), decrements the pool count by the number actually dispensed, and returns both the dispensed comments and metadata indicating how many were dispensed vs. how many were requested.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "Implement backend functions for the Admin Panel pool management: add one or multiple comment strings to the global pool (incrementing inventory count accordingly), and retrieve live pool stats including current inventory count and total comments stored.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "Fix the backend `generateSingle` (or equivalent) function in `backend/main.mo` so that when the global comment pool is empty or any error occurs during single comment generation, it returns a clear, structured error variant (e.g., `#err(\"Pool is empty\")`) instead of trapping or returning a silent/ambiguous failure. Ensure the happy path atomically removes the comment from the pool and returns it wrapped in an `#ok` result.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-18",
+      "summary": "Fix the backend `generateBulk` (or equivalent) function in `backend/main.mo` so that it atomically decrements the global pool inventory by the exact number of comments actually dispensed (supporting partial fulfillment). The function must update both the pool's comment list and its inventory count in a single atomic operation, ensuring no double-dispensing or stale counts after any bulk request.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-19",
+      "summary": "Refactor the backend comment pool in `backend/main.mo` to store each comment as a record with a unique `commentId` (Nat), `text` (Text), and `status` (`#available` or `#used`). Replace the existing flat list/count structure with this status-based stable store. Provide a migration that converts all existing pool comments to `#available` status so no data is lost.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-20",
+      "summary": "Rewrite the `generateSingle` function in `backend/main.mo` so it atomically selects the first `#available` comment, immediately sets its status to `#used` in the same synchronous operation, and returns `#ok(text)`. If no `#available` comment exists, return `#err(\"Pool is empty\")`. No two concurrent calls may receive the same `commentId`.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Rewrite the `generateBulk` function in `backend/main.mo` to implement strict all-or-nothing semantics. Count the number of `#available` comments. If the count is >= requested N: atomically mark exactly N comments `#used` and return `#ok([text])` with all N texts. If count < N: return `#err(\"Only \" # Nat.toText(count) # \" comments left. Reduce quantity.\")` and mark zero comments used. No partial fulfillment.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Update the `getPoolStats` backend function in `backend/main.mo` to return the count of comments with `status = #available` as the live inventory count, and the total number of comments (regardless of status) as the total pool size.",
+      "reqIds": [
+        "REQ-21"
       ],
       "status": "pending"
     }

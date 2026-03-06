@@ -1,172 +1,170 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Music, Music2, Shield, Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Music, VolumeX, MessageSquare, Radio, Upload, Shield, Zap, Layers } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import AdminView from './views/admin/AdminView';
 import UserView from './views/UserView';
 import LiveChecker from './views/LiveChecker';
 import { UploadView } from './views/UploadView';
-import { useGetSettings } from './hooks/useQueries';
+import AdminView from './views/admin/AdminView';
+import SingleGeneratorView from './views/SingleGeneratorView';
+import BulkGeneratorView from './views/BulkGeneratorView';
+import { useGetPublicSettings, useGetMusicUrl } from './hooks/useQueries';
+import { Toaster } from '@/components/ui/sonner';
 
-type Tab = 'comment' | 'live' | 'upload' | 'admin';
+type Tab = 'comment' | 'live' | 'upload' | 'admin' | 'single' | 'bulk';
 
-function getMidnightCountdown() {
-  const now = new Date();
-  const midnight = new Date();
-  midnight.setHours(24, 0, 0, 0); // next midnight
-  const diff = midnight.getTime() - now.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  const seconds = Math.floor((diff / 1000) % 60);
-  return { hours, minutes, seconds };
+const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'comment', label: 'Comment', icon: MessageSquare },
+  { id: 'single', label: 'Single Gen', icon: Zap },
+  { id: 'bulk', label: 'Bulk Gen', icon: Layers },
+  { id: 'live', label: 'Live', icon: Radio },
+  { id: 'upload', label: 'Upload', icon: Upload },
+  { id: 'admin', label: 'Admin', icon: Shield },
+];
+
+function CountdownBanner() {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [isActive, setIsActive] = useState(false);
+
+  useEffect(() => {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+
+    const update = () => {
+      const now = new Date();
+      const diff = midnight.getTime() - now.getTime();
+      if (diff <= 0) {
+        setTimeLeft('00:00:00');
+        setIsActive(false);
+        return;
+      }
+      setIsActive(true);
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(
+        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      );
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!isActive) return null;
+
+  return (
+    <div className="countdown-banner">
+      <span className="countdown-label">Resets in</span>
+      <span className="countdown-time">{timeLeft}</span>
+    </div>
+  );
 }
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('comment');
+  const { theme, setTheme } = useTheme();
   const [musicPlaying, setMusicPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
-  const { data: settings } = useGetSettings();
-
-  // Countdown to midnight
-  const [timeLeft, setTimeLeft] = useState(getMidnightCountdown);
+  const { data: publicSettings } = useGetPublicSettings();
+  const { data: musicUrl } = useGetMusicUrl();
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(getMidnightCountdown());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Music control
-  useEffect(() => {
-    if (settings?.bgMusicEnabled && settings?.musicFile) {
-      const url = settings.musicFile.getDirectURL();
+    if (musicUrl && publicSettings?.bgMusicEnabled) {
       if (!audioRef.current) {
-        audioRef.current = new Audio(url);
+        audioRef.current = new Audio(musicUrl);
         audioRef.current.loop = true;
-      }
-      if (musicPlaying) {
-        audioRef.current.play().catch(() => {});
       } else {
-        audioRef.current.pause();
+        audioRef.current.src = musicUrl;
       }
     }
-  }, [musicPlaying, settings]);
+  }, [musicUrl, publicSettings?.bgMusicEnabled]);
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'comment', label: 'Comment' },
-    { id: 'live', label: 'Live' },
-    { id: 'upload', label: 'Upload' },
-    { id: 'admin', label: 'Admin' },
-  ];
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
+    if (musicPlaying) {
+      audioRef.current.pause();
+      setMusicPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setMusicPlaying(true);
+    }
+  };
 
-  const isDark = resolvedTheme === 'dark';
-
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const appId = typeof window !== 'undefined' ? encodeURIComponent(window.location.hostname) : 'unknown-app';
 
   return (
-    <div className="min-h-screen app-bg-gradient flex flex-col">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Floating background shapes */}
       <div className="floating-shapes" aria-hidden="true">
-        <div className="shape" />
-        <div className="shape" />
-        <div className="shape" />
-      </div>
-
-      {/* Midnight Countdown Banner */}
-      <div className="relative z-10 w-full flex justify-center pt-3 px-4">
-        <div className="countdown-banner flex items-center gap-2 px-5 py-2 rounded-full">
-          <span className="countdown-label text-xs font-semibold uppercase tracking-widest opacity-70">
-            Midnight in
-          </span>
-          <div className="flex items-center gap-1">
-            {[
-              { v: timeLeft.hours, l: 'h' },
-              { v: timeLeft.minutes, l: 'm' },
-              { v: timeLeft.seconds, l: 's' },
-            ].map(({ v, l }, i) => (
-              <React.Fragment key={l}>
-                {i > 0 && <span className="countdown-sep font-mono font-bold opacity-50">:</span>}
-                <span className="countdown-digit font-mono font-bold text-sm">
-                  {pad(v)}<span className="text-xs opacity-60 ml-0.5">{l}</span>
-                </span>
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
+        <div className="shape shape-1" />
+        <div className="shape shape-2" />
+        <div className="shape shape-3" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 px-4 pt-3 pb-2">
-        <div className="max-w-2xl mx-auto">
-          <div className="space-card px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src="/assets/generated/app-avatar-icon.dim_128x128.png"
-                alt="Reviews World"
-                className="w-9 h-9 rounded-xl"
-              />
-              <div>
-                <h1 className="gradient-heading text-lg font-bold leading-tight">Reviews World</h1>
-                <p className="text-xs text-muted-foreground">Comment Tools</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Light/Dark Toggle */}
-              {mounted && (
-                <button
-                  onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary"
-                  title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                  aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                  {isDark ? <Sun size={16} /> : <Moon size={16} />}
-                </button>
-              )}
-              {/* Music toggle */}
+      <header className="sticky top-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <img src="/assets/generated/app-avatar-icon.dim_128x128.png" alt="Review Empire" className="w-8 h-8 rounded-lg" />
+            <span className="font-bold text-lg gradient-text hidden sm:block">Review Empire</span>
+          </div>
+
+          {/* Countdown */}
+          <CountdownBanner />
+
+          {/* Controls */}
+          <div className="flex items-center gap-2">
+            {publicSettings?.bgMusicEnabled && musicUrl && (
               <button
-                onClick={() => setMusicPlaying((p) => !p)}
-                className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-primary"
+                onClick={toggleMusic}
+                className="p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                 title={musicPlaying ? 'Pause music' : 'Play music'}
               >
-                {musicPlaying ? <Music2 size={16} /> : <Music size={16} />}
+                {musicPlaying ? <Music className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
-            </div>
+            )}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              title="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Tab Navigation */}
-      <nav className="relative z-10 px-4 py-2">
-        <div className="max-w-2xl mx-auto">
-          <div className="space-card p-1 flex gap-1">
-            {tabs.map((tab) => (
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        {/* Tab Navigation */}
+        <nav className="flex flex-wrap gap-1 p-1 bg-muted/20 rounded-xl border border-border/20 mb-6">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all flex-1 justify-center sm:flex-none ${
                   activeTab === tab.id
-                    ? 'gradient-button text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-primary/10'
+                    ? 'bg-accent text-accent-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
                 }`}
               >
-                {tab.id === 'admin' && <Shield size={12} className="inline mr-1" />}
-                {tab.label}
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
-            ))}
-          </div>
-        </div>
-      </nav>
+            );
+          })}
+        </nav>
 
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 px-4 py-2 pb-6">
-        <div className="max-w-2xl mx-auto">
+        {/* Tab Content */}
+        <div>
           {activeTab === 'comment' && <UserView />}
+          {activeTab === 'single' && <SingleGeneratorView />}
+          {activeTab === 'bulk' && <BulkGeneratorView />}
           {activeTab === 'live' && <LiveChecker />}
           {activeTab === 'upload' && <UploadView />}
           {activeTab === 'admin' && <AdminView />}
@@ -174,22 +172,22 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 px-4 py-4 text-center text-xs text-muted-foreground">
+      <footer className="border-t border-border/20 mt-12 py-6 text-center text-xs text-muted-foreground">
         <p>
-          © {new Date().getFullYear()} Reviews World · Built with{' '}
-          <span className="text-red-400">♥</span> using{' '}
+          © {new Date().getFullYear()} Review Empire · Built with{' '}
+          <span className="text-red-500">♥</span> using{' '}
           <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(
-              typeof window !== 'undefined' ? window.location.hostname : 'reviews-world'
-            )}`}
+            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${appId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary hover:underline"
+            className="text-accent hover:underline"
           >
             caffeine.ai
           </a>
         </p>
       </footer>
+
+      <Toaster />
     </div>
   );
 }

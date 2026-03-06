@@ -1,54 +1,74 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-03T02:42:59.157Z",
+  "generatedAt": "2026-03-03T06:48:00.054Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 5,
-    "implemented": 0,
+    "total": 6,
+    "implemented": 2,
     "items": [
       {
-        "id": "REQ-1",
-        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for comment lists — including creating new lists, adding templates, setting inventory counts, renaming, deleting, and locking/unlocking — so that no 'Backend does not support creating comment lists yet' errors are returned.",
+        "id": "REQ-18",
+        "summary": "Refactor the backend comment pool in `backend/main.mo` to store each comment as a record with a unique `commentId` (Nat), `text` (Text), and `status` (`#available` or `#used`). Replace the existing flat list/count structure with this status-based stable store. Provide a migration that converts all existing pool comments to `#available` status so no data is lost.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-2",
-        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for app events (live lists) — including creating new events, adding usernames in bulk, deleting events, and auto-importing parsed live list reports — so that all admin live list operations succeed.",
+        "id": "REQ-19",
+        "summary": "Rewrite the `generateSingle` function in `backend/main.mo` so it atomically selects the first `#available` comment, immediately sets its status to `#used` in the same synchronous operation, and returns `#ok(text)`. If no `#available` comment exists, return `#err(\"Pool is empty\")`. No two concurrent calls may receive the same `commentId`.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-3",
-        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement create/set/regenerate operations for the access key — so that setting and regenerating an access key from the admin settings panel persists and is validated correctly.",
+        "id": "REQ-20",
+        "summary": "Rewrite the `generateBulk` function in `backend/main.mo` to implement strict all-or-nothing semantics. Count the number of `#available` comments. If the count is >= requested N: atomically mark exactly N comments `#used` and return `#ok([text])` with all N texts. If count < N: return `#err(\"Only \" # Nat.toText(count) # \" comments left. Reduce quantity.\")` and mark zero comments used. No partial fulfillment.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-4",
-        "summary": "Fix the Motoko backend actor in backend/main.mo to fully implement music upload and settings operations — including enabling/disabling background music and storing/updating the music URL — so that all admin music/settings operations succeed.",
+        "id": "REQ-21",
+        "summary": "Update the `getPoolStats` backend function in `backend/main.mo` to return the count of comments with `status = #available` as the live inventory count, and the total number of comments (regardless of status) as the total pool size.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
-        "id": "REQ-5",
-        "summary": "Audit and fix the Motoko backend actor to ensure all other backend-supported operations work correctly end-to-end: chat messages (addChatMessage, fetching messages), images (upload, list, tags), pricing (add, edit, delete, bulk upload), withdrawal requests (check, submit, list), and the midnight countdown — ensuring no operation returns a stub or unsupported error.",
-        "status": "unknown",
-        "plannedFiles": [],
-        "matchedFiles": []
+        "id": "REQ-22",
+        "summary": "Update `SingleGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateSingle` returns an `#err` variant. The modal must show the error message text. After a successful generation, immediately refetch pool stats so the displayed 'Comments left: X' count is accurate.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/views/SingleGeneratorView.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/views/SingleGeneratorView.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-23",
+        "summary": "Update `BulkGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateBulk` returns an `#err` variant. The modal must show the error message (e.g., 'Only X comments left. Reduce quantity.'). Remove all partial fulfillment UI messaging. After any generate attempt (success or error), immediately invalidate or refetch the pool stats query so 'Comments left: X' is accurate.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/views/BulkGeneratorView.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/views/BulkGeneratorView.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
@@ -58,7 +78,8 @@
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/views/UserView.tsx",
+    "frontend/src/views/BulkGeneratorView.tsx",
+    "frontend/src/views/SingleGeneratorView.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

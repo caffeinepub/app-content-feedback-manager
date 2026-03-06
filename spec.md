@@ -1,13 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the Motoko backend (`backend/main.mo`) to fully implement all create/upload/settings operations across all four admin sections, eliminating all "does not support" stub errors.
+**Goal:** Refactor the comment pool to use a status-based record structure with atomic dispensing logic, and add modal error handling in the frontend for both single and bulk generators.
 
 **Planned changes:**
-- Implement comment list operations in the backend: create list, add templates, set inventory count, rename, delete, lock/unlock
-- Implement app event (live list) operations: create event, bulk upload usernames, delete event, auto-import parsed live list reports
-- Implement access key operations: set access key, regenerate access key, validate access key on comment generation
-- Implement music/settings operations: store and update background music URL, toggle music enabled/disabled state
-- Audit and fix all remaining backend operations: chat messages (add/fetch), images (upload/list/tags), pricing (add/edit/delete/bulk upload), withdrawal requests (submit/list), and countdown/settings data — ensuring no function returns a placeholder or unsupported error
+- Refactor the backend comment pool to store each comment as a record with a unique `commentId`, `text`, and `status` (`#available` or `#used`), migrating all existing comments to `#available` status
+- Rewrite `generateSingle` to atomically select and mark one `#available` comment as `#used`, returning `#ok(text)` or `#err("Pool is empty")`
+- Rewrite `generateBulk` with strict all-or-nothing semantics: mark N comments used if enough are available, otherwise return an error with the remaining count and mark zero comments used
+- Update `getPoolStats` to return `{ available: Nat; total: Nat }` reflecting only `#available` comments for the live count
+- Update `SingleGeneratorView.tsx` to show a modal popup with an OK button when `generateSingle` returns an error, and refetch pool stats after a successful generation
+- Update `BulkGeneratorView.tsx` to show a modal popup with an OK button when `generateBulk` returns an error, remove any partial fulfillment UI messaging, and refetch pool stats after every generate attempt
 
-**User-visible outcome:** All admin panel operations across comment lists, live lists, access key settings, and music/settings will work end-to-end without errors. All other website features (chat, images, pricing, withdrawals, countdown) will also function correctly with no stub or "not supported" responses from the backend.
+**User-visible outcome:** Users see a modal with the exact error message when generation fails (empty pool or insufficient comments), and the "Comments left" count updates immediately after every generate action. No silent failures or partial fulfillment messages appear.

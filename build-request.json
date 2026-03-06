@@ -1,12 +1,12 @@
 {
   "kind": "build_request",
-  "title": "Fix Motoko backend to support all create/upload operations across all four admin sections",
-  "projectName": "Content & Feedback Manager",
-  "priority": "high",
+  "title": "Atomic status-based comment pool with modal error handling",
+  "projectName": "Review Empire",
+  "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-1",
-      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for comment lists — including creating new lists, adding templates, setting inventory counts, renaming, deleting, and locking/unlocking — so that no 'Backend does not support creating comment lists yet' errors are returned.",
+      "id": "REQ-18",
+      "text": "Refactor the backend comment pool in `backend/main.mo` to store each comment as a record with a unique `commentId` (Nat), `text` (Text), and `status` (`#available` or `#used`). Replace the existing flat list/count structure with this status-based stable store. Provide a migration that converts all existing pool comments to `#available` status so no data is lost.",
       "target": "backend",
       "source": {
         "messageIds": [
@@ -14,21 +14,19 @@
           "msg-2"
         ],
         "quotes": [
-          "Backend does not support creating comment lists yet.",
-          "All of them"
+          "Each comment stored with a unique commentId, text, and status (available → used)",
+          "Existing pool data preserved and migrated to the new status-based structure"
         ]
       },
       "acceptanceCriteria": [
-        "Creating a new comment list via the admin panel succeeds without error",
-        "Adding templates to a comment list persists and returns correctly",
-        "Setting inventory count on a list persists correctly",
-        "Renaming, deleting, and locking/unlocking comment lists all work without errors",
-        "No 'does not support' error messages are returned for any comment list operation"
+        "Each comment in the pool has a unique commentId (Nat), text (Text), and status (#available | #used).",
+        "All previously stored comments are migrated to #available status on upgrade.",
+        "The stable store compiles without errors."
       ]
     },
     {
-      "id": "REQ-2",
-      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/upload operations for app events (live lists) — including creating new events, adding usernames in bulk, deleting events, and auto-importing parsed live list reports — so that all admin live list operations succeed.",
+      "id": "REQ-19",
+      "text": "Rewrite the `generateSingle` function in `backend/main.mo` so it atomically selects the first `#available` comment, immediately sets its status to `#used` in the same synchronous operation, and returns `#ok(text)`. If no `#available` comment exists, return `#err(\"Pool is empty\")`. No two concurrent calls may receive the same `commentId`.",
       "target": "backend",
       "source": {
         "messageIds": [
@@ -36,21 +34,19 @@
           "msg-2"
         ],
         "quotes": [
-          "All of them",
-          "all four admin section method also check full website features ensure all work smoothly"
+          "generateSingle: atomically selects 1 available comment, marks it used, returns it — or returns an error if pool is empty",
+          "Concurrency-safe: two simultaneous requests can never receive the same commentId"
         ]
       },
       "acceptanceCriteria": [
-        "Creating a new app event/live list entry via the admin panel persists correctly",
-        "Bulk uploading usernames to an event succeeds and data is stored",
-        "Deleting an event removes it from storage",
-        "Auto-importing a parsed live list report populates the backend correctly",
-        "No 'does not support' errors are returned for any app event operation"
+        "generateSingle returns #ok(text) and marks exactly one comment #used atomically.",
+        "generateSingle returns #err(\"Pool is empty\") when no #available comments exist.",
+        "Two simultaneous calls never return the same commentId."
       ]
     },
     {
-      "id": "REQ-3",
-      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement create/set/regenerate operations for the access key — so that setting and regenerating an access key from the admin settings panel persists and is validated correctly.",
+      "id": "REQ-20",
+      "text": "Rewrite the `generateBulk` function in `backend/main.mo` to implement strict all-or-nothing semantics. Count the number of `#available` comments. If the count is >= requested N: atomically mark exactly N comments `#used` and return `#ok([text])` with all N texts. If count < N: return `#err(\"Only \" # Nat.toText(count) # \" comments left. Reduce quantity.\")` and mark zero comments used. No partial fulfillment.",
       "target": "backend",
       "source": {
         "messageIds": [
@@ -58,70 +54,94 @@
           "msg-2"
         ],
         "quotes": [
-          "All of them",
-          "all four admin section method also check full website features ensure all work smoothly"
+          "generateBulk(n): strict all-or-nothing — if remaining >= N, marks all N as used atomically; if remaining < N, returns error with count remaining",
+          "If no: return error 'Only X comments left. Reduce quantity.' with zero dispensed"
         ]
       },
       "acceptanceCriteria": [
-        "Setting a new access key from admin settings persists in backend state",
-        "Regenerating the access key produces a new value and persists it",
-        "The stored access key is correctly validated when users attempt to generate comments",
-        "No 'does not support' errors are returned for access key operations"
+        "generateBulk(n) returns #ok([text]) with exactly n items when n or more available comments exist.",
+        "generateBulk(n) returns #err(\"Only X comments left. Reduce quantity.\") when fewer than n available comments exist.",
+        "On error, zero comments are marked used.",
+        "All N comments are marked used in a single atomic operation with no possibility of double-dispensing."
       ]
     },
     {
-      "id": "REQ-4",
-      "text": "Fix the Motoko backend actor in backend/main.mo to fully implement music upload and settings operations — including enabling/disabling background music and storing/updating the music URL — so that all admin music/settings operations succeed.",
+      "id": "REQ-21",
+      "text": "Update the `getPoolStats` backend function in `backend/main.mo` to return the count of comments with `status = #available` as the live inventory count, and the total number of comments (regardless of status) as the total pool size.",
       "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Inventory display: After each generation, update 'Comments left: X' from backend."
+        ]
+      },
+      "acceptanceCriteria": [
+        "getPoolStats returns { available: Nat; total: Nat } where available reflects only #available comments.",
+        "available count decreases by 1 after a successful generateSingle call.",
+        "available count decreases by N after a successful generateBulk(N) call.",
+        "available count is unchanged after a failed generateBulk call."
+      ]
+    },
+    {
+      "id": "REQ-22",
+      "text": "Update `SingleGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateSingle` returns an `#err` variant. The modal must show the error message text. After a successful generation, immediately refetch pool stats so the displayed 'Comments left: X' count is accurate.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1",
           "msg-2"
         ],
         "quotes": [
-          "All of them",
-          "all four admin section method also check full website features ensure all work smoothly"
+          "Modal popup (with OK button) for all 'no comments' and 'not enough comments' errors on both Single and Bulk generators",
+          "'Comments left: X' refreshed immediately after every generate action"
         ]
       },
       "acceptanceCriteria": [
-        "Uploading or updating the background music URL via admin settings persists correctly",
-        "Toggling background music enabled/disabled state persists correctly",
-        "The frontend background music hook reads the correct state from the backend",
-        "No 'does not support' errors are returned for music/settings operations"
+        "A modal with an OK button appears when generateSingle returns an error.",
+        "The modal displays the exact error message string from the backend.",
+        "Clicking OK dismisses the modal.",
+        "The 'Comments left' count updates immediately after a successful generate.",
+        "No blank/silent failure state is shown to the user."
       ]
     },
     {
-      "id": "REQ-5",
-      "text": "Audit and fix the Motoko backend actor to ensure all other backend-supported operations work correctly end-to-end: chat messages (addChatMessage, fetching messages), images (upload, list, tags), pricing (add, edit, delete, bulk upload), withdrawal requests (check, submit, list), and the midnight countdown — ensuring no operation returns a stub or unsupported error.",
-      "target": "backend",
+      "id": "REQ-23",
+      "text": "Update `BulkGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateBulk` returns an `#err` variant. The modal must show the error message (e.g., 'Only X comments left. Reduce quantity.'). Remove all partial fulfillment UI messaging. After any generate attempt (success or error), immediately invalidate or refetch the pool stats query so 'Comments left: X' is accurate.",
+      "target": "frontend",
       "source": {
         "messageIds": [
+          "msg-1",
           "msg-2"
         ],
         "quotes": [
-          "check full website features ensure all work smoothly"
+          "Modal popup (with OK button) for all 'no comments' and 'not enough comments' errors on both Single and Bulk generators",
+          "No partial fulfillment messaging",
+          "'Comments left: X' refreshed immediately after every generate action"
         ]
       },
       "acceptanceCriteria": [
-        "Chat messages can be added and fetched without errors",
-        "Images can be uploaded with name and tags and listed correctly",
-        "Pricing entries can be added, edited, deleted, and bulk uploaded",
-        "Withdrawal requests can be submitted and listed by admin",
-        "Countdown and settings data are returned correctly by the backend",
-        "No backend function returns a placeholder or 'not supported' error"
+        "A modal with an OK button appears when generateBulk returns an error.",
+        "The modal shows the backend error message text.",
+        "Clicking OK dismisses the modal.",
+        "No partial fulfillment message or 'X of Y dispensed' text is shown.",
+        "The 'Comments left' count updates immediately after every generate attempt."
       ]
     }
   ],
   "constraints": [
-    "No frontend UI changes — backend Motoko code only",
-    "All logic must remain in a single actor in backend/main.mo",
-    "Do not change existing data type definitions unless strictly required to fix a broken operation"
+    "All Motoko logic must remain in backend/main.mo (single-actor architecture).",
+    "Existing pool comment text data must be preserved through migration — no comments may be silently dropped.",
+    "Do not modify any file under frontend/src/hooks/ that is listed as immutable (useInternetIdentity.ts, useActor.ts) or frontend/src/main.tsx or frontend/src/components/ui.",
+    "generateBulk must be strictly all-or-nothing — no partial fulfillment is allowed."
   ],
   "nonGoals": [
-    "Any frontend UI modifications",
-    "Adding new frontend features or views",
-    "Changing the admin authentication flow",
-    "Adding new data types or features not already present in the codebase"
+    "Partial fulfillment mode for bulk generation.",
+    "Per-user or per-device comment reservation (reservedBy/reservedAt fields).",
+    "Authentication or access control changes.",
+    "Changes to any admin panel features beyond pool stats reflecting the new available count.",
+    "Any other backend function changes not directly related to the comment pool."
   ],
   "imageRequirements": {
     "required": [],

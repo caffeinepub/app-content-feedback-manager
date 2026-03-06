@@ -5,11 +5,12 @@ import {
   useAddCommentList,
   useRenameCommentList,
   useDeleteCommentList,
-  useAddTemplatesToList,
-  useToggleListLock,
+  useAddTemplatesToCommentList,
   useGetListMetrics,
   useGetInventoryCount,
   useSetInventoryCount,
+  useLockCommentList,
+  useUnlockCommentList,
 } from '../../hooks/useQueries';
 import { MetricsDonutChart } from '../../components/MetricsDonutChart';
 import type { CommentList } from '../../backend';
@@ -32,7 +33,7 @@ function InventoryRow({ listId }: { listId: string }) {
   const handleSave = async () => {
     const num = parseInt(value, 10);
     if (isNaN(num) || num < 0) return;
-    await setInventory.mutateAsync({ commentListId: listId, count: BigInt(num) });
+    await setInventory.mutateAsync({ listId, count: BigInt(num) });
     setEditing(false);
   };
 
@@ -88,8 +89,9 @@ export default function AdminComments() {
   const createList = useAddCommentList();
   const renameList = useRenameCommentList();
   const deleteList = useDeleteCommentList();
-  const addTemplates = useAddTemplatesToList();
-  const toggleLock = useToggleListLock();
+  const addTemplates = useAddTemplatesToCommentList();
+  const lockList = useLockCommentList();
+  const unlockList = useUnlockCommentList();
 
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newSuffix, setNewSuffix] = useState('');
@@ -117,9 +119,8 @@ export default function AdminComments() {
   const handleRename = async (list: CommentList) => {
     setError(null);
     if (!editName.trim()) return;
-    const newId = slugify(editName);
     try {
-      await renameList.mutateAsync({ oldId: list.id, newId, newDisplayName: editName.trim() });
+      await renameList.mutateAsync({ id: list.id, newDisplayName: editName.trim() });
       setEditingId(null);
       setEditName('');
     } catch (err: unknown) {
@@ -142,17 +143,21 @@ export default function AdminComments() {
     if (!templateText.trim()) return;
     const templates = templateText.split('\n').map((t) => t.trim()).filter(Boolean);
     try {
-      await addTemplates.mutateAsync({ listId, templates });
+      await addTemplates.mutateAsync({ id: listId, templates });
       setTemplateText('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to add templates');
     }
   };
 
-  const handleToggleLock = async (listId: string) => {
+  const handleToggleLock = async (list: CommentList) => {
     setError(null);
     try {
-      await toggleLock.mutateAsync(listId);
+      if (list.locked) {
+        await unlockList.mutateAsync(list.id);
+      } else {
+        await lockList.mutateAsync(list.id);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to toggle lock');
     }
@@ -319,8 +324,8 @@ export default function AdminComments() {
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleToggleLock(list.id)}
-                        disabled={toggleLock.isPending}
+                        onClick={() => handleToggleLock(list)}
+                        disabled={lockList.isPending || unlockList.isPending}
                         className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
                         style={{ background: 'oklch(0.75 0.18 65 / 0.12)', color: 'oklch(0.82 0.20 70)' }}
                       >

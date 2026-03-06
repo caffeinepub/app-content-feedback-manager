@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Upload, DollarSign, Edit2, Save, X } from 'lucide-react';
 import {
-  usePriceList,
-  useSetPriceEntry,
+  useGetPriceList,
+  useAddPriceEntry,
+  useEditPriceEntry,
   useDeletePriceEntry,
-  useBulkSetPrices,
+  useBulkUploadPrices,
 } from '../../hooks/useQueries';
 import type { PriceEntry } from '../../backend';
 
 export default function AdminPricing() {
-  const { data: priceList = [], isLoading } = usePriceList();
-  const setPriceEntry = useSetPriceEntry();
+  const { data: priceList = [], isLoading } = useGetPriceList();
+  const addPriceEntry = useAddPriceEntry();
+  const editPriceEntry = useEditPriceEntry();
   const deletePriceEntry = useDeletePriceEntry();
-  const bulkSetPrices = useBulkSetPrices();
+  const bulkUploadPrices = useBulkUploadPrices();
 
   const [appName, setAppName] = useState('');
   const [price, setPrice] = useState('');
@@ -35,13 +37,13 @@ export default function AdminPricing() {
       return;
     }
     try {
-      await setPriceEntry.mutateAsync({ appName: appName.trim(), pricePerEntry: priceNum, isActive });
+      await addPriceEntry.mutateAsync({ appName: appName.trim(), pricePerEntry: priceNum, isActive });
       setAppName('');
       setPrice('');
       setIsActive(true);
       setSuccess('Price entry added');
-    } catch (err: any) {
-      setError(err.message || 'Failed to add price entry');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add price entry');
     }
   };
 
@@ -53,10 +55,10 @@ export default function AdminPricing() {
       return;
     }
     try {
-      await setPriceEntry.mutateAsync({ appName: entry.appName, pricePerEntry: priceNum, isActive: editActive });
+      await editPriceEntry.mutateAsync({ appName: entry.appName, pricePerEntry: priceNum, isActive: editActive });
       setEditingApp(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update price entry');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update price entry');
     }
   };
 
@@ -65,8 +67,8 @@ export default function AdminPricing() {
     if (!confirm(`Delete price entry for "${name}"?`)) return;
     try {
       await deletePriceEntry.mutateAsync(name);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete price entry');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete price entry');
     }
   };
 
@@ -76,7 +78,7 @@ export default function AdminPricing() {
     if (!bulkText.trim()) return;
 
     const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
-    const entries: Array<[string, number, boolean]> = [];
+    const entries: PriceEntry[] = [];
 
     for (const line of lines) {
       const parts = line.split(',').map(p => p.trim());
@@ -91,15 +93,15 @@ export default function AdminPricing() {
         setError(`Invalid data in line: "${line}"`);
         return;
       }
-      entries.push([name, priceVal, activeVal]);
+      entries.push({ appName: name, pricePerEntry: priceVal, isActive: activeVal });
     }
 
     try {
-      await bulkSetPrices.mutateAsync(entries);
+      await bulkUploadPrices.mutateAsync(entries);
       setBulkText('');
       setSuccess(`${entries.length} price entries uploaded`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to bulk upload prices');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to bulk upload prices');
     }
   };
 
@@ -152,22 +154,22 @@ export default function AdminPricing() {
                 type="checkbox"
                 checked={isActive}
                 onChange={e => setIsActive(e.target.checked)}
-                className="rounded"
+                className="hidden"
               />
-              Active
+              {isActive ? '✓ Active' : 'Inactive'}
             </label>
           </div>
           <button
             type="submit"
-            disabled={setPriceEntry.isPending || !appName.trim() || !price}
+            disabled={addPriceEntry.isPending || !appName.trim() || !price}
             className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
             style={{
               background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
               color: 'oklch(0.08 0.02 260)',
-              opacity: (setPriceEntry.isPending || !appName.trim() || !price) ? 0.5 : 1,
+              opacity: (addPriceEntry.isPending || !appName.trim() || !price) ? 0.5 : 1,
             }}
           >
-            {setPriceEntry.isPending ? (
+            {addPriceEntry.isPending ? (
               <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Plus className="w-3.5 h-3.5" />
@@ -177,11 +179,11 @@ export default function AdminPricing() {
         </form>
       </div>
 
-      {/* Price List Table */}
+      {/* Price List */}
       <div className="glass-card p-5 rounded-2xl">
         <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2" style={{ color: 'oklch(0.78 0.22 188)' }}>
           <DollarSign className="w-4 h-4" />
-          Price List ({priceList.length} entries)
+          Price List ({priceList.length})
         </h3>
         {isLoading ? (
           <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.50 0.04 260)' }}>Loading...</div>
@@ -189,42 +191,46 @@ export default function AdminPricing() {
           <div className="text-center py-4 font-rajdhani text-sm" style={{ color: 'oklch(0.45 0.04 260)' }}>No price entries yet</div>
         ) : (
           <div className="space-y-2">
-            {priceList.map(entry => (
+            {priceList.map((entry: PriceEntry) => (
               <div
                 key={entry.appName}
-                className="flex items-center gap-2 p-3 rounded-xl"
-                style={{ background: 'oklch(0.10 0.025 260 / 0.6)', border: '1px solid oklch(0.22 0.05 260 / 0.4)' }}
+                className="rounded-xl p-3 flex items-center gap-2"
+                style={{ background: 'oklch(0.10 0.025 260 / 0.6)', border: '1px solid oklch(0.22 0.05 260 / 0.5)' }}
               >
                 {editingApp === entry.appName ? (
                   <>
-                    <div className="flex-1 font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.85 0.05 80)' }}>{entry.appName}</div>
-                    <input
-                      type="number"
-                      value={editPrice}
-                      onChange={e => setEditPrice(e.target.value)}
-                      step="0.01"
-                      min="0"
-                      className="glass-input w-24 px-2 py-1 text-sm"
-                    />
-                    <label className="flex items-center gap-1 text-xs font-rajdhani cursor-pointer" style={{ color: 'oklch(0.60 0.04 260)' }}>
+                    <div className="flex-1 flex gap-2">
                       <input
-                        type="checkbox"
-                        checked={editActive}
-                        onChange={e => setEditActive(e.target.checked)}
+                        type="number"
+                        value={editPrice}
+                        onChange={e => setEditPrice(e.target.value)}
+                        step="0.01"
+                        min="0"
+                        className="glass-input flex-1 px-2 py-1 text-sm"
                       />
-                      Active
-                    </label>
+                      <label
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-rajdhani cursor-pointer"
+                        style={{
+                          background: editActive ? 'oklch(0.65 0.18 145 / 0.15)' : 'oklch(0.14 0.03 260 / 0.6)',
+                          border: `1px solid ${editActive ? 'oklch(0.65 0.18 145 / 0.3)' : 'oklch(0.28 0.06 260 / 0.4)'}`,
+                          color: editActive ? 'oklch(0.72 0.20 145)' : 'oklch(0.55 0.04 260)',
+                        }}
+                      >
+                        <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} className="hidden" />
+                        {editActive ? '✓' : '✗'}
+                      </label>
+                    </div>
                     <button
                       onClick={() => handleEdit(entry)}
-                      disabled={setPriceEntry.isPending}
-                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      disabled={editPriceEntry.isPending}
+                      className="p-1.5 rounded-lg"
                       style={{ background: 'oklch(0.65 0.18 145 / 0.2)', color: 'oklch(0.72 0.20 145)' }}
                     >
                       <Save className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setEditingApp(null)}
-                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      className="p-1.5 rounded-lg"
                       style={{ color: 'oklch(0.55 0.04 260)' }}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -236,21 +242,20 @@ export default function AdminPricing() {
                       <div className="font-rajdhani font-600 text-sm truncate" style={{ color: 'oklch(0.85 0.05 80)' }}>{entry.appName}</div>
                       <div className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>
                         ₹{entry.pricePerEntry.toFixed(2)} per entry
+                        <span
+                          className="ml-2 px-1.5 py-0.5 rounded-full text-xs"
+                          style={{
+                            background: entry.isActive ? 'oklch(0.65 0.18 145 / 0.12)' : 'oklch(0.55 0.22 25 / 0.12)',
+                            color: entry.isActive ? 'oklch(0.72 0.20 145)' : 'oklch(0.65 0.22 25)',
+                          }}
+                        >
+                          {entry.isActive ? 'Active' : 'Inactive'}
+                        </span>
                       </div>
                     </div>
-                    <span
-                      className="text-xs font-orbitron font-bold px-2 py-0.5 rounded-full"
-                      style={{
-                        background: entry.isActive ? 'oklch(0.65 0.18 145 / 0.15)' : 'oklch(0.55 0.22 25 / 0.15)',
-                        color: entry.isActive ? 'oklch(0.72 0.20 145)' : 'oklch(0.65 0.22 25)',
-                        border: `1px solid ${entry.isActive ? 'oklch(0.65 0.18 145 / 0.3)' : 'oklch(0.55 0.22 25 / 0.3)'}`,
-                      }}
-                    >
-                      {entry.isActive ? 'Active' : 'Inactive'}
-                    </span>
                     <button
                       onClick={() => { setEditingApp(entry.appName); setEditPrice(String(entry.pricePerEntry)); setEditActive(entry.isActive); }}
-                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      className="p-1.5 rounded-lg"
                       style={{ background: 'oklch(0.70 0.20 185 / 0.12)', color: 'oklch(0.78 0.22 188)' }}
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -258,7 +263,7 @@ export default function AdminPricing() {
                     <button
                       onClick={() => handleDelete(entry.appName)}
                       disabled={deletePriceEntry.isPending}
-                      className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                      className="p-1.5 rounded-lg"
                       style={{ background: 'oklch(0.55 0.22 25 / 0.12)', color: 'oklch(0.65 0.22 25)' }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -289,15 +294,15 @@ export default function AdminPricing() {
         />
         <button
           onClick={handleBulkUpload}
-          disabled={bulkSetPrices.isPending || !bulkText.trim()}
+          disabled={bulkUploadPrices.isPending || !bulkText.trim()}
           className="px-4 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift flex items-center gap-2"
           style={{
             background: 'linear-gradient(135deg, oklch(0.70 0.20 185), oklch(0.75 0.18 65))',
             color: 'oklch(0.08 0.02 260)',
-            opacity: (bulkSetPrices.isPending || !bulkText.trim()) ? 0.5 : 1,
+            opacity: (bulkUploadPrices.isPending || !bulkText.trim()) ? 0.5 : 1,
           }}
         >
-          {bulkSetPrices.isPending ? (
+          {bulkUploadPrices.isPending ? (
             <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
           ) : (
             <Upload className="w-3.5 h-3.5" />

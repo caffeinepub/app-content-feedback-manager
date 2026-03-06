@@ -1,24 +1,33 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useActor } from './useActor';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useActor } from "./useActor";
 import type {
   CommentList,
   AppEvent,
   ChatMessage,
   ImageMeta,
   Settings,
-  PublicSettings,
   PriceEntry,
+  AllEarningsSummary,
   ListMetrics,
-  WithdrawalRequest,
+  BulkCommentsResult,
+  GlobalCommentPoolStats,
   AppImport,
-} from '../backend';
+  ImportSummary,
+  WithdrawalRequest,
+  WithdrawalStatus,
+  UserProfile,
+  CountdownState,
+  SingleGlobalCommentResult,
+  AppEventWithImportDate,
+  PublicSettings,
+} from "../backend";
 
-// ─── Comment Lists ────────────────────────────────────────────────────────────
+// ── Comment Lists ─────────────────────────────────────────────────────────────
 
 export function useGetAllCommentLists() {
   const { actor, isFetching } = useActor();
   return useQuery<CommentList[]>({
-    queryKey: ['commentLists'],
+    queryKey: ["commentLists"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllCommentLists();
@@ -27,13 +36,13 @@ export function useGetAllCommentLists() {
   });
 }
 
-// Alias
+// Backward-compatibility alias
 export const useCommentLists = useGetAllCommentLists;
 
 export function useGetCommentList(id: string) {
   const { actor, isFetching } = useActor();
   return useQuery<CommentList | null>({
-    queryKey: ['commentList', id],
+    queryKey: ["commentList", id],
     queryFn: async () => {
       if (!actor) return null;
       return actor.getCommentList(id);
@@ -42,33 +51,67 @@ export function useGetCommentList(id: string) {
   });
 }
 
-export function useAddCommentList() {
+export function useCreateCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { id: string; displayName: string; suffix: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.createCommentList(args.id, args.displayName, args.suffix);
+    mutationFn: async ({
+      id,
+      displayName,
+      suffix,
+    }: {
+      id: string;
+      displayName: string;
+      suffix: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.createCommentList(id, displayName, suffix);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
 
-export function useDeleteCommentList() {
+// Backward-compatibility alias
+export const useAddCommentList = useCreateCommentList;
+
+export function useAddTemplatesToCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (listId: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.deleteCommentList(listId);
+    mutationFn: async ({
+      id,
+      templates,
+    }: {
+      id: string;
+      templates: string[];
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.addTemplatesToCommentList(id, templates);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+    },
+  });
+}
+
+export function useSetCommentListTemplates() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      templates,
+    }: {
+      id: string;
+      templates: string[];
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setCommentListTemplates(id, templates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
@@ -77,29 +120,61 @@ export function useRenameCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { oldId: string; newId: string; newDisplayName: string }) => {
-      if (!actor) throw new Error('Actor not available');
-      // Backend renameCommentList only updates displayName, id stays the same
-      return actor.renameCommentList(args.oldId, args.newDisplayName);
+    mutationFn: async ({
+      id,
+      newDisplayName,
+    }: {
+      id: string;
+      newDisplayName: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.renameCommentList(id, newDisplayName);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
 
-export function useAddTemplatesToList() {
+export function useDeleteCommentList() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { listId: string; templates: string[] }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.addTemplatesToCommentList(args.listId, args.templates);
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.deleteCommentList(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    },
+  });
+}
+
+export function useLockCommentList() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.lockCommentList(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+    },
+  });
+}
+
+export function useUnlockCommentList() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.unlockCommentList(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
@@ -108,51 +183,237 @@ export function useToggleListLock() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (listId: string) => {
-      if (!actor) throw new Error('Actor not available');
-      // Fetch current state to determine lock/unlock
-      const list = await actor.getCommentList(listId);
-      if (!list) throw new Error('Comment list not found');
-      if (list.locked) {
-        return actor.unlockCommentList(listId);
+    mutationFn: async ({ id, locked }: { id: string; locked: boolean }) => {
+      if (!actor) throw new Error("Actor not available");
+      if (locked) {
+        return actor.unlockCommentList(id);
       } else {
-        return actor.lockCommentList(listId);
+        return actor.lockCommentList(id);
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
+      queryClient.invalidateQueries({ queryKey: ["commentLists"] });
     },
   });
 }
 
-export function useGetListMetrics() {
+export function useResetUsedTemplates() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (listId: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.resetUsedTemplates(listId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+    },
+  });
+}
+
+// ── Inventory ─────────────────────────────────────────────────────────────────
+
+export function useGetAllInventory() {
   const { actor, isFetching } = useActor();
-  return useQuery<ListMetrics[]>({
-    queryKey: ['listMetrics'],
+  return useQuery<[string, bigint][]>({
+    queryKey: ["inventory"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getListMetrics();
+      return actor.getAllInventory();
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-// Alias for backward compat
-export const useCommentListsOrder = () =>
-  useQuery<string[]>({
-    queryKey: ['commentListsOrder'],
-    queryFn: async () => [],
-    enabled: false,
+export function useGetInventoryCount(listId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<bigint>({
+    queryKey: ["inventoryCount", listId],
+    queryFn: async () => {
+      if (!actor) return BigInt(0);
+      return actor.getInventoryCount(listId);
+    },
+    enabled: !!actor && !isFetching && !!listId,
   });
+}
 
-export const useGetCommentListsOrder = useCommentListsOrder;
+export function useSetInventoryCount() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      listId,
+      count,
+    }: {
+      listId: string;
+      count: bigint;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setInventoryCount(listId, count);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    },
+  });
+}
 
-// ─── App Events ───────────────────────────────────────────────────────────────
+// ── Claim Comment ─────────────────────────────────────────────────────────────
+
+export function useClaimComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      listId,
+      username,
+    }: {
+      listId: string;
+      username: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.claimComment(listId, username);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+    },
+  });
+}
+
+// ── Bulk Comments ─────────────────────────────────────────────────────────────
+
+export function useGetBulkComments() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      listId,
+      count,
+    }: {
+      listId: string;
+      count: bigint;
+    }): Promise<BulkCommentsResult> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getBulkComments(listId, count);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
+    },
+  });
+}
+
+// ── Global Comment Pool ───────────────────────────────────────────────────────
+
+export function useGetGlobalCommentPoolStats() {
+  const { actor, isFetching } = useActor();
+  return useQuery<GlobalCommentPoolStats>({
+    queryKey: ["globalCommentPoolStats"],
+    queryFn: async () => {
+      if (!actor)
+        return {
+          totalTemplates: BigInt(0),
+          templatesRemaining: BigInt(0),
+          totalClaimed: BigInt(0),
+          batchSupport: false,
+        };
+      return actor.getGlobalCommentPoolStats();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 3000,
+  });
+}
+
+// New hook for the status-based pool stats (available/total)
+export function useGetPoolStats() {
+  const { actor, isFetching } = useActor();
+  return useQuery<{ totalPoolSize: bigint; availableCount: bigint }>({
+    queryKey: ["poolStats"],
+    queryFn: async () => {
+      if (!actor)
+        return { totalPoolSize: BigInt(0), availableCount: BigInt(0) };
+      return actor.getPoolStats();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 3000,
+  });
+}
+
+export function useGenerateSingle() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<string> => {
+      if (!actor) throw new Error("Actor not available");
+      const result: SingleGlobalCommentResult = await actor.generateSingle();
+      if (result.__kind__ === "err") {
+        throw new Error(result.err);
+      }
+      return result.ok;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["poolStats"] });
+      queryClient.invalidateQueries({ queryKey: ["globalCommentPoolStats"] });
+    },
+  });
+}
+
+// Updated to use the new atomic generateBulk endpoint (strict all-or-nothing)
+export function useGenerateBulkGlobal() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (count: bigint): Promise<string[]> => {
+      if (!actor) throw new Error("Actor not available");
+      const result = await actor.generateBulk(count);
+      if (result.__kind__ === "err") {
+        throw new Error(result.err);
+      }
+      return result.ok;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["poolStats"] });
+      queryClient.invalidateQueries({ queryKey: ["globalCommentPoolStats"] });
+    },
+  });
+}
+
+export function useAddGlobalComment() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (comment: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.addGlobalComment(comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["poolStats"] });
+      queryClient.invalidateQueries({ queryKey: ["globalCommentPoolStats"] });
+    },
+  });
+}
+
+export function useAddGlobalComments() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (comments: string[]) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.addGlobalComments(comments);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["poolStats"] });
+      queryClient.invalidateQueries({ queryKey: ["globalCommentPoolStats"] });
+    },
+  });
+}
+
+// ── App Events ────────────────────────────────────────────────────────────────
 
 export function useGetAllAppEvents() {
   const { actor, isFetching } = useActor();
   return useQuery<AppEvent[]>({
-    queryKey: ['appsEvents'],
+    queryKey: ["appEvents"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllAppEvents();
@@ -161,19 +422,65 @@ export function useGetAllAppEvents() {
   });
 }
 
-// Alias
+// Backward-compatibility aliases
 export const useAppsEvents = useGetAllAppEvents;
 
-export function useAddAppEvent() {
+export function useGetAllAppEventsWithImportDate() {
+  const { actor, isFetching } = useActor();
+  return useQuery<AppEventWithImportDate[]>({
+    queryKey: ["appEventsWithImportDate"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllAppEventsWithImportDate();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateAppEvent() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.createAppEvent(name);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appsEvents'] });
+      queryClient.invalidateQueries({ queryKey: ["appEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["appEventsWithImportDate"] });
+    },
+  });
+}
+
+// Backward-compatibility alias
+export const useAddAppEvent = useCreateAppEvent;
+
+// Stub for rename app event (no backend support; kept for compatibility)
+export function useRenameAppEvent() {
+  return useMutation({
+    mutationFn: async (_args: { name: string; newName: string }) => {
+      throw new Error("Rename app event is not supported");
+    },
+  });
+}
+
+export function useAddUsernamesToAppEvent() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      name,
+      usernames,
+    }: {
+      name: string;
+      usernames: string[];
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.addUsernamesToAppEvent(name, usernames);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["appEventsWithImportDate"] });
     },
   });
 }
@@ -183,67 +490,40 @@ export function useDeleteAppEvent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.deleteAppEvent(name);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appsEvents'] });
+      queryClient.invalidateQueries({ queryKey: ["appEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["appEventsWithImportDate"] });
     },
   });
 }
 
-export function useRenameAppEvent() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (_args: { oldName: string; newName: string }) => {
-      // Backend does not have a rename app event method; this is a no-op placeholder
-      throw new Error('Renaming app events is not supported. Delete and recreate instead.');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appsEvents'] });
-    },
-  });
-}
-
-export function useAddUsernamesToAppEvent() {
+export function useImportLiveLists() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { name: string; usernames: string[] }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.addUsernamesToAppEvent(args.name, args.usernames);
+    mutationFn: async (imports: AppImport[]): Promise<ImportSummary> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.importLiveLists(imports);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appsEvents'] });
+      queryClient.invalidateQueries({ queryKey: ["appEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["appEventsWithImportDate"] });
     },
   });
 }
 
-export function useImportLiveList() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (imports: Array<{ appName: string; usernames: string[]; importDate?: string }>) => {
-      if (!actor) throw new Error('Actor not available');
-      const appImports: AppImport[] = imports.map((imp) => ({
-        appName: imp.appName,
-        usernames: imp.usernames,
-        importDate: imp.importDate,
-      }));
-      return actor.importLiveLists(appImports);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['appsEvents'] });
-    },
-  });
-}
+// Backward-compatibility alias
+export const useImportLiveList = useImportLiveLists;
 
-// ─── Chat Messages ────────────────────────────────────────────────────────────
+// ── Chat Messages ─────────────────────────────────────────────────────────────
 
-export function useGetChatMessages() {
+export function useGetAllChatMessages() {
   const { actor, isFetching } = useActor();
   return useQuery<ChatMessage[]>({
-    queryKey: ['chatMessages'],
+    queryKey: ["chatMessages"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllChatMessages();
@@ -252,16 +532,19 @@ export function useGetChatMessages() {
   });
 }
 
+// Backward-compatibility alias
+export const useGetChatMessages = useGetAllChatMessages;
+
 export function useAddChatMessage() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (text: string) => {
-      if (!actor) throw new Error('Actor not available');
+    mutationFn: async (text: string): Promise<ChatMessage> => {
+      if (!actor) throw new Error("Actor not available");
       return actor.addChatMessage(text);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages'] });
+      queryClient.invalidateQueries({ queryKey: ["chatMessages"] });
     },
   });
 }
@@ -271,21 +554,21 @@ export function useDeleteChatMessage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.deleteChatMessage(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages'] });
+      queryClient.invalidateQueries({ queryKey: ["chatMessages"] });
     },
   });
 }
 
-// ─── Images ───────────────────────────────────────────────────────────────────
+// ── Images ────────────────────────────────────────────────────────────────────
 
-export function useGetImages() {
+export function useGetAllImages() {
   const { actor, isFetching } = useActor();
   return useQuery<ImageMeta[]>({
-    queryKey: ['images'],
+    queryKey: ["images"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getAllImages();
@@ -294,21 +577,24 @@ export function useGetImages() {
   });
 }
 
-export function useAddImage() {
+export function useUploadImage() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
+    mutationFn: async ({
+      name,
+      tags,
+      dataUrl,
+    }: {
       name: string;
       tags: string[];
       dataUrl: string;
-      data: unknown;
-    }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.uploadImage(args.name, args.tags, args.dataUrl);
+    }): Promise<ImageMeta> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.uploadImage(name, tags, dataUrl);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['images'] });
+      queryClient.invalidateQueries({ queryKey: ["images"] });
     },
   });
 }
@@ -318,21 +604,47 @@ export function useDeleteImage() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.deleteImage(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['images'] });
+      queryClient.invalidateQueries({ queryKey: ["images"] });
     },
   });
 }
 
-// ─── Settings ─────────────────────────────────────────────────────────────────
+export function useUpdateImageTags() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, tags }: { id: bigint; tags: string[] }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.updateImageTags(id, tags);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["images"] });
+    },
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export function useGetSettings() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Settings | null>({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getSettings();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
 
 export function useGetPublicSettings() {
   const { actor, isFetching } = useActor();
   return useQuery<PublicSettings | null>({
-    queryKey: ['publicSettings'],
+    queryKey: ["publicSettings"],
     queryFn: async () => {
       if (!actor) return null;
       return actor.getPublicSettings();
@@ -341,77 +653,10 @@ export function useGetPublicSettings() {
   });
 }
 
-export function useGetSettings() {
-  const { actor, isFetching } = useActor();
-  return useQuery<Settings | null>({
-    queryKey: ['settings'],
-    queryFn: async () => {
-      if (!actor) return null;
-      try {
-        return await actor.getSettings();
-      } catch {
-        return null;
-      }
-    },
-    enabled: !!actor && !isFetching,
-  });
-}
-
-// Aliases
-export const useSettings = useGetSettings;
-
-export function useUpdateSettings() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { bgMusicEnabled: boolean; musicFile: unknown }) => {
-      if (!actor) throw new Error('Actor not available');
-      // updateSettings takes bgMusicEnabled and optional musicUrl
-      // musicFile is an ExternalBlob; we pass null for musicUrl since music is handled via file upload
-      return actor.updateSettings(args.bgMusicEnabled, null);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      queryClient.invalidateQueries({ queryKey: ['publicSettings'] });
-    },
-  });
-}
-
-export function useSetBgMusicEnabled() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (enabled: boolean) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setBgMusicEnabled(enabled);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      queryClient.invalidateQueries({ queryKey: ['publicSettings'] });
-    },
-  });
-}
-
-export function useSetMusicUrl() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (url: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setMusicUrl(url);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-      queryClient.invalidateQueries({ queryKey: ['publicSettings'] });
-      queryClient.invalidateQueries({ queryKey: ['musicUrl'] });
-    },
-  });
-}
-
 export function useGetMusicUrl() {
   const { actor, isFetching } = useActor();
   return useQuery<string | null>({
-    queryKey: ['musicUrl'],
+    queryKey: ["musicUrl"],
     queryFn: async () => {
       if (!actor) return null;
       return actor.getMusicUrl();
@@ -420,39 +665,16 @@ export function useGetMusicUrl() {
   });
 }
 
-// ─── Access Key ───────────────────────────────────────────────────────────────
-
-export function useGetAccessKey() {
-  const { actor, isFetching } = useActor();
-  return useQuery<string | null>({
-    queryKey: ['accessKey'],
-    queryFn: async () => {
-      if (!actor) return null;
-      try {
-        const s = await actor.getSettings();
-        return s?.accessKey ?? null;
-      } catch {
-        return null;
-      }
-    },
-    enabled: !!actor && !isFetching,
-  });
-}
-
-// Alias
-export const useAccessKey = useGetAccessKey;
-
 export function useSetAccessKey() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (key: string) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.setAccessKey(key);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accessKey'] });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 }
@@ -461,13 +683,12 @@ export function useRegenerateAccessKey() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+    mutationFn: async (): Promise<string> => {
+      if (!actor) throw new Error("Actor not available");
       return actor.regenerateAccessKey();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accessKey'] });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 }
@@ -477,22 +698,82 @@ export function useClearAccessKey() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.clearAccessKey();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accessKey'] });
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 }
 
-// ─── Pricing ──────────────────────────────────────────────────────────────────
+export function useSetBgMusicEnabled() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setBgMusicEnabled(enabled);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["publicSettings"] });
+    },
+  });
+}
+
+export function useSetMusicUrl() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (url: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setMusicUrl(url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["musicUrl"] });
+    },
+  });
+}
+
+export function useUpdateSettings() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      bgMusicEnabled,
+      musicUrl,
+    }: {
+      bgMusicEnabled: boolean;
+      musicUrl: string | null;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.updateSettings(bgMusicEnabled, musicUrl);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["publicSettings"] });
+      queryClient.invalidateQueries({ queryKey: ["musicUrl"] });
+    },
+  });
+}
+
+export function useValidateAccessKey() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (key: string): Promise<boolean> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.validateAccessKey(key);
+    },
+  });
+}
+
+// ── Price List ────────────────────────────────────────────────────────────────
 
 export function useGetPriceList() {
   const { actor, isFetching } = useActor();
   return useQuery<PriceEntry[]>({
-    queryKey: ['priceList'],
+    queryKey: ["priceList"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getPriceList();
@@ -501,33 +782,61 @@ export function useGetPriceList() {
   });
 }
 
-// Alias
+// Backward-compatibility alias
 export const usePriceList = useGetPriceList;
 
-export function useSetPriceEntry() {
+export function useGetPriceEntry(appName: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<PriceEntry | null>({
+    queryKey: ["priceEntry", appName],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getPriceEntry(appName);
+    },
+    enabled: !!actor && !isFetching && !!appName,
+  });
+}
+
+export function useAddPriceEntry() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
+    mutationFn: async ({
+      appName,
+      pricePerEntry,
+      isActive,
+    }: {
       appName: string;
       pricePerEntry: number;
       isActive: boolean;
     }) => {
-      if (!actor) throw new Error('Actor not available');
-      // Try edit first, fall back to add if not found
-      try {
-        const existing = await actor.getPriceEntry(args.appName);
-        if (existing) {
-          return actor.editPriceEntry(args.appName, args.pricePerEntry, args.isActive);
-        } else {
-          return actor.addPriceEntry(args.appName, args.pricePerEntry, args.isActive);
-        }
-      } catch {
-        return actor.addPriceEntry(args.appName, args.pricePerEntry, args.isActive);
-      }
+      if (!actor) throw new Error("Actor not available");
+      return actor.addPriceEntry(appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['priceList'] });
+      queryClient.invalidateQueries({ queryKey: ["priceList"] });
+    },
+  });
+}
+
+export function useEditPriceEntry() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      appName,
+      pricePerEntry,
+      isActive,
+    }: {
+      appName: string;
+      pricePerEntry: number;
+      isActive: boolean;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.editPriceEntry(appName, pricePerEntry, isActive);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["priceList"] });
     },
   });
 }
@@ -537,233 +846,109 @@ export function useDeletePriceEntry() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (appName: string) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.deletePriceEntry(appName);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['priceList'] });
+      queryClient.invalidateQueries({ queryKey: ["priceList"] });
     },
   });
 }
 
-export function useBulkSetPrices() {
+export function useBulkUploadPrices() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (entries: Array<[string, number, boolean]>) => {
-      if (!actor) throw new Error('Actor not available');
-      const priceEntries = entries.map(([appName, pricePerEntry, isActive]) => ({
-        appName,
-        pricePerEntry,
-        isActive,
-      }));
-      return actor.bulkUploadPrices(priceEntries);
+    mutationFn: async (entries: PriceEntry[]): Promise<bigint> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.bulkUploadPrices(entries);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['priceList'] });
+      queryClient.invalidateQueries({ queryKey: ["priceList"] });
     },
   });
 }
 
-// ─── Earnings (client-side calculation) ──────────────────────────────────────
-
-interface AppEarnings {
-  appName: string;
-  totalUsernamesFound: number;
-  pricePerEntry: number;
-  totalAmount: number;
-  isActive: boolean;
-}
-
-interface AllEarningsSummary {
-  appEarnings: AppEarnings[];
-  totalAppsWithPrices: number;
-  totalValidEntries: number;
-  totalEarnings: number;
-}
-
-export function useCalculateAllEarnings() {
-  const { data: appEvents = [] } = useGetAllAppEvents();
-  const { data: priceList = [] } = useGetPriceList();
-
-  return useQuery<AllEarningsSummary | null>({
-    queryKey: ['earnings', appEvents.length, priceList.length],
-    queryFn: async () => {
-      if (appEvents.length === 0 && priceList.length === 0) return null;
-
-      const appEarnings: AppEarnings[] = [];
-      let totalValidEntries = 0;
-      let totalEarnings = 0;
-
-      for (const event of appEvents) {
-        const priceEntry = priceList.find(
-          (p) => p.appName === event.name && p.isActive
-        );
-        if (priceEntry) {
-          const count = event.usernames.length;
-          const amount = count * priceEntry.pricePerEntry;
-          appEarnings.push({
-            appName: event.name,
-            totalUsernamesFound: count,
-            pricePerEntry: priceEntry.pricePerEntry,
-            totalAmount: amount,
-            isActive: priceEntry.isActive,
-          });
-          totalValidEntries += count;
-          totalEarnings += amount;
-        }
-      }
-
-      return {
-        appEarnings,
-        totalAppsWithPrices: appEarnings.length,
-        totalValidEntries,
-        totalEarnings,
-      };
-    },
-    enabled: true,
-  });
-}
-
-// ─── Inventory ────────────────────────────────────────────────────────────────
-
-export function useGetInventoryCount(listId: string) {
+export function useIsPriceListInitialized() {
   const { actor, isFetching } = useActor();
-  return useQuery<bigint>({
-    queryKey: ['inventoryCount', listId],
+  return useQuery<boolean>({
+    queryKey: ["priceListInitialized"],
     queryFn: async () => {
-      if (!actor) return BigInt(0);
-      return actor.getInventoryCount(listId);
-    },
-    enabled: !!actor && !isFetching && !!listId,
-  });
-}
-
-// Alias
-export const useInventoryCount = useGetInventoryCount;
-
-export function useGetAllInventory() {
-  const { actor, isFetching } = useActor();
-  return useQuery<Array<[string, bigint]>>({
-    queryKey: ['allInventory'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllInventory();
+      if (!actor) return false;
+      return actor.isPriceListInitialized();
     },
     enabled: !!actor && !isFetching,
   });
 }
 
-export function useSetInventoryCount() {
+export function useSetPriceListInitialized() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { commentListId: string; count: bigint }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setInventoryCount(args.commentListId, args.count);
+    mutationFn: async (value: boolean) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setPriceListInitialized(value);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
-      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
+      queryClient.invalidateQueries({ queryKey: ["priceListInitialized"] });
     },
   });
 }
 
-export function useUpdateInventory() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { commentListId: string; quantity: bigint }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setInventoryCount(args.commentListId, args.quantity);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
-      queryClient.invalidateQueries({ queryKey: ['allInventory'] });
-    },
-  });
-}
+// ── Earnings ──────────────────────────────────────────────────────────────────
 
-// ─── Claim Comment ────────────────────────────────────────────────────────────
-
-type ClaimCommentResult =
-  | { __kind__: 'noCommentsRemaining' }
-  | { __kind__: 'claimSuccess'; claimSuccess: string };
-
-export function useClaimComment() {
-  const { actor } = useActor();
-  const { data: commentLists = [] } = useGetAllCommentLists();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (args: { listId: string; username: string }): Promise<ClaimCommentResult> => {
-      // If actor is available, use backend claim (tracks used templates)
-      if (actor) {
-        try {
-          const result = await actor.claimComment(args.listId, args.username);
-          return result as ClaimCommentResult;
-        } catch {
-          // Fall back to client-side if backend call fails
-        }
-      }
-      // Client-side fallback: pick a random template from the list
-      const list = commentLists.find((l) => l.id === args.listId);
-      if (!list || list.templates.length === 0) {
-        return { __kind__: 'noCommentsRemaining' };
-      }
-      const idx = Math.floor(Math.random() * list.templates.length);
-      const comment = list.templates[idx] + (list.suffix ? list.suffix : '');
-      return { __kind__: 'claimSuccess', claimSuccess: comment };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['availableCount'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-      queryClient.invalidateQueries({ queryKey: ['inventoryCount'] });
-    },
-  });
-}
-
-export function useGetAvailableCount(listId: string) {
-  const { data: commentLists = [] } = useGetAllCommentLists();
-  return useQuery<bigint>({
-    queryKey: ['availableCount', listId],
+export function useGetAllEarningsSummary() {
+  const { actor, isFetching } = useActor();
+  return useQuery<AllEarningsSummary | null>({
+    queryKey: ["allEarnings"],
     queryFn: async () => {
-      const list = commentLists.find((l) => l.id === listId);
-      if (!list) return BigInt(0);
-      return BigInt(list.templates.length);
+      if (!actor) return null;
+      return actor.getAllEarningsSummary();
     },
-    enabled: !!listId,
+    enabled: !!actor && !isFetching,
   });
 }
 
-export function useGetAvailableComments(listId: string) {
-  const { data: commentLists = [] } = useGetAllCommentLists();
-  return useQuery<string[]>({
-    queryKey: ['availableComments', listId],
+// Backward-compatibility alias
+export const useCalculateAllEarnings = useGetAllEarningsSummary;
+
+// ── List Metrics ──────────────────────────────────────────────────────────────
+
+export function useGetListMetrics() {
+  const { actor, isFetching } = useActor();
+  return useQuery<ListMetrics[]>({
+    queryKey: ["listMetrics"],
     queryFn: async () => {
-      const list = commentLists.find((l) => l.id === listId);
-      if (!list) return [];
-      return list.templates;
+      if (!actor) return [];
+      return actor.getListMetrics();
     },
-    enabled: !!listId,
+    enabled: !!actor && !isFetching,
   });
 }
 
-// ─── Withdrawal Requests ──────────────────────────────────────────────────────
+// ── Withdrawal Requests ───────────────────────────────────────────────────────
 
 export function useGetAllWithdrawalRequests() {
   const { actor, isFetching } = useActor();
   return useQuery<WithdrawalRequest[]>({
-    queryKey: ['withdrawalRequests'],
+    queryKey: ["withdrawalRequests"],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        return await actor.getAllWithdrawalRequests();
-      } catch {
-        return [];
-      }
+      return actor.getAllWithdrawalRequests();
     },
     enabled: !!actor && !isFetching,
+  });
+}
+
+export function useGetMyWithdrawalRequests(username: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<WithdrawalRequest[]>({
+    queryKey: ["myWithdrawalRequests", username],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getMyWithdrawalRequests(username);
+    },
+    enabled: !!actor && !isFetching && !!username,
   });
 }
 
@@ -771,12 +956,23 @@ export function useSubmitWithdrawalRequest() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { username: string; walletNumber: string; amount: number }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.submitWithdrawalRequest(args.username, args.walletNumber, args.amount);
+    mutationFn: async ({
+      username,
+      walletNumber,
+      amount,
+    }: {
+      username: string;
+      walletNumber: string;
+      amount: number;
+    }): Promise<WithdrawalRequest> => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.submitWithdrawalRequest(username, walletNumber, amount);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['withdrawalRequests'] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["myWithdrawalRequests", variables.username],
+      });
     },
   });
 }
@@ -785,59 +981,65 @@ export function useCheckAndRequestWithdrawal() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { username: string; walletNumber: string; amount?: number }) => {
-      if (!actor) throw new Error('Actor not available');
-      const eligible = await actor.checkWithdrawalEligibility(args.username);
-      if (!eligible) throw new Error('You already have a pending withdrawal request.');
-      return actor.submitWithdrawalRequest(args.username, args.walletNumber, args.amount ?? 0);
+    mutationFn: async ({
+      username,
+      walletNumber,
+      amount,
+    }: {
+      username: string;
+      walletNumber: string;
+      amount: number;
+    }): Promise<WithdrawalRequest> => {
+      if (!actor) throw new Error("Actor not available");
+      const eligible = await actor.checkWithdrawalEligibility(username);
+      if (!eligible) {
+        throw new Error(
+          "You already have a pending withdrawal request. Please wait for it to be processed."
+        );
+      }
+      return actor.submitWithdrawalRequest(username, walletNumber, amount);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['withdrawalRequests'] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
+      queryClient.invalidateQueries({
+        queryKey: ["myWithdrawalRequests", variables.username],
+      });
     },
   });
 }
 
-// ─── Reset Used Templates ─────────────────────────────────────────────────────
-
-export function useResetUsedTemplates() {
+export function useUpdateWithdrawalStatus() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (listId: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.resetUsedTemplates(listId);
+    mutationFn: async ({
+      key,
+      status,
+    }: {
+      key: string;
+      status: WithdrawalStatus;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.updateWithdrawalStatus(key, status);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
+      queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
     },
   });
 }
 
-// ─── Validate Access Key (public) ────────────────────────────────────────────
-
-export function useValidateAccessKey() {
-  const { actor } = useActor();
-  return useMutation({
-    mutationFn: async (key: string) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.validateAccessKey(key);
-    },
-  });
-}
-
-// ─── Countdown ────────────────────────────────────────────────────────────────
+// ── Countdown ─────────────────────────────────────────────────────────────────
 
 export function useGetCountdownState() {
   const { actor, isFetching } = useActor();
-  return useQuery({
-    queryKey: ['countdownState'],
+  return useQuery<CountdownState | null>({
+    queryKey: ["countdownState"],
     queryFn: async () => {
       if (!actor) return null;
       return actor.getCountdownState();
     },
     enabled: !!actor && !isFetching,
-    refetchInterval: 5000,
+    refetchInterval: 1000,
   });
 }
 
@@ -846,11 +1048,11 @@ export function useSetCountdown() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (targetTime: bigint) => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.setCountdown(targetTime);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['countdownState'] });
+      queryClient.invalidateQueries({ queryKey: ["countdownState"] });
     },
   });
 }
@@ -860,11 +1062,11 @@ export function useStopCountdown() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.stopCountdown();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['countdownState'] });
+      queryClient.invalidateQueries({ queryKey: ["countdownState"] });
     },
   });
 }
@@ -874,65 +1076,45 @@ export function useClearCountdown() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) throw new Error("Actor not available");
       return actor.clearCountdown();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['countdownState'] });
+      queryClient.invalidateQueries({ queryKey: ["countdownState"] });
     },
   });
 }
 
-// ─── Export Data (stub for backward compat) ───────────────────────────────────
+// ── User Profile ──────────────────────────────────────────────────────────────
 
-export function useExportData() {
-  const { actor, isFetching } = useActor();
-  return useQuery({
-    queryKey: ['exportData'],
+export function useGetCallerUserProfile() {
+  const { actor, isFetching: actorFetching } = useActor();
+  const query = useQuery<UserProfile | null>({
+    queryKey: ["currentUserProfile"],
     queryFn: async () => {
-      if (!actor) return null;
-      const [commentLists, appsEvents, chatMessages, images, settings] = await Promise.all([
-        actor.getAllCommentLists(),
-        actor.getAllAppEvents(),
-        actor.getAllChatMessages(),
-        actor.getAllImages(),
-        actor.getSettings().catch(() => null),
-      ]);
-      return { commentLists, appsEvents, chatMessages, images, settings };
+      if (!actor) throw new Error("Actor not available");
+      return actor.getCallerUserProfile();
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor && !actorFetching,
+    retry: false,
   });
+  return {
+    ...query,
+    isLoading: actorFetching || query.isLoading,
+    isFetched: !!actor && query.isFetched,
+  };
 }
 
-// ─── Bulk Comments ────────────────────────────────────────────────────────────
-
-export function useGetBulkComments() {
+export function useSaveCallerUserProfile() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { listId: string; count: bigint }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getBulkComments(args.listId, args.count);
+    mutationFn: async (profile: UserProfile) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.saveCallerUserProfile(profile);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
-    },
-  });
-}
-
-// ─── Set Comment List Templates (replace all) ─────────────────────────────────
-
-export function useSetCommentListTemplates() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { listId: string; templates: string[] }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.setCommentListTemplates(args.listId, args.templates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commentLists'] });
-      queryClient.invalidateQueries({ queryKey: ['listMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
     },
   });
 }

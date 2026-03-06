@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Key, Music, Eye, EyeOff, RefreshCw, Save } from 'lucide-react';
-import { useSettings, useUpdateSettings, useSetAccessKey, useAccessKey } from '../../hooks/useQueries';
-import { ExternalBlob } from '../../backend';
+import { useGetSettings, useSetAccessKey, useSetBgMusicEnabled } from '../../hooks/useQueries';
 
 export default function AdminSettings() {
-  const { data: settings } = useSettings();
-  const { data: accessKey } = useAccessKey();
-  const updateSettings = useUpdateSettings();
+  const { data: settings } = useGetSettings();
   const setAccessKeyMutation = useSetAccessKey();
+  const setBgMusicEnabled = useSetBgMusicEnabled();
 
   const [newKey, setNewKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const accessKey = settings?.accessKey ?? null;
 
   const handleSetKey = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,8 +23,8 @@ export default function AdminSettings() {
       await setAccessKeyMutation.mutateAsync(newKey.trim());
       setNewKey('');
       setSuccess('Access key updated successfully');
-    } catch (err: any) {
-      setError(err.message || 'Failed to set access key');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to set access key');
     }
   };
 
@@ -36,37 +36,17 @@ export default function AdminSettings() {
     try {
       await setAccessKeyMutation.mutateAsync(randomKey);
       setSuccess(`New key generated: ${randomKey}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to regenerate key');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate key');
     }
   };
 
   const handleMusicToggle = async () => {
     setError(null);
     try {
-      await updateSettings.mutateAsync({
-        bgMusicEnabled: !settings?.bgMusicEnabled,
-        musicFile: settings?.musicFile ?? null,
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to update settings');
-    }
-  };
-
-  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(null);
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const blob = ExternalBlob.fromBytes(bytes);
-      await updateSettings.mutateAsync({
-        bgMusicEnabled: settings?.bgMusicEnabled ?? false,
-        musicFile: blob,
-      });
-      setSuccess('Music file uploaded successfully');
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload music');
+      await setBgMusicEnabled.mutateAsync(!settings?.bgMusicEnabled);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update settings');
     }
   };
 
@@ -166,7 +146,7 @@ export default function AdminSettings() {
           <span className="font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.75 0.04 260)' }}>Music Enabled</span>
           <button
             onClick={handleMusicToggle}
-            disabled={updateSettings.isPending}
+            disabled={setBgMusicEnabled.isPending}
             className="relative w-12 h-6 rounded-full transition-all duration-300"
             style={{
               background: settings?.bgMusicEnabled
@@ -184,22 +164,13 @@ export default function AdminSettings() {
           </button>
         </div>
 
-        <label
-          className="flex items-center gap-2 px-3 py-2 rounded-xl font-rajdhani font-600 text-xs cursor-pointer transition-all duration-200 hover:scale-105 w-fit"
-          style={{
-            background: 'oklch(0.70 0.20 185 / 0.12)',
-            border: '1px solid oklch(0.70 0.20 185 / 0.25)',
-            color: 'oklch(0.78 0.22 188)',
-          }}
-        >
-          <Music className="w-3.5 h-3.5" />
-          Upload Music File
-          <input type="file" accept="audio/*" onChange={handleMusicUpload} className="hidden" />
-        </label>
+        <p className="text-xs font-rajdhani" style={{ color: 'oklch(0.50 0.04 260)' }}>
+          Toggle background music on or off. Music URL can be configured via the backend settings.
+        </p>
 
         {settings?.musicFile && (
           <div className="mt-3 text-xs font-rajdhani" style={{ color: 'oklch(0.72 0.20 145)' }}>
-            ✓ Music file uploaded
+            ✓ Music file configured
           </div>
         )}
       </div>

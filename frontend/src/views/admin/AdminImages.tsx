@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react';
-import { useGetImages, useAddImage } from '../../hooks/useQueries';
+import { useGetAllImages, useUploadImage } from '../../hooks/useQueries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImageIcon, Upload, Tag } from 'lucide-react';
 
 export function AdminImages() {
-  const { data: images, isLoading } = useGetImages();
-  const addImage = useAddImage();
+  const { data: images, isLoading } = useGetAllImages();
+  const addImage = useUploadImage();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
@@ -31,7 +31,7 @@ export function AdminImages() {
     setError('');
     try {
       const tagList = tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0);
-      await addImage.mutateAsync({ name: name.trim(), tags: tagList, dataUrl: preview, data: null });
+      await addImage.mutateAsync({ name: name.trim(), tags: tagList, dataUrl: preview });
       setName('');
       setTags('');
       setPreview('');

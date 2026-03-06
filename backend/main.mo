@@ -5,7 +5,6 @@ import Time "mo:core/Time";
 import List "mo:core/List";
 import Map "mo:core/Map";
 import Float "mo:core/Float";
-import Int "mo:core/Int";
 import Order "mo:core/Order";
 import Array "mo:core/Array";
 import Iter "mo:core/Iter";
@@ -15,11 +14,18 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   func safeNatSubtract(a : Nat, b : Nat) : Nat {
     if (a > b) { a - b } else { 0 };
   };
+
+  var nextCommentId = 0;
+  let comments = Map.empty<Nat, Comment>();
+  var globalCommentInventory = 0;
+  let globalComments = List.empty<Text>();
 
   include MixinStorage();
 
@@ -65,7 +71,6 @@ actor {
     accessKey : ?Text;
   };
 
-  // Public-safe settings (no accessKey exposed)
   type PublicSettings = {
     bgMusicEnabled : Bool;
     musicFile : ?Storage.ExternalBlob;
@@ -99,6 +104,12 @@ actor {
     comments : [Text];
     generatedCount : Nat;
     templateCount : Nat;
+  };
+
+  type BulkGlobalCommentsResult = {
+    comments : [Text];
+    fulfilled : Nat;
+    requested : Nat;
   };
 
   type ClaimCommentResult = {
@@ -156,6 +167,35 @@ actor {
     targetTime : ?Time.Time;
     isActive : Bool;
     startedBy : ?Principal;
+  };
+
+  type GlobalCommentPoolStats = {
+    totalTemplates : Nat;
+    templatesRemaining : Nat;
+    totalClaimed : Nat;
+    batchSupport : Bool;
+  };
+
+  type GlobalClaimCommentResult = {
+    #noCommentsRemaining;
+    #claimSuccess : Text;
+  };
+
+  type CommentsDispensed = {
+    batchRequested : Nat;
+    batchFulfilled : Nat;
+    comments : [Text];
+  };
+
+  type Comment = {
+    id : Nat;
+    text : Text;
+    status : CommentStatus;
+  };
+
+  type CommentStatus = {
+    #available;
+    #used;
   };
 
   let commentLists = Map.empty<Text, CommentList>();
@@ -454,6 +494,166 @@ actor {
     };
   };
 
+  // ── Global comments ───────────────────────────────────────────────────────
+  public type SingleGlobalCommentResult = {
+    #ok : Text;
+    #err : Text;
+  };
+
+  public shared ({ caller }) func generateSingle() : async SingleGlobalCommentResult {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      return #err("Not authorized");
+    };
+
+    let availableComments = comments.values().filter(
+      func(comment) { comment.status == #available }
+    ).toArray();
+
+    if (availableComments.isEmpty()) {
+      #err("Pool is empty");
+    } else {
+      let firstAvailable = availableComments[0];
+      let updatedComment = {
+        id = firstAvailable.id;
+        text = firstAvailable.text;
+        status = #used;
+      };
+      comments.add(firstAvailable.id, updatedComment);
+      #ok(firstAvailable.text);
+    };
+  };
+
+  public shared ({ caller }) func generateBulk(n : Nat) : async {
+    #ok : [Text];
+    #err : Text;
+  } {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      return #err("Not authorized");
+    };
+
+    let availableComments = comments.values().filter(
+      func(comment) { comment.status == #available }
+    ).toArray();
+
+    if (availableComments.size() < n) {
+      return #err("Only " # availableComments.size().toText() # " comments left. Reduce quantity.");
+    };
+
+    var texts = List.empty<Text>();
+    var count = 0;
+
+    for (comment in availableComments.vals()) {
+      if (count < n) {
+        texts.add(comment.text);
+        let updatedComment = {
+          id = comment.id;
+          text = comment.text;
+          status = #used;
+        };
+        comments.add(comment.id, updatedComment);
+        count += 1;
+      };
+    };
+
+    #ok(texts.toArray());
+  };
+
+  public query func getPoolStats() : async {
+    totalPoolSize : Nat;
+    availableCount : Nat;
+  } {
+    let availableCount = comments.values().foldLeft(
+      0,
+      func(acc, comment) {
+        switch (comment.status) {
+          case (#available) { acc + 1 };
+          case (#used) { acc };
+        };
+      },
+    );
+    {
+      totalPoolSize = comments.size();
+      availableCount;
+    };
+  };
+
+  public shared ({ caller }) func addGlobalComment(comment : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add global comments");
+    };
+
+    let newComment = {
+      id = nextCommentId;
+      text = comment;
+      status = #available;
+    };
+    comments.add(nextCommentId, newComment);
+    nextCommentId += 1;
+  };
+
+  public shared ({ caller }) func addGlobalComments(newComments : [Text]) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can add global comments");
+    };
+
+    for (comment in newComments.vals()) {
+      let newComment = {
+        id = nextCommentId;
+        text = comment;
+        status = #available;
+      };
+      comments.add(nextCommentId, newComment);
+      nextCommentId += 1;
+    };
+  };
+
+  // ── Legacy Functions (for backward compatibility) ─────────────────────────
+
+  public shared ({ caller }) func getBulkGlobalComments(count : Nat) : async {
+    batchRequested : Nat;
+    batchFulfilled : Nat;
+    comments : [Text];
+  } {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can get bulk global comments");
+    };
+
+    let result = List.empty<Text>();
+    var countFulfilled = 0;
+    var limit = count;
+    while (limit > 0 and globalComments.size() > 0) {
+      if (limit > 0) {
+        switch (globalComments.removeLast()) {
+          case (null) { limit := 0 };
+          case (?comment) {
+            result.add(comment);
+            countFulfilled += 1;
+            limit := safeNatSubtract(limit, 1);
+          };
+        };
+      };
+    };
+    globalCommentInventory := safeNatSubtract(
+      globalCommentInventory,
+      countFulfilled,
+    );
+
+    {
+      batchRequested = count;
+      batchFulfilled = countFulfilled;
+      comments = result.toArray();
+    };
+  };
+
+  public query func getGlobalCommentPoolStats() : async GlobalCommentPoolStats {
+    {
+      totalTemplates = globalComments.size();
+      templatesRemaining = globalCommentInventory;
+      totalClaimed = safeNatSubtract(globalComments.size(), globalCommentInventory);
+      batchSupport = globalComments.size() > 1;
+    };
+  };
+
   // ── App event read functions ──────────────────────────────────────────────
 
   public query func getAllAppEvents() : async [AppEvent] {
@@ -734,14 +934,11 @@ actor {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can set the music URL");
     };
-    // Store music URL as a reference in settings (using dataUrl approach)
-    // musicFile is ExternalBlob; we store null and rely on dataUrl pattern
     settings := {
       bgMusicEnabled = settings.bgMusicEnabled;
       musicFile = settings.musicFile;
       accessKey = settings.accessKey;
     };
-    // Note: actual music URL storage handled via separate musicUrl var
     musicUrl := ?url;
   };
 

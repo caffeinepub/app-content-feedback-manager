@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useCommentLists, useAddTemplatesToList, useAddImage } from '../hooks/useQueries';
+import { useCommentLists, useAddTemplatesToCommentList, useUploadImage } from '../hooks/useQueries';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Upload, CheckCircle, AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
 import { UploadComment } from '@/components/UploadComment';
@@ -8,8 +8,8 @@ import type { CommentList } from '@/backend';
 
 export function UploadView() {
   const { data: commentLists, isLoading } = useCommentLists();
-  const addTemplates = useAddTemplatesToList();
-  const addImage = useAddImage();
+  const addTemplates = useAddTemplatesToCommentList();
+  const addImage = useUploadImage();
   const fileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
 
@@ -21,6 +21,7 @@ export function UploadView() {
   // Image upload state
   const [imageName, setImageName] = useState('');
   const [imageFileName, setImageFileName] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
   const [imageStatus, setImageStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [imageMessage, setImageMessage] = useState('');
 
@@ -38,7 +39,7 @@ export function UploadView() {
         setMessage('File is empty or has no valid lines.');
         return;
       }
-      await addTemplates.mutateAsync({ listId: selectedList, templates: lines });
+      await addTemplates.mutateAsync({ id: selectedList, templates: lines });
       setStatus('success');
       setMessage(`Successfully added ${lines.length} template(s) to the list.`);
       if (fileRef.current) fileRef.current.value = '';
@@ -47,6 +48,15 @@ export function UploadView() {
       setStatus('error');
       setMessage('Failed to upload templates. Please try again.');
     }
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string ?? '');
+    reader.readAsDataURL(file);
   };
 
   const handleImageUpload = async () => {
@@ -58,13 +68,13 @@ export function UploadView() {
       await addImage.mutateAsync({
         name: imageName.trim(),
         tags: [],
-        dataUrl: '',
-        data: null,
+        dataUrl: imagePreview,
       });
       setImageStatus('success');
       setImageMessage('Image uploaded successfully!');
       setImageName('');
       setImageFileName('');
+      setImagePreview('');
       if (imageFileRef.current) imageFileRef.current.value = '';
       setTimeout(() => setImageStatus('idle'), 3000);
     } catch {
@@ -251,11 +261,17 @@ export function UploadView() {
               onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'oklch(0.70 0.20 185 / 0.6)')}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'oklch(0.28 0.06 260 / 0.5)')}
             >
-              <ImageIcon className="w-8 h-8 mx-auto mb-2" style={{ color: 'oklch(0.45 0.04 260)' }} />
-              {imageFileName ? (
-                <p className="font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.85 0.05 80)' }}>{imageFileName}</p>
+              {imagePreview ? (
+                <img src={imagePreview} alt="Preview" className="max-h-32 mx-auto rounded-lg object-contain" />
               ) : (
-                <p className="font-rajdhani text-sm" style={{ color: 'oklch(0.55 0.04 260)' }}>Click to select an image</p>
+                <>
+                  <ImageIcon className="w-8 h-8 mx-auto mb-2" style={{ color: 'oklch(0.45 0.04 260)' }} />
+                  {imageFileName ? (
+                    <p className="font-rajdhani font-600 text-sm" style={{ color: 'oklch(0.85 0.05 80)' }}>{imageFileName}</p>
+                  ) : (
+                    <p className="font-rajdhani text-sm" style={{ color: 'oklch(0.55 0.04 260)' }}>Click to select an image</p>
+                  )}
+                </>
               )}
             </div>
             <input
@@ -263,7 +279,7 @@ export function UploadView() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => setImageFileName(e.target.files?.[0]?.name || '')}
+              onChange={handleImageFileChange}
             />
           </div>
 

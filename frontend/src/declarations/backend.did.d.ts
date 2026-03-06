@@ -59,6 +59,12 @@ export interface CountdownState {
   'targetTime' : [] | [Time],
 }
 export type ExternalBlob = Uint8Array;
+export interface GlobalCommentPoolStats {
+  'totalClaimed' : bigint,
+  'totalTemplates' : bigint,
+  'templatesRemaining' : bigint,
+  'batchSupport' : boolean,
+}
 export interface ImageMeta {
   'id' : bigint,
   'dataUrl' : string,
@@ -93,6 +99,8 @@ export interface Settings {
   'bgMusicEnabled' : boolean,
   'musicFile' : [] | [ExternalBlob],
 }
+export type SingleGlobalCommentResult = { 'ok' : string } |
+  { 'err' : string };
 export type Time = bigint;
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -137,6 +145,8 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addChatMessage' : ActorMethod<[string], ChatMessage>,
+  'addGlobalComment' : ActorMethod<[string], undefined>,
+  'addGlobalComments' : ActorMethod<[Array<string>], undefined>,
   'addPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
   'addTemplatesToCommentList' : ActorMethod<[string, Array<string>], undefined>,
   'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], bigint>,
@@ -154,6 +164,12 @@ export interface _SERVICE {
   'deleteImage' : ActorMethod<[bigint], undefined>,
   'deletePriceEntry' : ActorMethod<[string], undefined>,
   'editPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
+  'generateBulk' : ActorMethod<
+    [bigint],
+    { 'ok' : Array<string> } |
+      { 'err' : string }
+  >,
+  'generateSingle' : ActorMethod<[], SingleGlobalCommentResult>,
   'getAllAppEvents' : ActorMethod<[], Array<AppEvent>>,
   'getAllAppEventsWithImportDate' : ActorMethod<
     [],
@@ -167,16 +183,29 @@ export interface _SERVICE {
   'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getAppEvent' : ActorMethod<[string], [] | [AppEvent]>,
   'getBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
+  'getBulkGlobalComments' : ActorMethod<
+    [bigint],
+    {
+      'batchRequested' : bigint,
+      'batchFulfilled' : bigint,
+      'comments' : Array<string>,
+    }
+  >,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getChatMessage' : ActorMethod<[bigint], [] | [ChatMessage]>,
   'getCommentList' : ActorMethod<[string], [] | [CommentList]>,
   'getCountdownState' : ActorMethod<[], CountdownState>,
+  'getGlobalCommentPoolStats' : ActorMethod<[], GlobalCommentPoolStats>,
   'getImage' : ActorMethod<[bigint], [] | [ImageMeta]>,
   'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'getMusicUrl' : ActorMethod<[], [] | [string]>,
   'getMyWithdrawalRequests' : ActorMethod<[string], Array<WithdrawalRequest>>,
+  'getPoolStats' : ActorMethod<
+    [],
+    { 'totalPoolSize' : bigint, 'availableCount' : bigint }
+  >,
   'getPriceEntry' : ActorMethod<[string], [] | [PriceEntry]>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getPublicSettings' : ActorMethod<[], PublicSettings>,

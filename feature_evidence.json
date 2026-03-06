@@ -1,4 +1,47 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-update-singlegeneratorview-tsx-to-display-a-modal-popup-with-an-ok-button-to-dismiss-when-generatesingle-returns-an-err-variant-the-modal-must-show-the-error-message-text-after-a-successful-generation-immediately-refetch-pool-stats-so-the-displayed-comments-left-x-count-is-accurate",
+      "featureTitle": "Update `SingleGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateSingle` returns an `#err` variant. The modal must show the error message text. After a successful generation, immediately refetch pool stats so the displayed 'Comments left: X' count is accurate.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/SingleGeneratorView.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-22"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-bulkgeneratorview-tsx-to-display-a-modal-popup-with-an-ok-button-to-dismiss-when-generatebulk-returns-an-err-variant-the-modal-must-show-the-error-message-e-g-only-x-comments-left-reduce-quantity-remove-all-partial-fulfillment-ui-messaging-after-any-generate-attempt-success-or-error-immediately-invalidate-or-refetch-the-pool-stats-query-so-comments-left-x-is-accurate",
+      "featureTitle": "Update `BulkGeneratorView.tsx` to display a modal popup (with an OK button to dismiss) when `generateBulk` returns an `#err` variant. The modal must show the error message (e.g., 'Only X comments left. Reduce quantity.'). Remove all partial fulfillment UI messaging. After any generate attempt (success or error), immediately invalidate or refetch the pool stats query so 'Comments left: X' is accurate.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/views/BulkGeneratorView.tsx"
+      ],
+      "components": [
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "authorization@4.0.0"
+      ],
+      "testIds": [
+        "REQ-23"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

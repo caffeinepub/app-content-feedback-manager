@@ -1,6 +1,53 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Frontend Implementation Plan for Backend-Only BuildRequest",
-  "requirements": []
+  "title": "Atomic status-based comment pool with modal error handling",
+  "requirements": [
+    {
+      "id": "REQ-22",
+      "summary": "Add modal error handling to SingleGeneratorView with pool stats refresh after successful generation",
+      "acceptanceCriteria": [
+        "A modal with an OK button appears when generateSingle returns an error.",
+        "The modal displays the exact error message string from the backend.",
+        "Clicking OK dismisses the modal.",
+        "The 'Comments left' count updates immediately after a successful generate.",
+        "No blank/silent failure state is shown to the user."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/views/SingleGeneratorView.tsx",
+          "operation": "modify",
+          "description": "Add state management for error modal display. When generateSingle mutation returns an error variant, capture the error message text and display it in a modal dialog with an OK button to dismiss. After a successful generation, immediately invalidate the 'poolStats' query key to refetch the updated available count. Replace any existing error display logic with the modal approach. Use shadcn/ui Dialog component for the modal implementation."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Ensure the useGenerateSingle mutation hook returns the full backend response including error variants. Verify that the mutation's onSuccess callback can trigger query invalidation for the 'poolStats' query key. Add any missing query client invalidation logic needed to refresh pool stats after successful generation."
+        }
+      ]
+    },
+    {
+      "id": "REQ-23",
+      "summary": "Add modal error handling to BulkGeneratorView, remove partial fulfillment UI, and refresh pool stats after every generate attempt",
+      "acceptanceCriteria": [
+        "A modal with an OK button appears when generateBulk returns an error.",
+        "The modal shows the backend error message text.",
+        "Clicking OK dismisses the modal.",
+        "No partial fulfillment message or 'X of Y dispensed' text is shown.",
+        "The 'Comments left' count updates immediately after every generate attempt."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/views/BulkGeneratorView.tsx",
+          "operation": "modify",
+          "description": "Add state management for error modal display. When generateBulk mutation returns an error variant, capture the error message text (e.g., 'Only X comments left. Reduce quantity.') and display it in a modal dialog with an OK button to dismiss. Remove all UI elements and messages related to partial fulfillment (any text showing 'X of Y dispensed' or similar). After both successful and failed generate attempts, immediately invalidate the 'poolStats' query key to refetch the updated available count. Use shadcn/ui Dialog component for the modal implementation."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Ensure the useGenerateBulk mutation hook returns the full backend response including error variants. Verify that the mutation's onSettled or onSuccess/onError callbacks can trigger query invalidation for the 'poolStats' query key after every attempt (success or failure). Add any missing query client invalidation logic needed to refresh pool stats after both successful and failed bulk generation attempts."
+        }
+      ]
+    }
+  ]
 }

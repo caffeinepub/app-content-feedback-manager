@@ -14,6 +14,13 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
+export interface ImageMeta {
+    id: bigint;
+    dataUrl: string;
+    data?: ExternalBlob;
+    name: string;
+    tags: Array<string>;
+}
 export type Time = bigint;
 export interface AllEarningsSummary {
     totalAppsWithPrices: bigint;
@@ -32,6 +39,12 @@ export interface ListMetrics {
     percentUsed: number;
     totalTemplates: bigint;
     listId: string;
+}
+export interface GlobalCommentPoolStats {
+    totalClaimed: bigint;
+    totalTemplates: bigint;
+    templatesRemaining: bigint;
+    batchSupport: boolean;
 }
 export interface CountdownState {
     startedBy?: Principal;
@@ -79,6 +92,13 @@ export interface ImportSummary {
     totalDuplicatesSkipped: bigint;
     totalAppsDetected: bigint;
 }
+export type SingleGlobalCommentResult = {
+    __kind__: "ok";
+    ok: string;
+} | {
+    __kind__: "err";
+    err: string;
+};
 export type ClaimCommentResult = {
     __kind__: "noCommentsRemaining";
     noCommentsRemaining: null;
@@ -105,13 +125,6 @@ export interface AppEarnings {
     isActive: boolean;
     totalAmount: number;
 }
-export interface ImageMeta {
-    id: bigint;
-    dataUrl: string;
-    data?: ExternalBlob;
-    name: string;
-    tags: Array<string>;
-}
 export interface UserProfile {
     name: string;
 }
@@ -127,6 +140,8 @@ export enum WithdrawalStatus {
 }
 export interface backendInterface {
     addChatMessage(text: string): Promise<ChatMessage>;
+    addGlobalComment(comment: string): Promise<void>;
+    addGlobalComments(newComments: Array<string>): Promise<void>;
     addPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
     addTemplatesToCommentList(id: string, newTemplates: Array<string>): Promise<void>;
     addUsernamesToAppEvent(name: string, newUsernames: Array<string>): Promise<bigint>;
@@ -144,6 +159,14 @@ export interface backendInterface {
     deleteImage(id: bigint): Promise<void>;
     deletePriceEntry(appName: string): Promise<void>;
     editPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
+    generateBulk(n: bigint): Promise<{
+        __kind__: "ok";
+        ok: Array<string>;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
+    generateSingle(): Promise<SingleGlobalCommentResult>;
     getAllAppEvents(): Promise<Array<AppEvent>>;
     getAllAppEventsWithImportDate(): Promise<Array<AppEventWithImportDate>>;
     getAllChatMessages(): Promise<Array<ChatMessage>>;
@@ -154,16 +177,26 @@ export interface backendInterface {
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getAppEvent(name: string): Promise<AppEvent | null>;
     getBulkComments(listId: string, count: bigint): Promise<BulkCommentsResult>;
+    getBulkGlobalComments(count: bigint): Promise<{
+        batchRequested: bigint;
+        batchFulfilled: bigint;
+        comments: Array<string>;
+    }>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getChatMessage(id: bigint): Promise<ChatMessage | null>;
     getCommentList(id: string): Promise<CommentList | null>;
     getCountdownState(): Promise<CountdownState>;
+    getGlobalCommentPoolStats(): Promise<GlobalCommentPoolStats>;
     getImage(id: bigint): Promise<ImageMeta | null>;
     getInventoryCount(listId: string): Promise<bigint>;
     getListMetrics(): Promise<Array<ListMetrics>>;
     getMusicUrl(): Promise<string | null>;
     getMyWithdrawalRequests(username: string): Promise<Array<WithdrawalRequest>>;
+    getPoolStats(): Promise<{
+        totalPoolSize: bigint;
+        availableCount: bigint;
+    }>;
     getPriceEntry(appName: string): Promise<PriceEntry | null>;
     getPriceList(): Promise<Array<PriceEntry>>;
     getPublicSettings(): Promise<PublicSettings>;

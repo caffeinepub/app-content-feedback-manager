@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useCommentLists, useAddTemplatesToList } from "../../hooks/useQueries";
+import { useCommentLists, useAddTemplatesToCommentList } from "../../hooks/useQueries";
 import { toast } from "sonner";
 import { Sparkles, Plus, Check, Loader2, Smile } from "lucide-react";
 
@@ -87,7 +87,7 @@ function generateTemplates(
 
 export default function AdminAITemplates() {
   const { data: commentLists } = useCommentLists();
-  const addTemplates = useAddTemplatesToList();
+  const addTemplates = useAddTemplatesToCommentList();
 
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState("positive");
@@ -116,15 +116,18 @@ export default function AdminAITemplates() {
   const toggleTemplate = (index: number) => {
     setSelectedTemplates((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
       return next;
     });
   };
 
   const handleSaveToList = async () => {
     if (!targetListId) {
-      toast.error("Please select a comment list");
+      toast.error("Please select a target list");
       return;
     }
     const toSave = generatedTemplates.filter((_, i) => selectedTemplates.has(i));
@@ -133,181 +136,210 @@ export default function AdminAITemplates() {
       return;
     }
     try {
-      await addTemplates.mutateAsync({ listId: targetListId, templates: toSave });
+      await addTemplates.mutateAsync({ id: targetListId, templates: toSave });
       toast.success(`Saved ${toSave.length} templates to list`);
       setGeneratedTemplates([]);
       setSelectedTemplates(new Set());
-    } catch {
-      toast.error("Failed to save templates");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save templates");
     }
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-2">
-        <Sparkles className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold text-foreground">AI Template Generator</h3>
-      </div>
+    <div className="space-y-6 animate-fadeInUp">
+      {/* Header */}
+      <div className="glass-card-gold p-5 rounded-2xl">
+        <h3 className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 gradient-heading flex items-center gap-2">
+          <Sparkles className="w-4 h-4" style={{ color: "oklch(0.82 0.20 70)" }} />
+          AI Template Generator
+        </h3>
 
-      {/* Generation Controls */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-4">
           {/* Topic */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label htmlFor="topic">Topic / App Name</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-rajdhani uppercase tracking-wider" style={{ color: "oklch(0.60 0.04 260)" }}>
+              Topic
+            </Label>
             <Input
-              id="topic"
-              placeholder="e.g. TikTok, Instagram, gaming…"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. product review, food, travel..."
+              className="glass-input border-0"
             />
           </div>
 
           {/* Tone */}
           <div className="space-y-1.5">
-            <Label>Tone</Label>
+            <Label className="text-xs font-rajdhani uppercase tracking-wider" style={{ color: "oklch(0.60 0.04 260)" }}>
+              Tone
+            </Label>
             <Select value={tone} onValueChange={setTone}>
-              <SelectTrigger>
+              <SelectTrigger className="glass-input border-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="positive">Positive</SelectItem>
-                <SelectItem value="neutral">Neutral</SelectItem>
-                <SelectItem value="hype">Hype</SelectItem>
-                <SelectItem value="question">Question</SelectItem>
+                <SelectItem value="positive">Positive 😊</SelectItem>
+                <SelectItem value="neutral">Neutral 😐</SelectItem>
+                <SelectItem value="hype">Hype 🔥</SelectItem>
+                <SelectItem value="question">Question ❓</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Count */}
           <div className="space-y-1.5">
-            <Label>Number of Templates</Label>
-            <Select value={count} onValueChange={setCount}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="30">30</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-xs font-rajdhani uppercase tracking-wider" style={{ color: "oklch(0.60 0.04 260)" }}>
+              Count
+            </Label>
+            <Input
+              type="number"
+              min="1"
+              max="50"
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              className="glass-input border-0"
+            />
           </div>
 
           {/* Append Symbol */}
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label htmlFor="append-symbol" className="flex items-center gap-1.5">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-rajdhani uppercase tracking-wider flex items-center gap-1.5" style={{ color: "oklch(0.60 0.04 260)" }}>
               <Smile className="w-3.5 h-3.5" />
-              Append Symbol
+              Append Symbol (optional)
             </Label>
             <Input
-              id="append-symbol"
-              placeholder="e.g. ⭐, ✅, 🔥 — appended to end of every comment"
               value={appendSymbol}
               onChange={(e) => setAppendSymbol(e.target.value)}
-              className="font-mono"
+              placeholder="e.g. ❤️ or 🔥 or ✅"
+              className="glass-input border-0"
             />
-            <p className="text-xs text-muted-foreground">
-              This symbol will be automatically added to the end of every generated template.
-            </p>
           </div>
-        </div>
 
-        <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
-          {isGenerating ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4 mr-2" />
-          )}
-          Generate Templates
-        </Button>
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating || !topic.trim()}
+            className="w-full font-orbitron font-bold text-xs uppercase tracking-wider"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))",
+              color: "oklch(0.08 0.02 260)",
+              border: "none",
+            }}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate Templates
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Generated Templates */}
       {generatedTemplates.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="glass-card p-5 rounded-2xl space-y-4 animate-fadeInUp">
           <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-foreground">
+            <h4 className="font-orbitron font-bold text-xs uppercase tracking-wider" style={{ color: "oklch(0.78 0.22 188)" }}>
               Generated Templates
-              <Badge variant="secondary" className="ml-2">
-                {selectedTemplates.size} / {generatedTemplates.length} selected
-              </Badge>
             </h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (selectedTemplates.size === generatedTemplates.length) {
-                  setSelectedTemplates(new Set());
-                } else {
-                  setSelectedTemplates(new Set(generatedTemplates.map((_, i) => i)));
-                }
-              }}
-            >
-              {selectedTemplates.size === generatedTemplates.length ? "Deselect All" : "Select All"}
-            </Button>
+            <div className="flex gap-2">
+              <Badge
+                variant="secondary"
+                className="cursor-pointer text-xs"
+                onClick={() => setSelectedTemplates(new Set(generatedTemplates.map((_, i) => i)))}
+              >
+                Select All
+              </Badge>
+              <Badge
+                variant="outline"
+                className="cursor-pointer text-xs"
+                onClick={() => setSelectedTemplates(new Set())}
+              >
+                Clear
+              </Badge>
+            </div>
           </div>
 
-          <ScrollArea className="h-64">
-            <div className="space-y-2 pr-3">
+          <ScrollArea className="h-64 rounded-xl" style={{ border: "1px solid oklch(0.22 0.05 260 / 0.4)" }}>
+            <div className="p-3 space-y-2">
               {generatedTemplates.map((template, index) => (
                 <div
                   key={index}
                   onClick={() => toggleTemplate(index)}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedTemplates.has(index)
-                      ? "bg-primary/10 border-primary/30"
-                      : "bg-muted/30 border-transparent hover:bg-muted/50"
-                  }`}
+                  className="flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200"
+                  style={{
+                    background: selectedTemplates.has(index)
+                      ? "oklch(0.70 0.20 185 / 0.12)"
+                      : "oklch(0.12 0.03 260 / 0.4)",
+                    border: `1px solid ${selectedTemplates.has(index) ? "oklch(0.70 0.20 185 / 0.3)" : "oklch(0.22 0.05 260 / 0.3)"}`,
+                  }}
                 >
                   <div
-                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 ${
-                      selectedTemplates.has(index)
-                        ? "bg-primary border-primary"
-                        : "border-muted-foreground"
-                    }`}
+                    className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{
+                      background: selectedTemplates.has(index) ? "oklch(0.70 0.20 185)" : "transparent",
+                      border: `1px solid ${selectedTemplates.has(index) ? "oklch(0.70 0.20 185)" : "oklch(0.35 0.05 260)"}`,
+                    }}
                   >
-                    {selectedTemplates.has(index) && (
-                      <Check className="w-3 h-3 text-primary-foreground" />
-                    )}
+                    {selectedTemplates.has(index) && <Check className="w-2.5 h-2.5 text-white" />}
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed">{template}</p>
+                  <span className="text-xs font-rajdhani" style={{ color: "oklch(0.80 0.03 80)" }}>
+                    {template}
+                  </span>
                 </div>
               ))}
             </div>
           </ScrollArea>
 
-          <Separator />
+          <Separator style={{ background: "oklch(0.22 0.05 260 / 0.4)" }} />
 
-          {/* Save to List */}
+          {/* Save to list */}
           <div className="space-y-3">
-            <Label>Save to Comment List</Label>
-            <div className="flex gap-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-rajdhani uppercase tracking-wider" style={{ color: "oklch(0.60 0.04 260)" }}>
+                Save to List ({selectedTemplates.size} selected)
+              </Label>
               <Select value={targetListId} onValueChange={setTargetListId}>
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select a list…" />
+                <SelectTrigger className="glass-input border-0">
+                  <SelectValue placeholder="Select target list..." />
                 </SelectTrigger>
                 <SelectContent>
                   {commentLists?.map((list) => (
-                    <SelectItem key={list.id} value={list.id} disabled={list.locked}>
-                      {list.displayName} {list.locked ? "🔒" : ""}
+                    <SelectItem key={list.id} value={list.id}>
+                      {list.displayName}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                onClick={handleSaveToList}
-                disabled={addTemplates.isPending || selectedTemplates.size === 0 || !targetListId}
-              >
-                {addTemplates.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                <span className="ml-1.5">Save</span>
-              </Button>
             </div>
+
+            <Button
+              onClick={handleSaveToList}
+              disabled={addTemplates.isPending || !targetListId || selectedTemplates.size === 0}
+              className="w-full font-orbitron font-bold text-xs uppercase tracking-wider"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.65 0.18 145), oklch(0.70 0.20 185))",
+                color: "oklch(0.08 0.02 260)",
+                border: "none",
+              }}
+            >
+              {addTemplates.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Save {selectedTemplates.size} Templates to List
+                </>
+              )}
+            </Button>
           </div>
         </div>
       )}

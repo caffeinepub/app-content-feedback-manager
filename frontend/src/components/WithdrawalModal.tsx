@@ -28,10 +28,11 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
       return;
     }
     try {
-      await withdrawalMutation.mutateAsync({ username, walletNumber });
+      await withdrawalMutation.mutateAsync({ username, walletNumber, amount: totalEarnings });
       setSubmitted(true);
-    } catch (err: any) {
-      setValidationError(err?.message ?? 'Submission failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Submission failed. Please try again.';
+      setValidationError(message);
     }
   };
 
@@ -187,43 +188,18 @@ export default function WithdrawalModal({ username, totalEarnings, onClose }: Wi
               <h3 className="font-orbitron font-bold text-xl mb-2" style={{ color: 'oklch(0.72 0.20 145)' }}>
                 Request Submitted!
               </h3>
-              <p className="font-rajdhani text-sm mb-1" style={{ color: 'oklch(0.70 0.04 260)' }}>
-                Your withdrawal request has been sent.
+              <p className="text-sm font-rajdhani mb-2" style={{ color: 'oklch(0.60 0.04 260)' }}>
+                Your withdrawal request has been received.
               </p>
-              <p className="font-rajdhani text-xs mb-6" style={{ color: 'oklch(0.50 0.04 260)' }}>
-                Admin will review and approve shortly.
+              <p className="text-xs font-rajdhani mb-6" style={{ color: 'oklch(0.50 0.04 260)' }}>
+                Amount: ₹{totalEarnings.toFixed(2)} · Wallet: {walletNumber}
               </p>
-              <div
-                className="rounded-xl p-3 mb-5 text-left space-y-2"
-                style={{
-                  background: 'oklch(0.10 0.025 260 / 0.8)',
-                  border: '1px solid oklch(0.28 0.06 260 / 0.4)',
-                }}
-              >
-                <div className="flex justify-between text-sm">
-                  <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Username:</span>
-                  <span className="font-orbitron font-bold text-xs" style={{ color: 'oklch(0.85 0.05 80)' }}>{username}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Amount:</span>
-                  <span className="font-orbitron font-bold text-xs gold-text">₹{totalEarnings.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Wallet:</span>
-                  <span className="font-orbitron font-bold text-xs" style={{ color: 'oklch(0.70 0.20 185)' }}>{walletNumber}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="font-rajdhani" style={{ color: 'oklch(0.55 0.04 260)' }}>Status:</span>
-                  <span className="badge-pending">PENDING</span>
-                </div>
-              </div>
               <button
                 onClick={onClose}
-                className="w-full py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300 hover-lift"
+                className="px-6 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 hover-lift"
                 style={{
                   background: 'linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))',
                   color: 'oklch(0.08 0.02 260)',
-                  boxShadow: '0 4px 15px oklch(0.75 0.18 65 / 0.3)',
                 }}
               >
                 Close

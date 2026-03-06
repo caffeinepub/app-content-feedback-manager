@@ -39,6 +39,10 @@ export const ClaimCommentResult = IDL.Variant({
   'noCommentsRemaining' : IDL.Null,
   'claimSuccess' : IDL.Text,
 });
+export const SingleGlobalCommentResult = IDL.Variant({
+  'ok' : IDL.Text,
+  'err' : IDL.Text,
+});
 export const AppEvent = IDL.Record({
   'name' : IDL.Text,
   'usernames' : IDL.Vec(IDL.Text),
@@ -99,6 +103,12 @@ export const CountdownState = IDL.Record({
   'isActive' : IDL.Bool,
   'targetTime' : IDL.Opt(Time),
 });
+export const GlobalCommentPoolStats = IDL.Record({
+  'totalClaimed' : IDL.Nat,
+  'totalTemplates' : IDL.Nat,
+  'templatesRemaining' : IDL.Nat,
+  'batchSupport' : IDL.Bool,
+});
 export const ListMetrics = IDL.Record({
   'usedTemplates' : IDL.Nat,
   'listName' : IDL.Text,
@@ -156,6 +166,8 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addChatMessage' : IDL.Func([IDL.Text], [ChatMessage], []),
+  'addGlobalComment' : IDL.Func([IDL.Text], [], []),
+  'addGlobalComments' : IDL.Func([IDL.Vec(IDL.Text)], [], []),
   'addPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
   'addTemplatesToCommentList' : IDL.Func([IDL.Text, IDL.Vec(IDL.Text)], [], []),
   'addUsernamesToAppEvent' : IDL.Func(
@@ -177,6 +189,12 @@ export const idlService = IDL.Service({
   'deleteImage' : IDL.Func([IDL.Nat], [], []),
   'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
   'editPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
+  'generateBulk' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Variant({ 'ok' : IDL.Vec(IDL.Text), 'err' : IDL.Text })],
+      [],
+    ),
+  'generateSingle' : IDL.Func([], [SingleGlobalCommentResult], []),
   'getAllAppEvents' : IDL.Func([], [IDL.Vec(AppEvent)], ['query']),
   'getAllAppEventsWithImportDate' : IDL.Func(
       [],
@@ -199,11 +217,27 @@ export const idlService = IDL.Service({
     ),
   'getAppEvent' : IDL.Func([IDL.Text], [IDL.Opt(AppEvent)], ['query']),
   'getBulkComments' : IDL.Func([IDL.Text, IDL.Nat], [BulkCommentsResult], []),
+  'getBulkGlobalComments' : IDL.Func(
+      [IDL.Nat],
+      [
+        IDL.Record({
+          'batchRequested' : IDL.Nat,
+          'batchFulfilled' : IDL.Nat,
+          'comments' : IDL.Vec(IDL.Text),
+        }),
+      ],
+      [],
+    ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getChatMessage' : IDL.Func([IDL.Nat], [IDL.Opt(ChatMessage)], ['query']),
   'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
   'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+  'getGlobalCommentPoolStats' : IDL.Func(
+      [],
+      [GlobalCommentPoolStats],
+      ['query'],
+    ),
   'getImage' : IDL.Func([IDL.Nat], [IDL.Opt(ImageMeta)], ['query']),
   'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
@@ -211,6 +245,11 @@ export const idlService = IDL.Service({
   'getMyWithdrawalRequests' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(WithdrawalRequest)],
+      ['query'],
+    ),
+  'getPoolStats' : IDL.Func(
+      [],
+      [IDL.Record({ 'totalPoolSize' : IDL.Nat, 'availableCount' : IDL.Nat })],
       ['query'],
     ),
   'getPriceEntry' : IDL.Func([IDL.Text], [IDL.Opt(PriceEntry)], ['query']),
@@ -289,6 +328,10 @@ export const idlFactory = ({ IDL }) => {
     'noCommentsRemaining' : IDL.Null,
     'claimSuccess' : IDL.Text,
   });
+  const SingleGlobalCommentResult = IDL.Variant({
+    'ok' : IDL.Text,
+    'err' : IDL.Text,
+  });
   const AppEvent = IDL.Record({
     'name' : IDL.Text,
     'usernames' : IDL.Vec(IDL.Text),
@@ -349,6 +392,12 @@ export const idlFactory = ({ IDL }) => {
     'isActive' : IDL.Bool,
     'targetTime' : IDL.Opt(Time),
   });
+  const GlobalCommentPoolStats = IDL.Record({
+    'totalClaimed' : IDL.Nat,
+    'totalTemplates' : IDL.Nat,
+    'templatesRemaining' : IDL.Nat,
+    'batchSupport' : IDL.Bool,
+  });
   const ListMetrics = IDL.Record({
     'usedTemplates' : IDL.Nat,
     'listName' : IDL.Text,
@@ -406,6 +455,8 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addChatMessage' : IDL.Func([IDL.Text], [ChatMessage], []),
+    'addGlobalComment' : IDL.Func([IDL.Text], [], []),
+    'addGlobalComments' : IDL.Func([IDL.Vec(IDL.Text)], [], []),
     'addPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
     'addTemplatesToCommentList' : IDL.Func(
         [IDL.Text, IDL.Vec(IDL.Text)],
@@ -431,6 +482,12 @@ export const idlFactory = ({ IDL }) => {
     'deleteImage' : IDL.Func([IDL.Nat], [], []),
     'deletePriceEntry' : IDL.Func([IDL.Text], [], []),
     'editPriceEntry' : IDL.Func([IDL.Text, IDL.Float64, IDL.Bool], [], []),
+    'generateBulk' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Variant({ 'ok' : IDL.Vec(IDL.Text), 'err' : IDL.Text })],
+        [],
+      ),
+    'generateSingle' : IDL.Func([], [SingleGlobalCommentResult], []),
     'getAllAppEvents' : IDL.Func([], [IDL.Vec(AppEvent)], ['query']),
     'getAllAppEventsWithImportDate' : IDL.Func(
         [],
@@ -453,11 +510,27 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getAppEvent' : IDL.Func([IDL.Text], [IDL.Opt(AppEvent)], ['query']),
     'getBulkComments' : IDL.Func([IDL.Text, IDL.Nat], [BulkCommentsResult], []),
+    'getBulkGlobalComments' : IDL.Func(
+        [IDL.Nat],
+        [
+          IDL.Record({
+            'batchRequested' : IDL.Nat,
+            'batchFulfilled' : IDL.Nat,
+            'comments' : IDL.Vec(IDL.Text),
+          }),
+        ],
+        [],
+      ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getChatMessage' : IDL.Func([IDL.Nat], [IDL.Opt(ChatMessage)], ['query']),
     'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
     'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+    'getGlobalCommentPoolStats' : IDL.Func(
+        [],
+        [GlobalCommentPoolStats],
+        ['query'],
+      ),
     'getImage' : IDL.Func([IDL.Nat], [IDL.Opt(ImageMeta)], ['query']),
     'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
@@ -465,6 +538,11 @@ export const idlFactory = ({ IDL }) => {
     'getMyWithdrawalRequests' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(WithdrawalRequest)],
+        ['query'],
+      ),
+    'getPoolStats' : IDL.Func(
+        [],
+        [IDL.Record({ 'totalPoolSize' : IDL.Nat, 'availableCount' : IDL.Nat })],
         ['query'],
       ),
     'getPriceEntry' : IDL.Func([IDL.Text], [IDL.Opt(PriceEntry)], ['query']),
