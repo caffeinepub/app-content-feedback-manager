@@ -20,36 +20,36 @@
 @tailwind utilities;
 
 @layer base {
-  /* ===== DARK MODE (default) ===== */
+  /* ===== DARK MODE (default) — Navy Neon ===== */
   :root,
   .dark {
-    --background: oklch(0.08 0.02 260);
-    --foreground: oklch(0.95 0.02 80);
+    --background: 0.11 0.025 255;
+    --foreground: 0.97 0.008 255;
 
-    --card: oklch(0.12 0.03 260);
-    --card-foreground: oklch(0.95 0.02 80);
+    --card: 0.16 0.035 255;
+    --card-foreground: 0.95 0.01 255;
 
-    --popover: oklch(0.1 0.03 260);
-    --popover-foreground: oklch(0.95 0.02 80);
+    --popover: 0.14 0.03 255;
+    --popover-foreground: 0.95 0.01 255;
 
-    --primary: oklch(0.75 0.18 65);
-    --primary-foreground: oklch(0.1 0.02 260);
+    --primary: 0.72 0.18 188;
+    --primary-foreground: 0.08 0.02 255;
 
-    --secondary: oklch(0.18 0.04 260);
-    --secondary-foreground: oklch(0.9 0.02 80);
+    --secondary: 0.18 0.04 255;
+    --secondary-foreground: 0.85 0.01 255;
 
-    --muted: oklch(0.16 0.03 260);
-    --muted-foreground: oklch(0.7 0.04 260);
+    --muted: 0.2 0.03 255;
+    --muted-foreground: 0.6 0.04 255;
 
-    --accent: oklch(0.7 0.2 185);
-    --accent-foreground: oklch(0.08 0.02 260);
+    --accent: 0.72 0.18 188;
+    --accent-foreground: 0.08 0.02 255;
 
-    --destructive: oklch(0.55 0.22 25);
-    --destructive-foreground: oklch(0.95 0.02 80);
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.97 0 0;
 
-    --border: oklch(0.22 0.05 260);
-    --input: oklch(0.15 0.03 260);
-    --ring: oklch(0.75 0.18 65);
+    --border: 0.28 0.05 255;
+    --input: 0.2 0.04 255;
+    --ring: 0.72 0.18 188;
 
     --success: oklch(0.65 0.18 145);
     --warning: oklch(0.75 0.18 65);
@@ -62,52 +62,52 @@
     --gold-dim: oklch(0.55 0.14 65);
 
     /* Teal accent */
-    --teal: oklch(0.7 0.2 185);
+    --teal: oklch(0.72 0.18 188);
     --teal-bright: oklch(0.78 0.22 188);
     --teal-dim: oklch(0.5 0.15 185);
 
     /* Deep backgrounds */
-    --bg-deep: oklch(0.06 0.02 260);
-    --bg-surface: oklch(0.1 0.025 260);
-    --bg-elevated: oklch(0.14 0.03 260);
-    --bg-glass: oklch(0.14 0.03 260 / 0.6);
+    --bg-deep: oklch(0.08 0.02 255);
+    --bg-surface: oklch(0.11 0.025 255);
+    --bg-elevated: oklch(0.16 0.035 255);
+    --bg-glass: oklch(0.16 0.035 255 / 0.6);
 
     /* Countdown banner */
-    --countdown-bg: oklch(0.14 0.04 260 / 0.85);
-    --countdown-border: oklch(0.75 0.18 65 / 0.35);
-    --countdown-text: oklch(0.9 0.1 70);
-    --countdown-glow: oklch(0.75 0.18 65 / 0.25);
+    --countdown-bg: oklch(0.16 0.035 255 / 0.9);
+    --countdown-border: oklch(0.72 0.18 188 / 0.35);
+    --countdown-text: oklch(0.72 0.18 188);
+    --countdown-glow: oklch(0.72 0.18 188 / 0.25);
   }
 
   /* ===== LIGHT MODE ===== */
   .light {
-    --background: oklch(0.97 0.005 80);
-    --foreground: oklch(0.12 0.03 260);
+    --background: 0.97 0.008 255;
+    --foreground: 0.12 0.03 255;
 
-    --card: oklch(1.0 0.0 0);
-    --card-foreground: oklch(0.12 0.03 260);
+    --card: 1 0 0;
+    --card-foreground: 0.12 0.03 255;
 
-    --popover: oklch(1.0 0.0 0);
-    --popover-foreground: oklch(0.12 0.03 260);
+    --popover: 1 0 0;
+    --popover-foreground: 0.12 0.03 255;
 
-    --primary: oklch(0.6 0.18 65);
-    --primary-foreground: oklch(0.98 0.01 80);
+    --primary: 0.55 0.2 188;
+    --primary-foreground: 0.97 0 0;
 
-    --secondary: oklch(0.92 0.01 260);
-    --secondary-foreground: oklch(0.25 0.04 260);
+    --secondary: 0.92 0.02 255;
+    --secondary-foreground: 0.15 0.03 255;
 
-    --muted: oklch(0.94 0.01 260);
-    --muted-foreground: oklch(0.35 0.04 260);
+    --muted: 0.94 0.015 255;
+    --muted-foreground: 0.45 0.05 255;
 
-    --accent: oklch(0.55 0.18 185);
-    --accent-foreground: oklch(0.98 0.01 80);
+    --accent: 0.55 0.2 188;
+    --accent-foreground: 0.97 0 0;
 
-    --destructive: oklch(0.55 0.22 25);
-    --destructive-foreground: oklch(0.98 0.01 80);
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
 
-    --border: oklch(0.88 0.02 260);
-    --input: oklch(0.92 0.01 260);
-    --ring: oklch(0.6 0.18 65);
+    --border: 0.82 0.02 255;
+    --input: 0.88 0.015 255;
+    --ring: 0.55 0.2 188;
 
     --success: oklch(0.55 0.18 145);
     --warning: oklch(0.6 0.18 65);
@@ -118,21 +118,21 @@
     --gold-dim: oklch(0.5 0.14 65);
 
     /* Teal accent */
-    --teal: oklch(0.55 0.18 185);
+    --teal: oklch(0.55 0.2 188);
     --teal-bright: oklch(0.6 0.2 188);
     --teal-dim: oklch(0.45 0.14 185);
 
     /* Light backgrounds */
-    --bg-deep: oklch(0.94 0.01 260);
-    --bg-surface: oklch(0.97 0.005 80);
+    --bg-deep: oklch(0.94 0.01 255);
+    --bg-surface: oklch(0.97 0.008 255);
     --bg-elevated: oklch(1.0 0.0 0);
     --bg-glass: oklch(1.0 0.0 0 / 0.8);
 
     /* Countdown banner */
-    --countdown-bg: oklch(0.98 0.02 70 / 0.95);
-    --countdown-border: oklch(0.6 0.18 65 / 0.4);
-    --countdown-text: oklch(0.35 0.12 65);
-    --countdown-glow: oklch(0.6 0.18 65 / 0.15);
+    --countdown-bg: oklch(0.95 0.02 255 / 0.95);
+    --countdown-border: oklch(0.55 0.2 188 / 0.4);
+    --countdown-text: oklch(0.35 0.16 188);
+    --countdown-glow: oklch(0.55 0.2 188 / 0.15);
   }
 
   * {
@@ -141,17 +141,17 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: "Outfit", "Rajdhani", "Inter", sans-serif;
+    font-family: "Outfit", "Inter", sans-serif;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
   .dark body {
-    background: oklch(0.06 0.02 260);
+    background: oklch(0.09 0.022 255);
   }
 
   .light body {
-    background: oklch(0.96 0.008 80);
+    background: oklch(0.97 0.008 255);
   }
 
   h1,
@@ -167,12 +167,19 @@
 @layer components {
   /* ===== COUNTDOWN BANNER ===== */
   .countdown-banner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 0.375rem 1rem;
     background: var(--countdown-bg);
     border: 1px solid var(--countdown-border);
-    box-shadow: 0 2px 12px var(--countdown-glow), 0 0 0 1px
-      var(--countdown-border) inset;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    border-radius: 0.875rem;
+    box-shadow: 0 0 16px var(--countdown-glow), 0 2px 12px var(--countdown-glow);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    min-width: 120px;
+    text-align: center;
   }
 
   .countdown-digit {
@@ -180,11 +187,114 @@
   }
 
   .countdown-label {
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--countdown-text);
+    line-height: 1;
   }
 
   .countdown-sep {
     color: var(--countdown-text);
+  }
+
+  /* ===== RW AVATAR ===== */
+  .rw-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    background: linear-gradient(
+      135deg,
+      oklch(0.72 0.18 188),
+      oklch(0.68 0.2 220)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.875rem;
+    color: oklch(0.08 0.02 255);
+    letter-spacing: -0.02em;
+    box-shadow: 0 0 12px oklch(0.72 0.18 188 / 0.3);
+    flex-shrink: 0;
+  }
+
+  /* ===== MUSIC BUTTON ===== */
+  .music-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: oklch(var(--card) / 0.9);
+    border: 1px solid oklch(0.72 0.18 188 / 0.3);
+    color: oklch(0.72 0.18 188);
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .music-btn.playing {
+    box-shadow: 0 0 16px oklch(0.72 0.18 188 / 0.5);
+    border-color: oklch(0.72 0.18 188 / 0.6);
+    background: oklch(0.72 0.18 188 / 0.15);
+  }
+
+  .music-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 12px oklch(0.72 0.18 188 / 0.35);
+  }
+
+  /* ===== TAB PILLS ===== */
+  .tab-pill {
+    border-radius: 9999px;
+    padding: 0.375rem 1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .tab-pill.active {
+    background: linear-gradient(
+      135deg,
+      oklch(0.72 0.18 188),
+      oklch(0.68 0.2 220)
+    );
+    color: oklch(0.08 0.02 255);
+    box-shadow: 0 0 16px oklch(0.72 0.18 188 / 0.4);
+  }
+
+  .tab-pill:not(.active) {
+    color: oklch(var(--muted-foreground) / 1);
+  }
+
+  .tab-pill:not(.active):hover {
+    background: oklch(var(--muted) / 0.5);
+    color: oklch(var(--foreground) / 1);
+  }
+
+  /* ===== NEON CARD ===== */
+  .neon-card {
+    background: oklch(var(--card) / 1);
+    border: 1px solid oklch(0.97 0 0 / 0.08);
+    border-radius: 1.125rem;
+    box-shadow: 0 4px 24px oklch(0.04 0.02 255 / 0.6), 0 0 0 1px
+      oklch(0.97 0 0 / 0.05) inset;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  .neon-card:hover {
+    box-shadow: 0 8px 32px oklch(0.04 0.02 255 / 0.7), 0 0 20px
+      oklch(0.72 0.18 188 / 0.15);
+    transform: translateY(-1px);
+  }
+
+  /* ===== NEON GLOW ===== */
+  .neon-glow {
+    box-shadow: 0 0 20px oklch(0.72 0.18 188 / 0.35), 0 0 40px
+      oklch(0.72 0.18 188 / 0.15);
   }
 
   /* ===== GLASSMORPHISM CARDS ===== */
@@ -712,11 +822,12 @@
 
   /* ===== COUNTDOWN TIME ===== */
   .countdown-time {
-    font-family: "Orbitron", monospace;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--countdown-text);
-    margin-left: 0.5rem;
+    font-family: "Outfit", monospace;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: oklch(var(--foreground) / 1);
+    line-height: 1.2;
   }
 }
 

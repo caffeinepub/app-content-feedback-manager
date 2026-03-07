@@ -5,17 +5,21 @@ import {
   useGetSettings,
   useSetAccessKey,
   useSetBgMusicEnabled,
+  useWipeAllData,
 } from "../../hooks/useQueries";
 
 export default function AdminSettings() {
   const { data: settings } = useGetSettings();
   const setAccessKeyMutation = useSetAccessKey();
   const setBgMusicEnabled = useSetBgMusicEnabled();
+  const wipeAll = useWipeAllData();
 
   const [newKey, setNewKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [wipeConfirm, setWipeConfirm] = useState("");
+  const [wipeChecked, setWipeChecked] = useState(false);
 
   const accessKey = settings?.accessKey ?? null;
 
@@ -58,6 +62,21 @@ export default function AdminSettings() {
       setError(
         err instanceof Error ? err.message : "Failed to update settings",
       );
+    }
+  };
+
+  const handleWipeAll = async () => {
+    if (!wipeChecked || wipeConfirm !== "WIPE") return;
+    setError(null);
+    setSuccess(null);
+    try {
+      await wipeAll.mutateAsync();
+      setWipeConfirm("");
+      setWipeChecked(false);
+      setSuccess("All data wiped successfully.");
+      localStorage.clear();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to wipe data");
     }
   };
 
@@ -242,6 +261,63 @@ export default function AdminSettings() {
             ✓ Music file configured
           </div>
         )}
+      </div>
+
+      {/* Danger Zone */}
+      <div
+        className="glass-card p-5 rounded-2xl"
+        style={{ border: "1px solid oklch(0.65 0.22 25 / 0.3)" }}
+        data-ocid="danger.panel"
+      >
+        <h3
+          className="font-bold text-sm uppercase tracking-wider mb-2 flex items-center gap-2"
+          style={{ color: "oklch(0.65 0.22 25)" }}
+        >
+          ⚠️ DANGER ZONE
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Permanently deletes ALL data: apps, comment lists, comments, live
+          lists, prices, images, music. This cannot be undone.
+        </p>
+        <div className="space-y-3">
+          <label
+            className="flex items-center gap-2 text-xs cursor-pointer"
+            style={{ color: "oklch(0.65 0.04 260)" }}
+          >
+            <input
+              type="checkbox"
+              checked={wipeChecked}
+              onChange={(e) => setWipeChecked(e.target.checked)}
+              data-ocid="danger.wipe.checkbox"
+            />
+            I understand this is permanent and cannot be undone
+          </label>
+          <input
+            type="text"
+            value={wipeConfirm}
+            onChange={(e) => setWipeConfirm(e.target.value)}
+            placeholder='Type "WIPE" to confirm'
+            className="glass-input w-full px-3 py-2 text-sm"
+            data-ocid="danger.wipe.input"
+          />
+          <button
+            type="button"
+            onClick={handleWipeAll}
+            disabled={
+              !wipeChecked || wipeConfirm !== "WIPE" || wipeAll.isPending
+            }
+            data-ocid="danger.wipe.delete_button"
+            className="w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all"
+            style={{
+              background: "oklch(0.55 0.22 25 / 0.2)",
+              border: "1px solid oklch(0.55 0.22 25 / 0.4)",
+              color: "oklch(0.65 0.22 25)",
+              opacity: !wipeChecked || wipeConfirm !== "WIPE" ? 0.4 : 1,
+            }}
+          >
+            {wipeAll.isPending ? "Wiping..." : "WIPE ALL DATA"}
+          </button>
+        </div>
       </div>
     </div>
   );

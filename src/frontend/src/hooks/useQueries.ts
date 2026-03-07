@@ -19,8 +19,100 @@ import type {
   UserProfile,
   WithdrawalRequest,
   WithdrawalStatus,
+  backendInterface,
 } from "../backend";
+import { getSecretParameter } from "../utils/urlParams";
 import { useActor } from "./useActor";
+
+// ── Admin Auth Helper ─────────────────────────────────────────────────────────
+
+/**
+ * Initializes admin access on the actor by calling _initializeAccessControlWithSecret.
+ *
+ * Token lookup order:
+ * 1. sessionStorage (stored on first page load when token was in hash)
+ * 2. URL hash directly (for cases where session wasn't populated yet)
+ * 3. getSecretParameter utility (hash-based extraction with session fallback)
+ * 4. localStorage adminCode fallback (when admin is unlocked via PIN)
+ *
+ * This ensures that even after navigation or page reload, the admin token
+ * is always found and the actor is properly initialized before admin calls.
+ */
+export async function initAdminActor(actor: backendInterface): Promise<void> {
+  // 1. Try sessionStorage first (token was stored there on first load)
+  let token = sessionStorage.getItem("caffeineAdminToken") || "";
+
+  // 2. Fall back to URL hash directly (handles cases where sessionStorage wasn't populated)
+  if (!token) {
+    const hash = window.location.hash;
+    if (hash) {
+      const hashContent = hash.startsWith("#") ? hash.substring(1) : hash;
+      const params = new URLSearchParams(hashContent);
+      const fromHash = params.get("caffeineAdminToken");
+      if (fromHash) {
+        token = fromHash;
+        sessionStorage.setItem("caffeineAdminToken", token);
+      }
+    }
+  }
+
+  // 3. Fall back to getSecretParameter utility (handles hash + session with auto-clear)
+  if (!token) {
+    token = getSecretParameter("caffeineAdminToken") || "";
+  }
+
+  // 4. If admin is unlocked via PIN but no platform token is available,
+  //    the admin code stored in localStorage indicates admin status —
+  //    but for _initializeAccessControlWithSecret we still need the platform token.
+  //    Check if there's a cached platform token in localStorage as last resort.
+  if (!token) {
+    token = localStorage.getItem("caffeineAdminToken") || "";
+  }
+
+  if (token) {
+    // Persist to sessionStorage so subsequent calls don't need to re-parse
+    if (!sessionStorage.getItem("caffeineAdminToken")) {
+      sessionStorage.setItem("caffeineAdminToken", token);
+    }
+
+    const actorWithInit = actor as unknown as Record<string, unknown>;
+    if (
+      typeof actorWithInit._initializeAccessControlWithSecret === "function"
+    ) {
+      await (
+        actorWithInit._initializeAccessControlWithSecret as (
+          t: string,
+        ) => Promise<void>
+      )(token);
+    }
+  }
+}
+
+/**
+ * Persists the caffeineAdminToken to both sessionStorage and localStorage
+ * so it survives navigation and page reloads.
+ * Called from AdminUnlock on successful PIN entry.
+ */
+export function persistAdminToken(): void {
+  // Try to grab token from the current URL hash if present
+  const hash = window.location.hash;
+  if (hash) {
+    const hashContent = hash.startsWith("#") ? hash.substring(1) : hash;
+    const params = new URLSearchParams(hashContent);
+    const fromHash = params.get("caffeineAdminToken");
+    if (fromHash) {
+      sessionStorage.setItem("caffeineAdminToken", fromHash);
+      localStorage.setItem("caffeineAdminToken", fromHash);
+      return;
+    }
+  }
+
+  // Also check sessionStorage → persist to localStorage
+  const fromSession = sessionStorage.getItem("caffeineAdminToken");
+  if (fromSession) {
+    localStorage.setItem("caffeineAdminToken", fromSession);
+  }
+}
 
 // ── Comment Lists ─────────────────────────────────────────────────────────────
 
@@ -65,6 +157,7 @@ export function useCreateCommentList() {
       suffix: string;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.createCommentList(id, displayName, suffix);
     },
     onSuccess: () => {
@@ -88,6 +181,7 @@ export function useAddTemplatesToCommentList() {
       templates: string[];
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.addTemplatesToCommentList(id, templates);
     },
     onSuccess: () => {
@@ -108,6 +202,7 @@ export function useSetCommentListTemplates() {
       templates: string[];
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setCommentListTemplates(id, templates);
     },
     onSuccess: () => {
@@ -128,6 +223,7 @@ export function useRenameCommentList() {
       newDisplayName: string;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.renameCommentList(id, newDisplayName);
     },
     onSuccess: () => {
@@ -142,6 +238,7 @@ export function useDeleteCommentList() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.deleteCommentList(id);
     },
     onSuccess: () => {
@@ -157,6 +254,7 @@ export function useLockCommentList() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.lockCommentList(id);
     },
     onSuccess: () => {
@@ -171,6 +269,7 @@ export function useUnlockCommentList() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.unlockCommentList(id);
     },
     onSuccess: () => {
@@ -202,6 +301,7 @@ export function useResetUsedTemplates() {
   return useMutation({
     mutationFn: async (listId: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.resetUsedTemplates(listId);
     },
     onSuccess: () => {
@@ -248,6 +348,7 @@ export function useSetInventoryCount() {
       count: bigint;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setInventoryCount(listId, count);
     },
     onSuccess: () => {
@@ -293,6 +394,7 @@ export function useGetBulkComments() {
       count: bigint;
     }): Promise<BulkCommentsResult> => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.getBulkComments(listId, count);
     },
     onSuccess: () => {
@@ -383,6 +485,7 @@ export function useAddGlobalComment() {
   return useMutation({
     mutationFn: async (comment: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.addGlobalComment(comment);
     },
     onSuccess: () => {
@@ -398,6 +501,7 @@ export function useAddGlobalComments() {
   return useMutation({
     mutationFn: async (comments: string[]) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.addGlobalComments(comments);
     },
     onSuccess: () => {
@@ -442,6 +546,7 @@ export function useCreateAppEvent() {
   return useMutation({
     mutationFn: async (name: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.createAppEvent(name);
     },
     onSuccess: () => {
@@ -475,6 +580,7 @@ export function useAddUsernamesToAppEvent() {
       usernames: string[];
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.addUsernamesToAppEvent(name, usernames);
     },
     onSuccess: () => {
@@ -490,6 +596,7 @@ export function useDeleteAppEvent() {
   return useMutation({
     mutationFn: async (name: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.deleteAppEvent(name);
     },
     onSuccess: () => {
@@ -505,6 +612,7 @@ export function useImportLiveLists() {
   return useMutation({
     mutationFn: async (imports: AppImport[]): Promise<ImportSummary> => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.importLiveLists(imports);
     },
     onSuccess: () => {
@@ -554,6 +662,7 @@ export function useDeleteChatMessage() {
   return useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.deleteChatMessage(id);
     },
     onSuccess: () => {
@@ -590,6 +699,7 @@ export function useUploadImage() {
       dataUrl: string;
     }): Promise<ImageMeta> => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.uploadImage(name, tags, dataUrl);
     },
     onSuccess: () => {
@@ -604,6 +714,7 @@ export function useDeleteImage() {
   return useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.deleteImage(id);
     },
     onSuccess: () => {
@@ -618,6 +729,7 @@ export function useUpdateImageTags() {
   return useMutation({
     mutationFn: async ({ id, tags }: { id: bigint; tags: string[] }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.updateImageTags(id, tags);
     },
     onSuccess: () => {
@@ -670,6 +782,7 @@ export function useSetAccessKey() {
   return useMutation({
     mutationFn: async (key: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setAccessKey(key);
     },
     onSuccess: () => {
@@ -684,6 +797,7 @@ export function useRegenerateAccessKey() {
   return useMutation({
     mutationFn: async (): Promise<string> => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.regenerateAccessKey();
     },
     onSuccess: () => {
@@ -698,6 +812,7 @@ export function useClearAccessKey() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.clearAccessKey();
     },
     onSuccess: () => {
@@ -712,6 +827,7 @@ export function useSetBgMusicEnabled() {
   return useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setBgMusicEnabled(enabled);
     },
     onSuccess: () => {
@@ -727,6 +843,7 @@ export function useSetMusicUrl() {
   return useMutation({
     mutationFn: async (url: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setMusicUrl(url);
     },
     onSuccess: () => {
@@ -747,6 +864,7 @@ export function useUpdateSettings() {
       musicUrl: string | null;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.updateSettings(bgMusicEnabled, musicUrl);
     },
     onSuccess: () => {
@@ -810,6 +928,7 @@ export function useAddPriceEntry() {
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.addPriceEntry(appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
@@ -832,6 +951,7 @@ export function useEditPriceEntry() {
       isActive: boolean;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.editPriceEntry(appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
@@ -846,6 +966,7 @@ export function useDeletePriceEntry() {
   return useMutation({
     mutationFn: async (appName: string) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.deletePriceEntry(appName);
     },
     onSuccess: () => {
@@ -860,6 +981,7 @@ export function useBulkUploadPrices() {
   return useMutation({
     mutationFn: async (entries: PriceEntry[]): Promise<bigint> => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.bulkUploadPrices(entries);
     },
     onSuccess: () => {
@@ -886,6 +1008,7 @@ export function useSetPriceListInitialized() {
   return useMutation({
     mutationFn: async (value: boolean) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setPriceListInitialized(value);
     },
     onSuccess: () => {
@@ -1019,6 +1142,7 @@ export function useUpdateWithdrawalStatus() {
       status: WithdrawalStatus;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.updateWithdrawalStatus(key, status);
     },
     onSuccess: () => {
@@ -1048,6 +1172,7 @@ export function useSetCountdown() {
   return useMutation({
     mutationFn: async (targetTime: bigint) => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.setCountdown(targetTime);
     },
     onSuccess: () => {
@@ -1062,6 +1187,7 @@ export function useStopCountdown() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.stopCountdown();
     },
     onSuccess: () => {
@@ -1076,6 +1202,7 @@ export function useClearCountdown() {
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
       return actor.clearCountdown();
     },
     onSuccess: () => {
@@ -1152,6 +1279,25 @@ export function useConsumeFromList() {
       });
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
+    },
+  });
+}
+
+// ── Wipe All Data ─────────────────────────────────────────────────────────────
+
+export function useWipeAllData() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      await initAdminActor(actor);
+      return (
+        actor as unknown as { wipeAllData: () => Promise<void> }
+      ).wipeAllData();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
     },
   });
 }

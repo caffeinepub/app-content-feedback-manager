@@ -1,7 +1,9 @@
 import { Lock, Shield } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { useActor } from "../hooks/useActor";
 import { useAdminAuth } from "../hooks/useAdminAuth";
+import { initAdminActor, persistAdminToken } from "../hooks/useQueries";
 
 interface AdminUnlockProps {
   onUnlocked: () => void;
@@ -10,15 +12,20 @@ interface AdminUnlockProps {
 export default function AdminUnlock({ onUnlocked }: AdminUnlockProps) {
   const [code, setCode] = useState("");
   const { unlock, error, isLoading, isUnlocked } = useAdminAuth();
+  const { actor } = useActor();
 
-  // Auto-skip if already unlocked via localStorage
+  // Auto-skip if already unlocked via localStorage — also pre-warm actor
   useEffect(() => {
     const storedCode = localStorage.getItem("adminCode");
     const storedIsAdmin = localStorage.getItem("isAdmin");
     if (storedCode === "7898" && storedIsAdmin === "true") {
+      // Pre-warm actor with admin token so all subsequent mutations work
+      if (actor) {
+        initAdminActor(actor).catch(console.warn);
+      }
       onUnlocked();
     }
-  }, [onUnlocked]);
+  }, [onUnlocked, actor]);
 
   // Also respond to isUnlocked state changes
   useEffect(() => {
@@ -31,6 +38,12 @@ export default function AdminUnlock({ onUnlocked }: AdminUnlockProps) {
     e.preventDefault();
     const success = await unlock(code);
     if (success) {
+      // Persist the platform admin token so it survives navigation
+      persistAdminToken();
+      // Pre-warm the actor immediately so the first admin action succeeds
+      if (actor) {
+        initAdminActor(actor).catch(console.warn);
+      }
       onUnlocked();
     }
   };

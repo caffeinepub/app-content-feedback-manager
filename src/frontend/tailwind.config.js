@@ -8,10 +8,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        orbitron: ['Orbitron', 'sans-serif'],
-        rajdhani: ['Rajdhani', 'Inter', 'sans-serif'],
-        sans: ['Outfit', 'Rajdhani', 'Inter', 'sans-serif'],
-        display: ['Cabinet Grotesk', 'Bricolage Grotesque', 'Orbitron', 'sans-serif'],
+        orbitron: ['Outfit', 'sans-serif'],
+        rajdhani: ['Outfit', 'Inter', 'sans-serif'],
+        sans: ['Outfit', 'Inter', 'sans-serif'],
+        display: ['Outfit', 'Cabinet Grotesk', 'sans-serif'],
       },
       colors: {
         background: 'oklch(var(--background) / <alpha-value>)',
@@ -88,6 +88,10 @@ export default {
           '0%, 100%': { boxShadow: '0 0 10px oklch(0.75 0.18 65 / 0.3)' },
           '50%': { boxShadow: '0 0 30px oklch(0.75 0.18 65 / 0.6)' },
         },
+        neonPulse: {
+          '0%, 100%': { boxShadow: '0 0 10px oklch(0.72 0.18 188 / 0.3)' },
+          '50%': { boxShadow: '0 0 25px oklch(0.72 0.18 188 / 0.6)' },
+        },
       },
       animation: {
         fadeInUp: 'fadeInUp 0.5s ease-out both',
@@ -95,6 +99,7 @@ export default {
         slideDown: 'slideDown 0.4s ease-out both',
         floatShape: 'floatShape 20s ease-in-out infinite',
         pulseGold: 'pulseGold 2s ease-in-out infinite',
+        neonPulse: 'neonPulse 2s ease-in-out infinite',
       },
     },
   },
