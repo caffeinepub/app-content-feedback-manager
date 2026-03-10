@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Copy, RefreshCw, Zap } from "lucide-react";
 import React, { useState } from "react";
-import { useGenerateSingle, useGetPoolStats } from "../hooks/useQueries";
+import { useGenerateSingle } from "../hooks/useQueries";
 
 export default function SingleGeneratorView() {
   const [generatedComment, setGeneratedComment] = useState<string | null>(null);
@@ -19,12 +19,7 @@ export default function SingleGeneratorView() {
   );
   const [copied, setCopied] = useState(false);
 
-  const { data: poolStats, isLoading: statsLoading } = useGetPoolStats();
   const generateSingle = useGenerateSingle();
-
-  const available = poolStats ? Number(poolStats.availableCount) : 0;
-  const total = poolStats ? Number(poolStats.totalPoolSize) : 0;
-  const used = total - available;
 
   const handleGenerate = async () => {
     setErrorModalMessage(null);
@@ -35,7 +30,6 @@ export default function SingleGeneratorView() {
     } catch (err: unknown) {
       const raw =
         err instanceof Error ? err.message : "Failed to generate comment";
-      // Map backend error messages to user-friendly modal text
       if (raw === "Pool is empty") {
         setErrorModalMessage("No comments left. Please try later.");
       } else if (raw === "Not authorized") {
@@ -57,68 +51,38 @@ export default function SingleGeneratorView() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 p-4">
-      {/* Pool Stats */}
-      <Card className="glass-card border-primary/20">
+      {/* Generate Button */}
+      <Card className="glass-card border-border/40">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" />
-            Comment Pool
+            Single Comment Generator
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {statsLoading ? (
-            <div className="flex gap-4 animate-pulse">
-              <div className="h-12 bg-muted rounded flex-1" />
-              <div className="h-12 bg-muted rounded flex-1" />
-              <div className="h-12 bg-muted rounded flex-1" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="bg-primary/10 rounded-lg p-3">
-                <div className="text-2xl font-bold text-primary">
-                  {available}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Comments Left
-                </div>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-foreground">{used}</div>
-                <div className="text-xs text-muted-foreground mt-1">Used</div>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-foreground">
-                  {total}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Total</div>
-              </div>
-            </div>
-          )}
+          <div className="flex justify-center">
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating}
+              size="lg"
+              data-ocid="single-gen-view.generate.button"
+              className="gradient-btn px-8 py-3 text-base font-semibold border-none"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-5 h-5 mr-2" />
+                  Generate One Comment
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
-
-      {/* Generate Button */}
-      <div className="flex justify-center">
-        <Button
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          size="lg"
-          data-ocid="single-gen-view.generate.button"
-          className="gradient-btn px-8 py-3 text-base font-semibold border-none"
-        >
-          {isGenerating ? (
-            <>
-              <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Zap className="w-5 h-5 mr-2" />
-              Generate One Comment
-            </>
-          )}
-        </Button>
-      </div>
 
       {/* Generated Comment */}
       {generatedComment && (

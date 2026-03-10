@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 const ADMIN_CODE = "7898";
 
@@ -15,19 +15,15 @@ export function useAdminAuth() {
     isLoading: false,
   });
 
-  // Restore admin state from localStorage on mount
-  useEffect(() => {
-    const storedCode = localStorage.getItem("adminCode");
-    const storedIsAdmin = localStorage.getItem("isAdmin");
-    if (storedCode === ADMIN_CODE && storedIsAdmin === "true") {
-      setState((prev) => ({ ...prev, isUnlocked: true }));
-    }
+  const recheck = useCallback(() => {
+    // no-op — unlock state is managed entirely in this hook instance
   }, []);
 
   const unlock = async (code: string): Promise<boolean> => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     if (code === ADMIN_CODE) {
+      // Store so AdminUnlock can check it on mount
       localStorage.setItem("adminCode", ADMIN_CODE);
       localStorage.setItem("isAdmin", "true");
       setState({ isUnlocked: true, error: null, isLoading: false });
@@ -53,5 +49,6 @@ export function useAdminAuth() {
     isLoading: state.isLoading,
     unlock,
     lockAdmin,
+    recheck,
   };
 }

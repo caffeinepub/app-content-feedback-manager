@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, Copy, PackageOpen, RefreshCw, Zap } from "lucide-react";
+import { Check, Copy, RefreshCw, Zap } from "lucide-react";
 import React, { useState } from "react";
 import { useGenerateBulkGlobal, useGetPoolStats } from "../hooks/useQueries";
 
@@ -24,12 +24,10 @@ export default function BulkGeneratorView() {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const { data: poolStats, isLoading: statsLoading } = useGetPoolStats();
+  const { data: poolStats } = useGetPoolStats();
   const generateBulk = useGenerateBulkGlobal();
 
   const available = poolStats ? Number(poolStats.availableCount) : 0;
-  const total = poolStats ? Number(poolStats.totalPoolSize) : 0;
-  const used = total - available;
 
   const parsedBatchSize = Number.parseInt(batchSize, 10);
   const isValidBatch =
@@ -49,8 +47,6 @@ export default function BulkGeneratorView() {
     } catch (err: unknown) {
       const raw =
         err instanceof Error ? err.message : "Failed to generate comments";
-      // Show the backend error message directly in the modal
-      // Backend returns: "Only X comments left. Reduce quantity." or "Not authorized"
       if (raw === "Not authorized") {
         setErrorModalMessage("You are not authorized to generate comments.");
       } else if (available === 0) {
@@ -76,49 +72,15 @@ export default function BulkGeneratorView() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 p-4">
-      {/* Pool Stats */}
-      <Card className="glass-card border-primary/20">
+      {/* Batch Size Input + Generate */}
+      <Card className="glass-card border-border/40">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <PackageOpen className="w-5 h-5 text-primary" />
-            Comment Pool
+            <Zap className="w-5 h-5 text-primary" />
+            Bulk Comment Generator
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {statsLoading ? (
-            <div className="flex gap-4 animate-pulse">
-              <div className="h-12 bg-muted rounded flex-1" />
-              <div className="h-12 bg-muted rounded flex-1" />
-              <div className="h-12 bg-muted rounded flex-1" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="bg-primary/10 rounded-lg p-3">
-                <div className="text-2xl font-bold text-primary">
-                  {available}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Comments Left
-                </div>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-foreground">{used}</div>
-                <div className="text-xs text-muted-foreground mt-1">Used</div>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="text-2xl font-bold text-foreground">
-                  {total}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Total</div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Batch Size Input + Generate */}
-      <Card className="glass-card border-border/40">
-        <CardContent className="pt-6">
           <div className="flex gap-3 items-end">
             <div className="flex-1">
               <Label

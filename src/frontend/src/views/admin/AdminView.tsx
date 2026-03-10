@@ -1,6 +1,5 @@
 import {
   CreditCard,
-  Database,
   DollarSign,
   Image,
   List,
@@ -12,16 +11,14 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import AdminUnlock from "../../components/AdminUnlock";
-import { useAdminAuth } from "../../hooks/useAdminAuth";
 import AdminAITemplates from "./AdminAITemplates";
 import { AdminChat } from "./AdminChat";
 import AdminComments from "./AdminComments";
 import AdminEarnings from "./AdminEarnings";
 import { AdminImages } from "./AdminImages";
 import AdminLiveList from "./AdminLiveList";
-import AdminPoolManagement from "./AdminPoolManagement";
 import AdminPricing from "./AdminPricing";
 import AdminSettings from "./AdminSettings";
 import AdminWithdrawals from "./AdminWithdrawals";
@@ -35,17 +32,21 @@ const tabs = [
   { id: "ai", label: "AI Templates", icon: Sparkles },
   { id: "images", label: "Images", icon: Image },
   { id: "chat", label: "Chat", icon: MessageCircle },
-  { id: "pool", label: "Pool Mgmt", icon: Database },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminView() {
   const [activeTab, setActiveTab] = useState("comments");
-  const { isUnlocked, lockAdmin } = useAdminAuth();
+  const [unlocked, setUnlocked] = useState(false);
 
-  if (!isUnlocked) {
-    return <AdminUnlock onUnlocked={() => {}} />;
+  if (!unlocked) {
+    return <AdminUnlock onUnlocked={() => setUnlocked(true)} />;
   }
+
+  const handleLock = () => {
+    localStorage.removeItem("adminCode");
+    setUnlocked(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -57,7 +58,7 @@ export default function AdminView() {
         </div>
         <button
           type="button"
-          onClick={lockAdmin}
+          onClick={handleLock}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50"
         >
           <Lock className="w-3.5 h-3.5" />
@@ -97,7 +98,6 @@ export default function AdminView() {
         {activeTab === "ai" && <AdminAITemplates />}
         {activeTab === "images" && <AdminImages />}
         {activeTab === "chat" && <AdminChat />}
-        {activeTab === "pool" && <AdminPoolManagement />}
         {activeTab === "settings" && <AdminSettings />}
       </div>
     </div>

@@ -14,13 +14,6 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
-export interface ImageMeta {
-    id: bigint;
-    dataUrl: string;
-    data?: ExternalBlob;
-    name: string;
-    tags: Array<string>;
-}
 export type Time = bigint;
 export interface AllEarningsSummary {
     totalAppsWithPrices: bigint;
@@ -47,7 +40,6 @@ export interface GlobalCommentPoolStats {
     batchSupport: boolean;
 }
 export interface CountdownState {
-    startedBy?: Principal;
     isActive: boolean;
     targetTime?: Time;
 }
@@ -92,13 +84,6 @@ export interface ImportSummary {
     totalDuplicatesSkipped: bigint;
     totalAppsDetected: bigint;
 }
-export type SingleGlobalCommentResult = {
-    __kind__: "ok";
-    ok: string;
-} | {
-    __kind__: "err";
-    err: string;
-};
 export type ClaimCommentResult = {
     __kind__: "noCommentsRemaining";
     noCommentsRemaining: null;
@@ -125,6 +110,13 @@ export interface AppEarnings {
     isActive: boolean;
     totalAmount: number;
 }
+export interface ImageMeta {
+    id: bigint;
+    dataUrl: string;
+    data?: ExternalBlob;
+    name: string;
+    tags: Array<string>;
+}
 export interface UserProfile {
     name: string;
 }
@@ -140,17 +132,17 @@ export enum WithdrawalStatus {
 }
 export interface backendInterface {
     addChatMessage(text: string): Promise<ChatMessage>;
-    addGlobalComment(comment: string): Promise<void>;
-    addGlobalComments(newComments: Array<string>): Promise<void>;
-    addPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
-    addTemplatesToCommentList(id: string, newTemplates: Array<string>): Promise<void>;
-    addUsernamesToAppEvent(name: string, newUsernames: Array<string>): Promise<bigint>;
+    addGlobalComment(adminCode: string, comment: string): Promise<void>;
+    addGlobalComments(adminCode: string, commentsToAdd: Array<string>): Promise<void>;
+    addPriceEntry(adminCode: string, appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
+    addTemplatesToCommentList(adminCode: string, id: string, newTemplates: Array<string>): Promise<void>;
+    addUsernamesToAppEvent(adminCode: string, name: string, newUsernames: Array<string>): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    bulkUploadPrices(entries: Array<PriceEntry>): Promise<bigint>;
+    bulkUploadPrices(adminCode: string, entries: Array<PriceEntry>): Promise<bigint>;
     checkWithdrawalEligibility(username: string): Promise<boolean>;
     claimComment(listId: string, username: string): Promise<ClaimCommentResult>;
-    clearAccessKey(): Promise<void>;
-    clearCountdown(): Promise<void>;
+    clearAccessKey(adminCode: string): Promise<void>;
+    clearCountdown(adminCode: string): Promise<void>;
     consumeFromList(listId: string, count: bigint): Promise<{
         __kind__: "ok";
         ok: Array<string>;
@@ -158,14 +150,14 @@ export interface backendInterface {
         __kind__: "err";
         err: string;
     }>;
-    createAppEvent(name: string): Promise<void>;
-    createCommentList(id: string, displayName: string, suffix: string): Promise<void>;
-    deleteAppEvent(name: string): Promise<void>;
-    deleteChatMessage(id: bigint): Promise<void>;
-    deleteCommentList(id: string): Promise<void>;
-    deleteImage(id: bigint): Promise<void>;
-    deletePriceEntry(appName: string): Promise<void>;
-    editPriceEntry(appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
+    createAppEvent(adminCode: string, name: string): Promise<void>;
+    createCommentList(adminCode: string, id: string, displayName: string, suffix: string): Promise<void>;
+    deleteAppEvent(adminCode: string, name: string): Promise<void>;
+    deleteChatMessage(adminCode: string, id: bigint): Promise<void>;
+    deleteCommentList(adminCode: string, id: string): Promise<void>;
+    deleteImage(adminCode: string, id: bigint): Promise<void>;
+    deletePriceEntry(adminCode: string, appName: string): Promise<void>;
+    editPriceEntry(adminCode: string, appName: string, pricePerEntry: number, isActive: boolean): Promise<void>;
     generateBulk(n: bigint): Promise<{
         __kind__: "ok";
         ok: Array<string>;
@@ -173,26 +165,26 @@ export interface backendInterface {
         __kind__: "err";
         err: string;
     }>;
-    generateSingle(): Promise<SingleGlobalCommentResult>;
+    generateSingle(): Promise<{
+        __kind__: "ok";
+        ok: string;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     getAllAppEvents(): Promise<Array<AppEvent>>;
     getAllAppEventsWithImportDate(): Promise<Array<AppEventWithImportDate>>;
     getAllChatMessages(): Promise<Array<ChatMessage>>;
     getAllCommentLists(): Promise<Array<CommentList>>;
-    getAllEarningsSummary(): Promise<AllEarningsSummary>;
+    getAllEarningsSummary(adminCode: string): Promise<AllEarningsSummary>;
     getAllImages(): Promise<Array<ImageMeta>>;
     getAllInventory(): Promise<Array<[string, bigint]>>;
-    getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
+    getAllWithdrawalRequests(adminCode: string): Promise<Array<WithdrawalRequest>>;
     getAppEvent(name: string): Promise<AppEvent | null>;
     getAvailableCount(listId: string): Promise<bigint>;
-    getBulkComments(listId: string, count: bigint): Promise<BulkCommentsResult>;
-    getBulkGlobalComments(count: bigint): Promise<{
-        batchRequested: bigint;
-        batchFulfilled: bigint;
-        comments: Array<string>;
-    }>;
+    getBulkComments(adminCode: string, listId: string, count: bigint): Promise<BulkCommentsResult>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
-    getChatMessage(id: bigint): Promise<ChatMessage | null>;
     getCommentList(id: string): Promise<CommentList | null>;
     getCountdownState(): Promise<CountdownState>;
     getGlobalCommentPoolStats(): Promise<GlobalCommentPoolStats>;
@@ -208,29 +200,32 @@ export interface backendInterface {
     getPriceEntry(appName: string): Promise<PriceEntry | null>;
     getPriceList(): Promise<Array<PriceEntry>>;
     getPublicSettings(): Promise<PublicSettings>;
-    getSettings(): Promise<Settings>;
+    getSettings(adminCode: string): Promise<Settings>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
-    importLiveLists(imports: Array<AppImport>): Promise<ImportSummary>;
+    importLiveLists(adminCode: string, imports: Array<AppImport>): Promise<ImportSummary>;
     isCallerAdmin(): Promise<boolean>;
     isPriceListInitialized(): Promise<boolean>;
-    lockCommentList(id: string): Promise<void>;
-    regenerateAccessKey(): Promise<string>;
-    renameCommentList(id: string, newDisplayName: string): Promise<void>;
-    resetUsedTemplates(listId: string): Promise<void>;
+    lockCommentList(adminCode: string, id: string): Promise<void>;
+    regenerateAccessKey(adminCode: string): Promise<string>;
+    renameCommentList(adminCode: string, id: string, newDisplayName: string): Promise<void>;
+    resetUsedTemplates(adminCode: string, listId: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    setAccessKey(key: string): Promise<void>;
-    setBgMusicEnabled(enabled: boolean): Promise<void>;
-    setCommentListTemplates(id: string, templates: Array<string>): Promise<void>;
-    setCountdown(targetTime: Time): Promise<void>;
-    setInventoryCount(listId: string, count: bigint): Promise<void>;
-    setMusicUrl(url: string): Promise<void>;
-    setPriceListInitialized(value: boolean): Promise<void>;
-    stopCountdown(): Promise<void>;
+    setAccessKey(adminCode: string, key: string): Promise<void>;
+    setAdminCode(currentCode: string, newCode: string): Promise<boolean>;
+    setBgMusicEnabled(adminCode: string, enabled: boolean): Promise<void>;
+    setCommentListTemplates(adminCode: string, id: string, templates: Array<string>): Promise<void>;
+    setCountdown(adminCode: string, targetTime: Time): Promise<void>;
+    setInventoryCount(adminCode: string, listId: string, count: bigint): Promise<void>;
+    setMusicUrl(adminCode: string, url: string): Promise<void>;
+    setPriceListInitialized(adminCode: string, value: boolean): Promise<void>;
+    stopCountdown(adminCode: string): Promise<void>;
     submitWithdrawalRequest(username: string, walletNumber: string, amount: number): Promise<WithdrawalRequest>;
-    unlockCommentList(id: string): Promise<void>;
-    updateImageTags(id: bigint, tags: Array<string>): Promise<void>;
-    updateSettings(bgMusicEnabled: boolean, newMusicUrl: string | null): Promise<void>;
-    updateWithdrawalStatus(key: string, status: WithdrawalStatus): Promise<void>;
-    uploadImage(name: string, tags: Array<string>, dataUrl: string): Promise<ImageMeta>;
+    unlockCommentList(adminCode: string, id: string): Promise<void>;
+    updateImageTags(adminCode: string, id: bigint, tags: Array<string>): Promise<void>;
+    updateSettings(adminCode: string, bgMusicEnabled: boolean, newMusicUrl: string | null): Promise<void>;
+    updateWithdrawalStatus(adminCode: string, key: string, status: WithdrawalStatus): Promise<void>;
+    uploadImage(adminCode: string, name: string, tags: Array<string>, dataUrl: string): Promise<ImageMeta>;
     validateAccessKey(key: string): Promise<boolean>;
+    verifyAdminCode(code: string): Promise<boolean>;
+    wipeAllData(adminCode: string): Promise<void>;
 }

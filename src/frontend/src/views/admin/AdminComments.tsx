@@ -33,6 +33,12 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Generate a unique instance ID so deleting + recreating the same name
+// starts a clean slate (no inherited claims/used indices).
+function makeListId(displayName: string): string {
+  return `${slugify(displayName)}-${Date.now()}`;
+}
+
 function AvailableBadge({ listId }: { listId: string }) {
   const { data: availableCountRaw, isLoading } = useGetAvailableCount(listId);
   const current =
@@ -76,7 +82,13 @@ function AvailableBadge({ listId }: { listId: string }) {
                 : current > 0
                   ? "oklch(0.82 0.20 70)"
                   : "oklch(0.68 0.22 25)",
-            border: `1px solid ${current > 10 ? "oklch(0.65 0.18 145 / 0.3)" : current > 0 ? "oklch(0.75 0.18 65 / 0.3)" : "oklch(0.55 0.22 25 / 0.3)"}`,
+            border: `1px solid ${
+              current > 10
+                ? "oklch(0.65 0.18 145 / 0.3)"
+                : current > 0
+                  ? "oklch(0.75 0.18 65 / 0.3)"
+                  : "oklch(0.55 0.22 25 / 0.3)"
+            }`,
           }}
         >
           {current} available
@@ -110,7 +122,9 @@ export default function AdminComments() {
     e.preventDefault();
     setError(null);
     if (!newDisplayName.trim()) return;
-    const id = slugify(newDisplayName);
+    // Use timestamp-based ID so deleting + recreating the same name
+    // automatically starts a fresh instance with zero claims.
+    const id = makeListId(newDisplayName);
     try {
       await createList.mutateAsync({
         id,
@@ -205,6 +219,7 @@ export default function AdminComments() {
             onChange={(e) => setNewDisplayName(e.target.value)}
             placeholder="List display name"
             className="glass-input w-full px-3 py-2.5 text-sm"
+            data-ocid="comments.list_name.input"
           />
           <input
             type="text"
@@ -212,6 +227,7 @@ export default function AdminComments() {
             onChange={(e) => setNewSuffix(e.target.value)}
             placeholder="Suffix (optional, e.g. ❤️)"
             className="glass-input w-full px-3 py-2.5 text-sm"
+            data-ocid="comments.suffix.input"
           />
           <button
             type="submit"
@@ -223,6 +239,7 @@ export default function AdminComments() {
               color: "oklch(0.08 0.02 260)",
               opacity: createList.isPending || !newDisplayName.trim() ? 0.5 : 1,
             }}
+            data-ocid="comments.create_list.button"
           >
             {createList.isPending ? (
               <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -243,7 +260,11 @@ export default function AdminComments() {
           background: showMetrics
             ? "oklch(0.70 0.20 185 / 0.15)"
             : "oklch(0.12 0.03 260 / 0.6)",
-          border: `1px solid ${showMetrics ? "oklch(0.70 0.20 185 / 0.3)" : "oklch(0.22 0.05 260 / 0.4)"}`,
+          border: `1px solid ${
+            showMetrics
+              ? "oklch(0.70 0.20 185 / 0.3)"
+              : "oklch(0.22 0.05 260 / 0.4)"
+          }`,
           color: showMetrics ? "oklch(0.78 0.22 188)" : "oklch(0.55 0.04 260)",
         }}
       >

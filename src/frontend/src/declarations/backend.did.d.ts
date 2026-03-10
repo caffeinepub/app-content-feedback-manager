@@ -54,7 +54,6 @@ export interface CommentList {
   'suffix' : string,
 }
 export interface CountdownState {
-  'startedBy' : [] | [Principal],
   'isActive' : boolean,
   'targetTime' : [] | [Time],
 }
@@ -99,8 +98,6 @@ export interface Settings {
   'bgMusicEnabled' : boolean,
   'musicFile' : [] | [ExternalBlob],
 }
-export type SingleGlobalCommentResult = { 'ok' : string } |
-  { 'err' : string };
 export type Time = bigint;
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -145,36 +142,45 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addChatMessage' : ActorMethod<[string], ChatMessage>,
-  'addGlobalComment' : ActorMethod<[string], undefined>,
-  'addGlobalComments' : ActorMethod<[Array<string>], undefined>,
-  'addPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
-  'addTemplatesToCommentList' : ActorMethod<[string, Array<string>], undefined>,
-  'addUsernamesToAppEvent' : ActorMethod<[string, Array<string>], bigint>,
+  'addGlobalComment' : ActorMethod<[string, string], undefined>,
+  'addGlobalComments' : ActorMethod<[string, Array<string>], undefined>,
+  'addPriceEntry' : ActorMethod<[string, string, number, boolean], undefined>,
+  'addTemplatesToCommentList' : ActorMethod<
+    [string, string, Array<string>],
+    undefined
+  >,
+  'addUsernamesToAppEvent' : ActorMethod<
+    [string, string, Array<string>],
+    bigint
+  >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'bulkUploadPrices' : ActorMethod<[Array<PriceEntry>], bigint>,
+  'bulkUploadPrices' : ActorMethod<[string, Array<PriceEntry>], bigint>,
   'checkWithdrawalEligibility' : ActorMethod<[string], boolean>,
   'claimComment' : ActorMethod<[string, string], ClaimCommentResult>,
-  'clearAccessKey' : ActorMethod<[], undefined>,
-  'clearCountdown' : ActorMethod<[], undefined>,
+  'clearAccessKey' : ActorMethod<[string], undefined>,
+  'clearCountdown' : ActorMethod<[string], undefined>,
   'consumeFromList' : ActorMethod<
     [string, bigint],
     { 'ok' : Array<string> } |
       { 'err' : string }
   >,
-  'createAppEvent' : ActorMethod<[string], undefined>,
-  'createCommentList' : ActorMethod<[string, string, string], undefined>,
-  'deleteAppEvent' : ActorMethod<[string], undefined>,
-  'deleteChatMessage' : ActorMethod<[bigint], undefined>,
-  'deleteCommentList' : ActorMethod<[string], undefined>,
-  'deleteImage' : ActorMethod<[bigint], undefined>,
-  'deletePriceEntry' : ActorMethod<[string], undefined>,
-  'editPriceEntry' : ActorMethod<[string, number, boolean], undefined>,
+  'createAppEvent' : ActorMethod<[string, string], undefined>,
+  'createCommentList' : ActorMethod<
+    [string, string, string, string],
+    undefined
+  >,
+  'deleteAppEvent' : ActorMethod<[string, string], undefined>,
+  'deleteChatMessage' : ActorMethod<[string, bigint], undefined>,
+  'deleteCommentList' : ActorMethod<[string, string], undefined>,
+  'deleteImage' : ActorMethod<[string, bigint], undefined>,
+  'deletePriceEntry' : ActorMethod<[string, string], undefined>,
+  'editPriceEntry' : ActorMethod<[string, string, number, boolean], undefined>,
   'generateBulk' : ActorMethod<
     [bigint],
     { 'ok' : Array<string> } |
       { 'err' : string }
   >,
-  'generateSingle' : ActorMethod<[], SingleGlobalCommentResult>,
+  'generateSingle' : ActorMethod<[], { 'ok' : string } | { 'err' : string }>,
   'getAllAppEvents' : ActorMethod<[], Array<AppEvent>>,
   'getAllAppEventsWithImportDate' : ActorMethod<
     [],
@@ -182,24 +188,15 @@ export interface _SERVICE {
   >,
   'getAllChatMessages' : ActorMethod<[], Array<ChatMessage>>,
   'getAllCommentLists' : ActorMethod<[], Array<CommentList>>,
-  'getAllEarningsSummary' : ActorMethod<[], AllEarningsSummary>,
+  'getAllEarningsSummary' : ActorMethod<[string], AllEarningsSummary>,
   'getAllImages' : ActorMethod<[], Array<ImageMeta>>,
   'getAllInventory' : ActorMethod<[], Array<[string, bigint]>>,
-  'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
+  'getAllWithdrawalRequests' : ActorMethod<[string], Array<WithdrawalRequest>>,
   'getAppEvent' : ActorMethod<[string], [] | [AppEvent]>,
   'getAvailableCount' : ActorMethod<[string], bigint>,
-  'getBulkComments' : ActorMethod<[string, bigint], BulkCommentsResult>,
-  'getBulkGlobalComments' : ActorMethod<
-    [bigint],
-    {
-      'batchRequested' : bigint,
-      'batchFulfilled' : bigint,
-      'comments' : Array<string>,
-    }
-  >,
+  'getBulkComments' : ActorMethod<[string, string, bigint], BulkCommentsResult>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getChatMessage' : ActorMethod<[bigint], [] | [ChatMessage]>,
   'getCommentList' : ActorMethod<[string], [] | [CommentList]>,
   'getCountdownState' : ActorMethod<[], CountdownState>,
   'getGlobalCommentPoolStats' : ActorMethod<[], GlobalCommentPoolStats>,
@@ -215,34 +212,46 @@ export interface _SERVICE {
   'getPriceEntry' : ActorMethod<[string], [] | [PriceEntry]>,
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getPublicSettings' : ActorMethod<[], PublicSettings>,
-  'getSettings' : ActorMethod<[], Settings>,
+  'getSettings' : ActorMethod<[string], Settings>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'importLiveLists' : ActorMethod<[Array<AppImport>], ImportSummary>,
+  'importLiveLists' : ActorMethod<[string, Array<AppImport>], ImportSummary>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isPriceListInitialized' : ActorMethod<[], boolean>,
-  'lockCommentList' : ActorMethod<[string], undefined>,
-  'regenerateAccessKey' : ActorMethod<[], string>,
-  'renameCommentList' : ActorMethod<[string, string], undefined>,
-  'resetUsedTemplates' : ActorMethod<[string], undefined>,
+  'lockCommentList' : ActorMethod<[string, string], undefined>,
+  'regenerateAccessKey' : ActorMethod<[string], string>,
+  'renameCommentList' : ActorMethod<[string, string, string], undefined>,
+  'resetUsedTemplates' : ActorMethod<[string, string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'setAccessKey' : ActorMethod<[string], undefined>,
-  'setBgMusicEnabled' : ActorMethod<[boolean], undefined>,
-  'setCommentListTemplates' : ActorMethod<[string, Array<string>], undefined>,
-  'setCountdown' : ActorMethod<[Time], undefined>,
-  'setInventoryCount' : ActorMethod<[string, bigint], undefined>,
-  'setMusicUrl' : ActorMethod<[string], undefined>,
-  'setPriceListInitialized' : ActorMethod<[boolean], undefined>,
-  'stopCountdown' : ActorMethod<[], undefined>,
+  'setAccessKey' : ActorMethod<[string, string], undefined>,
+  'setAdminCode' : ActorMethod<[string, string], boolean>,
+  'setBgMusicEnabled' : ActorMethod<[string, boolean], undefined>,
+  'setCommentListTemplates' : ActorMethod<
+    [string, string, Array<string>],
+    undefined
+  >,
+  'setCountdown' : ActorMethod<[string, Time], undefined>,
+  'setInventoryCount' : ActorMethod<[string, string, bigint], undefined>,
+  'setMusicUrl' : ActorMethod<[string, string], undefined>,
+  'setPriceListInitialized' : ActorMethod<[string, boolean], undefined>,
+  'stopCountdown' : ActorMethod<[string], undefined>,
   'submitWithdrawalRequest' : ActorMethod<
     [string, string, number],
     WithdrawalRequest
   >,
-  'unlockCommentList' : ActorMethod<[string], undefined>,
-  'updateImageTags' : ActorMethod<[bigint, Array<string>], undefined>,
-  'updateSettings' : ActorMethod<[boolean, [] | [string]], undefined>,
-  'updateWithdrawalStatus' : ActorMethod<[string, WithdrawalStatus], undefined>,
-  'uploadImage' : ActorMethod<[string, Array<string>, string], ImageMeta>,
+  'unlockCommentList' : ActorMethod<[string, string], undefined>,
+  'updateImageTags' : ActorMethod<[string, bigint, Array<string>], undefined>,
+  'updateSettings' : ActorMethod<[string, boolean, [] | [string]], undefined>,
+  'updateWithdrawalStatus' : ActorMethod<
+    [string, string, WithdrawalStatus],
+    undefined
+  >,
+  'uploadImage' : ActorMethod<
+    [string, string, Array<string>, string],
+    ImageMeta
+  >,
   'validateAccessKey' : ActorMethod<[string], boolean>,
+  'verifyAdminCode' : ActorMethod<[string], boolean>,
+  'wipeAllData' : ActorMethod<[string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
