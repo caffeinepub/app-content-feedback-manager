@@ -19,6 +19,7 @@ import type {
   WithdrawalRequest,
   WithdrawalStatus,
 } from "../backend";
+import type { backendInterface } from "../backend";
 
 type SingleGlobalCommentResult =
   | { __kind__: "ok"; ok: string }
@@ -44,6 +45,33 @@ export function persistAdminToken(): void {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function initAdminActor(_actor: unknown): Promise<void> {
   // No longer needed — all admin functions now take adminCode as first arg
+}
+
+// ── Actor Availability Helper ─────────────────────────────────────────────────
+
+/** Module-level reference kept in sync by useRegisterGlobalActor() */
+let _globalActor: backendInterface | null = null;
+
+/**
+ * Call once in App.tsx to keep _globalActor current on every render.
+ * Allows waitForActor() to poll without closure capture issues.
+ */
+export function useRegisterGlobalActor(): void {
+  const { actor } = useActor();
+  _globalActor = actor;
+}
+
+/**
+ * Polls until the backend actor is ready (max 5 s).
+ * Solves the "Actor not available" race on initial page load.
+ */
+async function waitForActor(maxWait = 15000): Promise<backendInterface> {
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    if (_globalActor) return _globalActor;
+    await new Promise<void>((r) => setTimeout(r, 200));
+  }
+  throw new Error("Actor not available — please refresh the page");
 }
 
 // ── Comment Lists ─────────────────────────────────────────────────────────────
@@ -76,7 +104,6 @@ export function useGetCommentList(id: string) {
 }
 
 export function useCreateCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -88,8 +115,8 @@ export function useCreateCommentList() {
       displayName: string;
       suffix: string;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.createCommentList(getAdminCode(), id, displayName, suffix);
+      const a = await waitForActor();
+      return a.createCommentList(getAdminCode(), id, displayName, suffix);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -101,7 +128,6 @@ export function useCreateCommentList() {
 export const useAddCommentList = useCreateCommentList;
 
 export function useAddTemplatesToCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -111,8 +137,8 @@ export function useAddTemplatesToCommentList() {
       id: string;
       templates: string[];
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addTemplatesToCommentList(getAdminCode(), id, templates);
+      const a = await waitForActor();
+      return a.addTemplatesToCommentList(getAdminCode(), id, templates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -121,7 +147,6 @@ export function useAddTemplatesToCommentList() {
 }
 
 export function useSetCommentListTemplates() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -131,8 +156,8 @@ export function useSetCommentListTemplates() {
       id: string;
       templates: string[];
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setCommentListTemplates(getAdminCode(), id, templates);
+      const a = await waitForActor();
+      return a.setCommentListTemplates(getAdminCode(), id, templates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -141,7 +166,6 @@ export function useSetCommentListTemplates() {
 }
 
 export function useRenameCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -151,8 +175,8 @@ export function useRenameCommentList() {
       id: string;
       newDisplayName: string;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.renameCommentList(getAdminCode(), id, newDisplayName);
+      const a = await waitForActor();
+      return a.renameCommentList(getAdminCode(), id, newDisplayName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -161,12 +185,11 @@ export function useRenameCommentList() {
 }
 
 export function useDeleteCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteCommentList(getAdminCode(), id);
+      const a = await waitForActor();
+      return a.deleteCommentList(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -176,12 +199,11 @@ export function useDeleteCommentList() {
 }
 
 export function useLockCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.lockCommentList(getAdminCode(), id);
+      const a = await waitForActor();
+      return a.lockCommentList(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -190,12 +212,11 @@ export function useLockCommentList() {
 }
 
 export function useUnlockCommentList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.unlockCommentList(getAdminCode(), id);
+      const a = await waitForActor();
+      return a.unlockCommentList(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -204,15 +225,14 @@ export function useUnlockCommentList() {
 }
 
 export function useToggleListLock() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, locked }: { id: string; locked: boolean }) => {
-      if (!actor) throw new Error("Actor not available");
+      const a = await waitForActor();
       if (locked) {
-        return actor.unlockCommentList(getAdminCode(), id);
+        return a.unlockCommentList(getAdminCode(), id);
       }
-      return actor.lockCommentList(getAdminCode(), id);
+      return a.lockCommentList(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commentLists"] });
@@ -221,12 +241,11 @@ export function useToggleListLock() {
 }
 
 export function useResetUsedTemplates() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (listId: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.resetUsedTemplates(getAdminCode(), listId);
+      const a = await waitForActor();
+      return a.resetUsedTemplates(getAdminCode(), listId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["listMetrics"] });
@@ -261,7 +280,6 @@ export function useGetInventoryCount(listId: string) {
 }
 
 export function useSetInventoryCount() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -271,8 +289,8 @@ export function useSetInventoryCount() {
       listId: string;
       count: bigint;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setInventoryCount(getAdminCode(), listId, count);
+      const a = await waitForActor();
+      return a.setInventoryCount(getAdminCode(), listId, count);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -283,7 +301,6 @@ export function useSetInventoryCount() {
 // ── Claim Comment ─────────────────────────────────────────────────────────────
 
 export function useClaimComment() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -293,8 +310,8 @@ export function useClaimComment() {
       listId: string;
       username: string;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.claimComment(listId, username);
+      const a = await waitForActor();
+      return a.claimComment(listId, username);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -306,7 +323,6 @@ export function useClaimComment() {
 // ── Bulk Comments ─────────────────────────────────────────────────────────────
 
 export function useGetBulkComments() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -316,8 +332,8 @@ export function useGetBulkComments() {
       listId: string;
       count: bigint;
     }): Promise<BulkCommentsResult> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.getBulkComments(getAdminCode(), listId, count);
+      const a = await waitForActor();
+      return a.getBulkComments(getAdminCode(), listId, count);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -363,12 +379,11 @@ export function useGetPoolStats() {
 }
 
 export function useGenerateSingle() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<string> => {
-      if (!actor) throw new Error("Actor not available");
-      const result: SingleGlobalCommentResult = await actor.generateSingle();
+      const a = await waitForActor();
+      const result: SingleGlobalCommentResult = await a.generateSingle();
       if (result.__kind__ === "err") {
         throw new Error(result.err);
       }
@@ -383,12 +398,11 @@ export function useGenerateSingle() {
 
 // Updated to use the new atomic generateBulk endpoint (strict all-or-nothing)
 export function useGenerateBulkGlobal() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (count: bigint): Promise<string[]> => {
-      if (!actor) throw new Error("Actor not available");
-      const result = await actor.generateBulk(count);
+      const a = await waitForActor();
+      const result = await a.generateBulk(count);
       if (result.__kind__ === "err") {
         throw new Error(result.err);
       }
@@ -402,12 +416,11 @@ export function useGenerateBulkGlobal() {
 }
 
 export function useAddGlobalComment() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (comment: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addGlobalComment(getAdminCode(), comment);
+      const a = await waitForActor();
+      return a.addGlobalComment(getAdminCode(), comment);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["poolStats"] });
@@ -417,12 +430,11 @@ export function useAddGlobalComment() {
 }
 
 export function useAddGlobalComments() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (comments: string[]) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addGlobalComments(getAdminCode(), comments);
+      const a = await waitForActor();
+      return a.addGlobalComments(getAdminCode(), comments);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["poolStats"] });
@@ -461,12 +473,11 @@ export function useGetAllAppEventsWithImportDate() {
 }
 
 export function useCreateAppEvent() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.createAppEvent(getAdminCode(), name);
+      const a = await waitForActor();
+      return a.createAppEvent(getAdminCode(), name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appEvents"] });
@@ -488,7 +499,6 @@ export function useRenameAppEvent() {
 }
 
 export function useAddUsernamesToAppEvent() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -498,8 +508,8 @@ export function useAddUsernamesToAppEvent() {
       name: string;
       usernames: string[];
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addUsernamesToAppEvent(getAdminCode(), name, usernames);
+      const a = await waitForActor();
+      return a.addUsernamesToAppEvent(getAdminCode(), name, usernames);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appEvents"] });
@@ -509,12 +519,11 @@ export function useAddUsernamesToAppEvent() {
 }
 
 export function useDeleteAppEvent() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (name: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteAppEvent(getAdminCode(), name);
+      const a = await waitForActor();
+      return a.deleteAppEvent(getAdminCode(), name);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appEvents"] });
@@ -524,12 +533,11 @@ export function useDeleteAppEvent() {
 }
 
 export function useImportLiveLists() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (imports: AppImport[]): Promise<ImportSummary> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.importLiveLists(getAdminCode(), imports);
+      const a = await waitForActor();
+      return a.importLiveLists(getAdminCode(), imports);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appEvents"] });
@@ -559,12 +567,11 @@ export function useGetAllChatMessages() {
 export const useGetChatMessages = useGetAllChatMessages;
 
 export function useAddChatMessage() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (text: string): Promise<ChatMessage> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addChatMessage(text);
+      const a = await waitForActor();
+      return a.addChatMessage(text);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatMessages"] });
@@ -573,12 +580,11 @@ export function useAddChatMessage() {
 }
 
 export function useDeleteChatMessage() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteChatMessage(getAdminCode(), id);
+      const a = await waitForActor();
+      return a.deleteChatMessage(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chatMessages"] });
@@ -601,7 +607,6 @@ export function useGetAllImages() {
 }
 
 export function useUploadImage() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -613,8 +618,8 @@ export function useUploadImage() {
       tags: string[];
       dataUrl: string;
     }): Promise<ImageMeta> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.uploadImage(getAdminCode(), name, tags, dataUrl);
+      const a = await waitForActor();
+      return a.uploadImage(getAdminCode(), name, tags, dataUrl);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
@@ -623,12 +628,11 @@ export function useUploadImage() {
 }
 
 export function useDeleteImage() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: bigint) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deleteImage(getAdminCode(), id);
+      const a = await waitForActor();
+      return a.deleteImage(getAdminCode(), id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
@@ -637,12 +641,11 @@ export function useDeleteImage() {
 }
 
 export function useUpdateImageTags() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, tags }: { id: bigint; tags: string[] }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateImageTags(getAdminCode(), id, tags);
+      const a = await waitForActor();
+      return a.updateImageTags(getAdminCode(), id, tags);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
@@ -690,12 +693,11 @@ export function useGetMusicUrl() {
 }
 
 export function useSetAccessKey() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (key: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setAccessKey(getAdminCode(), key);
+      const a = await waitForActor();
+      return a.setAccessKey(getAdminCode(), key);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -704,12 +706,11 @@ export function useSetAccessKey() {
 }
 
 export function useRegenerateAccessKey() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<string> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.regenerateAccessKey(getAdminCode());
+      const a = await waitForActor();
+      return a.regenerateAccessKey(getAdminCode());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -718,12 +719,11 @@ export function useRegenerateAccessKey() {
 }
 
 export function useClearAccessKey() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.clearAccessKey(getAdminCode());
+      const a = await waitForActor();
+      return a.clearAccessKey(getAdminCode());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -732,12 +732,11 @@ export function useClearAccessKey() {
 }
 
 export function useSetBgMusicEnabled() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (enabled: boolean) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setBgMusicEnabled(getAdminCode(), enabled);
+      const a = await waitForActor();
+      return a.setBgMusicEnabled(getAdminCode(), enabled);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -747,12 +746,11 @@ export function useSetBgMusicEnabled() {
 }
 
 export function useSetMusicUrl() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (url: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setMusicUrl(getAdminCode(), url);
+      const a = await waitForActor();
+      return a.setMusicUrl(getAdminCode(), url);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["musicUrl"] });
@@ -761,7 +759,6 @@ export function useSetMusicUrl() {
 }
 
 export function useUpdateSettings() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -771,8 +768,8 @@ export function useUpdateSettings() {
       bgMusicEnabled: boolean;
       musicUrl: string | null;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateSettings(getAdminCode(), bgMusicEnabled, musicUrl);
+      const a = await waitForActor();
+      return a.updateSettings(getAdminCode(), bgMusicEnabled, musicUrl);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
@@ -783,11 +780,10 @@ export function useUpdateSettings() {
 }
 
 export function useValidateAccessKey() {
-  const { actor } = useActor();
   return useMutation({
     mutationFn: async (key: string): Promise<boolean> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.validateAccessKey(key);
+      const a = await waitForActor();
+      return a.validateAccessKey(key);
     },
   });
 }
@@ -822,7 +818,6 @@ export function useGetPriceEntry(appName: string) {
 }
 
 export function useAddPriceEntry() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -834,13 +829,8 @@ export function useAddPriceEntry() {
       pricePerEntry: number;
       isActive: boolean;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.addPriceEntry(
-        getAdminCode(),
-        appName,
-        pricePerEntry,
-        isActive,
-      );
+      const a = await waitForActor();
+      return a.addPriceEntry(getAdminCode(), appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceList"] });
@@ -849,7 +839,6 @@ export function useAddPriceEntry() {
 }
 
 export function useEditPriceEntry() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -861,13 +850,8 @@ export function useEditPriceEntry() {
       pricePerEntry: number;
       isActive: boolean;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.editPriceEntry(
-        getAdminCode(),
-        appName,
-        pricePerEntry,
-        isActive,
-      );
+      const a = await waitForActor();
+      return a.editPriceEntry(getAdminCode(), appName, pricePerEntry, isActive);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceList"] });
@@ -876,12 +860,11 @@ export function useEditPriceEntry() {
 }
 
 export function useDeletePriceEntry() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (appName: string) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.deletePriceEntry(getAdminCode(), appName);
+      const a = await waitForActor();
+      return a.deletePriceEntry(getAdminCode(), appName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceList"] });
@@ -890,12 +873,11 @@ export function useDeletePriceEntry() {
 }
 
 export function useBulkUploadPrices() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (entries: PriceEntry[]): Promise<bigint> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.bulkUploadPrices(getAdminCode(), entries);
+      const a = await waitForActor();
+      return a.bulkUploadPrices(getAdminCode(), entries);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceList"] });
@@ -916,12 +898,11 @@ export function useIsPriceListInitialized() {
 }
 
 export function useSetPriceListInitialized() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (value: boolean) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setPriceListInitialized(getAdminCode(), value);
+      const a = await waitForActor();
+      return a.setPriceListInitialized(getAdminCode(), value);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["priceListInitialized"] });
@@ -989,7 +970,6 @@ export function useGetMyWithdrawalRequests(username: string) {
 }
 
 export function useSubmitWithdrawalRequest() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -1001,8 +981,8 @@ export function useSubmitWithdrawalRequest() {
       walletNumber: string;
       amount: number;
     }): Promise<WithdrawalRequest> => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.submitWithdrawalRequest(username, walletNumber, amount);
+      const a = await waitForActor();
+      return a.submitWithdrawalRequest(username, walletNumber, amount);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
@@ -1014,7 +994,6 @@ export function useSubmitWithdrawalRequest() {
 }
 
 export function useCheckAndRequestWithdrawal() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -1026,14 +1005,14 @@ export function useCheckAndRequestWithdrawal() {
       walletNumber: string;
       amount: number;
     }): Promise<WithdrawalRequest> => {
-      if (!actor) throw new Error("Actor not available");
-      const eligible = await actor.checkWithdrawalEligibility(username);
+      const a = await waitForActor();
+      const eligible = await a.checkWithdrawalEligibility(username);
       if (!eligible) {
         throw new Error(
           "You already have a pending withdrawal request. Please wait for it to be processed.",
         );
       }
-      return actor.submitWithdrawalRequest(username, walletNumber, amount);
+      return a.submitWithdrawalRequest(username, walletNumber, amount);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
@@ -1045,7 +1024,6 @@ export function useCheckAndRequestWithdrawal() {
 }
 
 export function useUpdateWithdrawalStatus() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -1055,8 +1033,8 @@ export function useUpdateWithdrawalStatus() {
       key: string;
       status: WithdrawalStatus;
     }) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.updateWithdrawalStatus(getAdminCode(), key, status);
+      const a = await waitForActor();
+      return a.updateWithdrawalStatus(getAdminCode(), key, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
@@ -1080,12 +1058,11 @@ export function useGetCountdownState() {
 }
 
 export function useSetCountdown() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (targetTime: bigint) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.setCountdown(getAdminCode(), targetTime);
+      const a = await waitForActor();
+      return a.setCountdown(getAdminCode(), targetTime);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["countdownState"] });
@@ -1094,12 +1071,11 @@ export function useSetCountdown() {
 }
 
 export function useStopCountdown() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.stopCountdown(getAdminCode());
+      const a = await waitForActor();
+      return a.stopCountdown(getAdminCode());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["countdownState"] });
@@ -1108,12 +1084,11 @@ export function useStopCountdown() {
 }
 
 export function useClearCountdown() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.clearCountdown(getAdminCode());
+      const a = await waitForActor();
+      return a.clearCountdown(getAdminCode());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["countdownState"] });
@@ -1128,7 +1103,7 @@ export function useGetCallerUserProfile() {
   const query = useQuery<UserProfile | null>({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
-      if (!actor) throw new Error("Actor not available");
+      if (!actor) return null;
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching,
@@ -1142,12 +1117,11 @@ export function useGetCallerUserProfile() {
 }
 
 export function useSaveCallerUserProfile() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (profile: UserProfile) => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.saveCallerUserProfile(profile);
+      const a = await waitForActor();
+      return a.saveCallerUserProfile(profile);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
@@ -1171,15 +1145,14 @@ export function useGetAvailableCount(listId: string) {
 }
 
 export function useConsumeFromList() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       listId,
       count,
     }: { listId: string; count: bigint }): Promise<string[]> => {
-      if (!actor) throw new Error("Actor not available");
-      const result = await actor.consumeFromList(listId, count);
+      const a = await waitForActor();
+      const result = await a.consumeFromList(listId, count);
       if (result.__kind__ === "err") throw new Error(result.err);
       return result.ok;
     },
@@ -1196,15 +1169,43 @@ export function useConsumeFromList() {
 // ── Wipe All Data ─────────────────────────────────────────────────────────────
 
 export function useWipeAllData() {
-  const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.wipeAllData(getAdminCode());
+      const a = await waitForActor();
+      return a.wipeAllData(getAdminCode());
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
+    },
+  });
+}
+
+// ── Spotify URL ───────────────────────────────────────────────────────────────
+
+export function useGetSpotifyUrl() {
+  const { actor, isFetching } = useActor();
+  return useQuery<string | null>({
+    queryKey: ["spotifyUrl"],
+    queryFn: async () => {
+      if (!actor) return null;
+      const result = await actor.getSpotifyUrl();
+      if (Array.isArray(result)) return result[0] ?? null;
+      return result ?? null;
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetSpotifyUrl() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (url: string) => {
+      const a = await waitForActor();
+      return a.setSpotifyUrl(getAdminCode(), url);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["spotifyUrl"] });
     },
   });
 }

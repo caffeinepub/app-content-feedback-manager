@@ -3,6 +3,7 @@ import {
   EyeOff,
   Key,
   Music,
+  Music2,
   RefreshCw,
   Save,
   Trash2,
@@ -13,9 +14,11 @@ import { useRef, useState } from "react";
 import {
   useGetMusicUrl,
   useGetSettings,
+  useGetSpotifyUrl,
   useSetAccessKey,
   useSetBgMusicEnabled,
   useSetMusicUrl,
+  useSetSpotifyUrl,
   useWipeAllData,
 } from "../../hooks/useQueries";
 
@@ -26,6 +29,9 @@ export default function AdminSettings() {
   const setBgMusicEnabled = useSetBgMusicEnabled();
   const setMusicUrlMutation = useSetMusicUrl();
   const wipeAll = useWipeAllData();
+  const { data: currentSpotifyUrl } = useGetSpotifyUrl();
+  const setSpotifyUrlMutation = useSetSpotifyUrl();
+  const [spotifyInput, setSpotifyInput] = useState("");
 
   const [newKey, setNewKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -466,6 +472,87 @@ export default function AdminSettings() {
             data-ocid="settings.music_url.save_button"
           >
             {setMusicUrlMutation.isPending ? (
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+            Save
+          </button>
+        </form>
+      </div>
+
+      {/* Spotify Player */}
+      <div className="glass-card p-5 rounded-2xl">
+        <h3
+          className="font-orbitron font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2"
+          style={{ color: "#00FFFF" }}
+        >
+          <Music2 className="w-4 h-4" />
+          Spotify Player
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Paste any Spotify track, playlist, or album link. It will appear as a
+          sticky neon player for all visitors.
+        </p>
+        {currentSpotifyUrl && (
+          <div
+            className="mb-4 p-3 rounded-xl flex items-center justify-between gap-2"
+            style={{
+              background: "rgba(0,255,255,0.07)",
+              border: "1px solid rgba(0,255,255,0.25)",
+            }}
+          >
+            <span
+              className="text-xs truncate flex-1"
+              style={{ color: "#00FFFF" }}
+            >
+              {currentSpotifyUrl}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSpotifyUrlMutation.mutate("")}
+              className="p-1.5 rounded-lg flex-shrink-0 transition-all hover:scale-110"
+              style={{
+                background: "oklch(0.55 0.22 25 / 0.15)",
+                color: "oklch(0.65 0.22 25)",
+              }}
+              title="Remove Spotify player"
+              data-ocid="settings.spotify.delete_button"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (spotifyInput.trim()) {
+              setSpotifyUrlMutation.mutate(spotifyInput.trim());
+              setSpotifyInput("");
+            }
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="url"
+            value={spotifyInput}
+            onChange={(e) => setSpotifyInput(e.target.value)}
+            placeholder="https://open.spotify.com/track/..."
+            className="glass-input flex-1 px-3 py-2.5 text-sm"
+            data-ocid="settings.spotify.input"
+          />
+          <button
+            type="submit"
+            disabled={setSpotifyUrlMutation.isPending || !spotifyInput.trim()}
+            className="px-3 py-2.5 rounded-xl text-xs font-bold transition-all hover-lift flex items-center gap-1.5"
+            style={{
+              background: "linear-gradient(135deg, #00FFFF, #0099ff)",
+              color: "#050A30",
+              opacity: !spotifyInput.trim() ? 0.5 : 1,
+            }}
+            data-ocid="settings.spotify.save_button"
+          >
+            {setSpotifyUrlMutation.isPending ? (
               <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <Save className="w-3.5 h-3.5" />

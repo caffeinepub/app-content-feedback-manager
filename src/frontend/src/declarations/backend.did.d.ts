@@ -204,6 +204,7 @@ export interface _SERVICE {
   'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'getMusicUrl' : ActorMethod<[], [] | [string]>,
+  'getSpotifyUrl' : ActorMethod<[], [] | [string]>,
   'getMyWithdrawalRequests' : ActorMethod<[string], Array<WithdrawalRequest>>,
   'getPoolStats' : ActorMethod<
     [],
@@ -232,6 +233,7 @@ export interface _SERVICE {
   'setCountdown' : ActorMethod<[string, Time], undefined>,
   'setInventoryCount' : ActorMethod<[string, string, bigint], undefined>,
   'setMusicUrl' : ActorMethod<[string, string], undefined>,
+  'setSpotifyUrl' : ActorMethod<[string, string], undefined>,
   'setPriceListInitialized' : ActorMethod<[string, boolean], undefined>,
   'stopCountdown' : ActorMethod<[string], undefined>,
   'submitWithdrawalRequest' : ActorMethod<

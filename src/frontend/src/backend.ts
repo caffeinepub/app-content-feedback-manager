@@ -285,6 +285,7 @@ export interface backendInterface {
     getInventoryCount(listId: string): Promise<bigint>;
     getListMetrics(): Promise<Array<ListMetrics>>;
     getMusicUrl(): Promise<string | null>;
+    getSpotifyUrl(): Promise<string | null>;
     getMyWithdrawalRequests(username: string): Promise<Array<WithdrawalRequest>>;
     getPoolStats(): Promise<{
         totalPoolSize: bigint;
@@ -310,6 +311,7 @@ export interface backendInterface {
     setCountdown(adminCode: string, targetTime: Time): Promise<void>;
     setInventoryCount(adminCode: string, listId: string, count: bigint): Promise<void>;
     setMusicUrl(adminCode: string, url: string): Promise<void>;
+    setSpotifyUrl(adminCode: string, url: string): Promise<void>;
     setPriceListInitialized(adminCode: string, value: boolean): Promise<void>;
     stopCountdown(adminCode: string): Promise<void>;
     submitWithdrawalRequest(username: string, walletNumber: string, amount: number): Promise<WithdrawalRequest>;
@@ -1043,6 +1045,20 @@ export class Backend implements backendInterface {
             return from_candid_opt_n17(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getSpotifyUrl(): Promise<string | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSpotifyUrl();
+                return from_candid_opt_n17(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSpotifyUrl();
+            return from_candid_opt_n17(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getMyWithdrawalRequests(arg0: string): Promise<Array<WithdrawalRequest>> {
         if (this.processError) {
             try {
@@ -1351,6 +1367,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.setMusicUrl(arg0, arg1);
+            return result;
+        }
+    }
+    async setSpotifyUrl(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.setSpotifyUrl(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.setSpotifyUrl(arg0, arg1);
             return result;
         }
     }

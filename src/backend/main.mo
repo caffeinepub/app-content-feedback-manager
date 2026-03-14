@@ -199,6 +199,7 @@ actor {
 
   var priceListInitialized = false;
   var musicUrl : ?Text = null;
+  var spotifyUrl : ?Text = null;
 
   var countdownState : CountdownState = {
     targetTime = null;
@@ -750,6 +751,15 @@ actor {
   public shared func clearMusicUrl(code : Text) : async () {
     requireAdmin(code);
     musicUrl := null;
+  };
+
+  public query func getSpotifyUrl() : async ?Text {
+    spotifyUrl
+  };
+
+  public shared func setSpotifyUrl(code : Text, url : Text) : async () {
+    requireAdmin(code);
+    if (url == "") { spotifyUrl := null } else { spotifyUrl := ?url };
   };
 
   public shared func updateSettings(code : Text, bgMusicEnabled : Bool, newMusicUrl : ?Text) : async () {

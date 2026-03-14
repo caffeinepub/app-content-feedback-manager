@@ -259,6 +259,7 @@ export const idlService = IDL.Service({
   'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
   'getMusicUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getMyWithdrawalRequests' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(WithdrawalRequest)],
@@ -301,6 +302,7 @@ export const idlService = IDL.Service({
   'setCountdown' : IDL.Func([IDL.Text, Time], [], []),
   'setInventoryCount' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
   'setMusicUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setPriceListInitialized' : IDL.Func([IDL.Text, IDL.Bool], [], []),
   'stopCountdown' : IDL.Func([IDL.Text], [], []),
   'submitWithdrawalRequest' : IDL.Func(
@@ -584,6 +586,7 @@ export const idlFactory = ({ IDL }) => {
     'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
     'getMusicUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
     'getMyWithdrawalRequests' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(WithdrawalRequest)],
@@ -626,6 +629,7 @@ export const idlFactory = ({ IDL }) => {
     'setCountdown' : IDL.Func([IDL.Text, Time], [], []),
     'setInventoryCount' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
     'setMusicUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setPriceListInitialized' : IDL.Func([IDL.Text, IDL.Bool], [], []),
     'stopCountdown' : IDL.Func([IDL.Text], [], []),
     'submitWithdrawalRequest' : IDL.Func(

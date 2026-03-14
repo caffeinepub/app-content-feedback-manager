@@ -11,7 +11,8 @@ export default {
         orbitron: ['Outfit', 'sans-serif'],
         rajdhani: ['Outfit', 'Inter', 'sans-serif'],
         sans: ['Outfit', 'Inter', 'sans-serif'],
-        display: ['Outfit', 'Cabinet Grotesk', 'sans-serif'],
+        display: ['Cabinet Grotesk', 'Outfit', 'sans-serif'],
+        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
       },
       colors: {
         background: 'oklch(var(--background) / <alpha-value>)',
@@ -47,8 +48,23 @@ export default {
         border: 'oklch(var(--border) / <alpha-value>)',
         input: 'oklch(var(--input) / <alpha-value>)',
         ring: 'oklch(var(--ring) / <alpha-value>)',
-        gold: 'var(--gold)',
-        teal: 'var(--teal)',
+        // Neon palette tokens
+        neon: {
+          cyan: '#00cfff',
+          blue: '#00a8e8',
+          green: '#00e87a',
+          purple: '#BF00FF',
+        },
+        cyber: {
+          purple: '#BF00FF',
+          purpleDim: 'rgba(191,0,255,0.4)',
+        },
+        navy: {
+          bg: '#02040F',
+          card: '#080D1E',
+          elevated: '#0C1228',
+          deep: '#050A30',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -59,12 +75,15 @@ export default {
         '3xl': '1.5rem',
       },
       boxShadow: {
-        'glass': '0 4px 16px oklch(0.04 0.02 260 / 0.8), 0 1px 0 oklch(0.35 0.08 260 / 0.3) inset',
-        'gold-glow': '0 0 20px oklch(0.75 0.18 65 / 0.4), 0 0 60px oklch(0.75 0.18 65 / 0.2)',
-        'teal-glow': '0 0 20px oklch(0.70 0.20 185 / 0.4), 0 0 60px oklch(0.70 0.20 185 / 0.2)',
-        '3d-sm': '0 2px 8px oklch(0.04 0.02 260 / 0.6), 0 1px 2px oklch(0.04 0.02 260 / 0.4)',
-        '3d-md': '0 4px 16px oklch(0.04 0.02 260 / 0.7), 0 2px 4px oklch(0.04 0.02 260 / 0.5), 0 0 0 1px oklch(0.25 0.05 260 / 0.3)',
-        '3d-lg': '0 8px 32px oklch(0.04 0.02 260 / 0.8), 0 4px 8px oklch(0.04 0.02 260 / 0.6), 0 0 0 1px oklch(0.25 0.05 260 / 0.4)',
+        'neon-cyan': '0 0 12px rgba(0, 255, 255, 0.3), 0 0 24px rgba(0, 255, 255, 0.1)',
+        'neon-cyan-lg': '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.2)',
+        'neon-purple': '0 0 12px rgba(191, 0, 255, 0.3), 0 0 24px rgba(191, 0, 255, 0.1)',
+        'neon-purple-lg': '0 0 20px rgba(191, 0, 255, 0.5), 0 0 40px rgba(191, 0, 255, 0.2)',
+        'glass': '0 4px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 255, 0.07)',
+        'navy-card': '0 4px 24px rgba(0, 0, 0, 0.5)',
+        '3d-sm': '0 2px 8px rgba(0, 0, 30, 0.6)',
+        '3d-md': '0 4px 16px rgba(0, 0, 30, 0.7)',
+        '3d-lg': '0 8px 32px rgba(0, 0, 30, 0.8)',
       },
       keyframes: {
         fadeInUp: {
@@ -84,13 +103,26 @@ export default {
           '33%': { transform: 'translate(30px, -30px) scale(1.05)' },
           '66%': { transform: 'translate(-20px, 20px) scale(0.95)' },
         },
-        pulseGold: {
-          '0%, 100%': { boxShadow: '0 0 10px oklch(0.75 0.18 65 / 0.3)' },
-          '50%': { boxShadow: '0 0 30px oklch(0.75 0.18 65 / 0.6)' },
-        },
         neonPulse: {
-          '0%, 100%': { boxShadow: '0 0 10px oklch(0.72 0.18 188 / 0.3)' },
-          '50%': { boxShadow: '0 0 25px oklch(0.72 0.18 188 / 0.6)' },
+          '0%, 100%': { boxShadow: '0 0 10px rgba(0, 255, 255, 0.3)' },
+          '50%': { boxShadow: '0 0 28px rgba(0, 255, 255, 0.65)' },
+        },
+        neonGlow: {
+          '0%, 100%': { borderColor: 'rgba(0, 255, 255, 0.4)' },
+          '50%': { borderColor: 'rgba(0, 255, 255, 0.9)' },
+        },
+        hudFlicker: {
+          '0%, 100%': { borderColor: 'rgba(0, 255, 255, 0.6)' },
+          '30%': { borderColor: '#BF00FF' },
+          '60%': { borderColor: '#00FFFF' },
+        },
+        musicGlowPulse: {
+          '0%, 100%': { boxShadow: '0 0 18px rgba(0, 255, 255, 0.5)' },
+          '50%': { boxShadow: '0 0 32px rgba(0, 255, 255, 0.8)' },
+        },
+        revealUp: {
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
@@ -98,8 +130,11 @@ export default {
         fadeIn: 'fadeIn 0.4s ease-out both',
         slideDown: 'slideDown 0.4s ease-out both',
         floatShape: 'floatShape 20s ease-in-out infinite',
-        pulseGold: 'pulseGold 2s ease-in-out infinite',
-        neonPulse: 'neonPulse 2s ease-in-out infinite',
+        neonPulse: 'neonPulse 2.5s ease-in-out infinite',
+        neonGlow: 'neonGlow 2s ease-in-out infinite',
+        hudFlicker: 'hudFlicker 0.6s ease-in-out',
+        musicGlowPulse: 'musicGlowPulse 2s ease-in-out infinite',
+        revealUp: 'revealUp 0.6s cubic-bezier(0.175,0.885,0.32,1.275) both',
       },
     },
   },

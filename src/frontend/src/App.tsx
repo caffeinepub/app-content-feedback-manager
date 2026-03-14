@@ -1,37 +1,23 @@
 import { Toaster } from "@/components/ui/sonner";
-import {
-  Layers,
-  MessageSquare,
-  Moon,
-  Pause,
-  Play,
-  Radio,
-  Shield,
-  Sun,
-  Upload,
-  Zap,
-} from "lucide-react";
+import { Moon, Music2, Pause, Play, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { useGetMusicUrl, useGetPublicSettings } from "./hooks/useQueries";
-import BulkGeneratorView from "./views/BulkGeneratorView";
-import LiveChecker from "./views/LiveChecker";
-import SingleGeneratorView from "./views/SingleGeneratorView";
+import AnimatedSkyBackground from "./components/AnimatedSkyBackground";
+import ArcheryGame3D from "./components/ArcheryGame3D";
+import SpotifyPlayer from "./components/SpotifyPlayer";
+import {
+  useGetMusicUrl,
+  useGetPublicSettings,
+  useGetSpotifyUrl,
+  useRegisterGlobalActor,
+} from "./hooks/useQueries";
+import LiveListView from "./views/LiveListView";
 import { UploadView } from "./views/UploadView";
 import UserView from "./views/UserView";
+import UsernameCheckerView from "./views/UsernameCheckerView";
 import AdminView from "./views/admin/AdminView";
 
-type Tab = "comment" | "live" | "upload" | "admin" | "single" | "bulk";
-
-const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "comment", label: "Comment", icon: MessageSquare },
-  { id: "single", label: "Single Gen", icon: Zap },
-  { id: "bulk", label: "Bulk Gen", icon: Layers },
-  { id: "live", label: "Live", icon: Radio },
-  { id: "upload", label: "Upload", icon: Upload },
-  { id: "admin", label: "Admin", icon: Shield },
-];
+type Tab = "user" | "view" | "upload" | "live" | "checker" | "admin";
 
 function CountdownBanner() {
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -67,20 +53,29 @@ function CountdownBanner() {
 
   return (
     <div className="countdown-banner">
-      <span className="countdown-label">TIME UNTIL MIDNIGHT</span>
+      <span
+        className="countdown-label"
+        style={{ fontStyle: "italic", fontWeight: 700, color: "#00FFFF" }}
+      >
+        TIME UNTIL MIDNIGHT
+      </span>
       <span className="countdown-time">{timeLeft}</span>
+      <span className="countdown-subtitle">Make the most of today! ✨</span>
     </div>
   );
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("comment");
+  const [activeTab, setActiveTab] = useState<Tab>("user");
   const { theme, setTheme } = useTheme();
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [spotifyVisible, setSpotifyVisible] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: publicSettings } = useGetPublicSettings();
   const { data: musicUrl } = useGetMusicUrl();
+  const { data: spotifyUrl } = useGetSpotifyUrl();
+  useRegisterGlobalActor();
 
   useEffect(() => {
     if (musicUrl) {
@@ -109,35 +104,59 @@ export default function App() {
       ? encodeURIComponent(window.location.hostname)
       : "unknown-app";
 
-  // Suppress unused warning — publicSettings used for bgMusicEnabled check if needed
   void publicSettings;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Floating background shapes */}
-      <div className="floating-shapes" aria-hidden="true">
-        <div className="shape shape-1" />
-        <div className="shape shape-2" />
-        <div className="shape shape-3" />
-      </div>
+    <div
+      className="min-h-screen section-board-bg text-foreground"
+      style={{ position: "relative" }}
+    >
+      {/* Animated sky background */}
+      <AnimatedSkyBackground />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/20 bg-background/80 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          {/* Logo / RW Avatar */}
+      <header
+        className="sticky top-0 z-50 section-board-header"
+        style={{ position: "relative", zIndex: 50 }}
+      >
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          {/* RW Logo */}
           <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="rw-avatar">RW</div>
-            <span className="font-bold text-lg gradient-text hidden sm:block">
+            <div
+              className="rw-avatar"
+              style={{
+                background: "linear-gradient(135deg, #DC143C, #C0C0C0)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                border: "1.5px solid rgba(192,192,192,0.4)",
+                fontWeight: 900,
+                fontSize: "1.1rem",
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 12px rgba(220,20,60,0.3)",
+                flexShrink: 0,
+              }}
+            >
+              RW
+            </div>
+            <span
+              className="font-bold text-sm hidden sm:block"
+              style={{ color: "#C0C0C0", letterSpacing: "0.05em" }}
+            >
               Review Empire
             </span>
           </div>
 
-          {/* Countdown */}
+          {/* Countdown center */}
           <CountdownBanner />
 
           {/* Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {musicUrl && (
+            <div className="relative">
               <button
                 type="button"
                 onClick={toggleMusic}
@@ -151,12 +170,37 @@ export default function App() {
                   <Play className="w-4 h-4" />
                 )}
               </button>
+              <span className="music-dot" aria-hidden="true" />
+            </div>
+
+            {spotifyUrl && (
+              <button
+                type="button"
+                onClick={() => setSpotifyVisible((v) => !v)}
+                data-ocid="spotify.toggle.button"
+                className="neop-btn-icon"
+                title={spotifyVisible ? "Hide Spotify player" : "Play Sound"}
+                style={
+                  spotifyVisible
+                    ? {
+                        boxShadow: "0 0 14px rgba(0,255,255,0.55)",
+                        borderColor: "#00FFFF",
+                      }
+                    : {}
+                }
+              >
+                <Music2
+                  className="w-4 h-4"
+                  style={{ color: spotifyVisible ? "#00FFFF" : undefined }}
+                />
+              </button>
             )}
+
             <button
               type="button"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               data-ocid="theme.toggle"
-              className="p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              className="neop-btn-icon"
               title="Toggle theme"
             >
               {theme === "dark" ? (
@@ -170,55 +214,168 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Tab Navigation — pill style */}
+      <main
+        className="max-w-5xl mx-auto px-4 py-6"
+        style={{ position: "relative", zIndex: 1 }}
+      >
+        {/* Section Board Navigation */}
         <nav
-          className="flex flex-wrap gap-1.5 p-1.5 bg-card/50 rounded-2xl border border-border/30 mb-6 backdrop-blur-sm"
+          className="section-board-nav mb-8"
           data-ocid="nav.panel"
+          aria-label="Section navigation"
         >
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                type="button"
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                data-ocid={`nav.${tab.id}.tab`}
-                className={`tab-pill flex items-center gap-1.5 flex-1 justify-center sm:flex-none ${activeTab === tab.id ? "active" : ""}`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            );
-          })}
+          {/* User pill */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("user")}
+            data-ocid="nav.user.tab"
+            className={`nav-pill nav-pill-user ${activeTab === "user" ? "active" : ""}`}
+          >
+            USER
+          </button>
+
+          {/* View pill */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("view")}
+            data-ocid="nav.view.tab"
+            className={`nav-pill nav-pill-view ${activeTab === "view" ? "active" : ""}`}
+          >
+            VIEW
+          </button>
+
+          {/* Upload pill */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("upload")}
+            data-ocid="nav.upload.tab"
+            className={`nav-pill nav-pill-upload ${activeTab === "upload" ? "active" : ""}`}
+          >
+            UPLOAD
+          </button>
+
+          {/* Live pill */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("live")}
+            data-ocid="nav.live.tab"
+            className={`nav-pill nav-pill-live ${activeTab === "live" ? "active" : ""}`}
+          >
+            LIVE
+          </button>
+
+          {/* Divider */}
+          <div className="nav-divider" aria-hidden="true" />
+
+          {/* Checker label */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("checker")}
+            data-ocid="nav.checker.tab"
+            className={`nav-admin-checker ${activeTab === "checker" ? "active" : ""}`}
+          >
+            CHECKER
+          </button>
+
+          {/* Admin Panel label */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("admin")}
+            data-ocid="nav.admin.tab"
+            className={`nav-admin-panel ${activeTab === "admin" ? "active" : ""}`}
+          >
+            ADMIN PANEL
+          </button>
         </nav>
 
         {/* Tab Content */}
         <div className="animate-fadeInUp">
-          {activeTab === "comment" && <UserView />}
-          {activeTab === "single" && <SingleGeneratorView />}
-          {activeTab === "bulk" && <BulkGeneratorView />}
-          {activeTab === "live" && <LiveChecker />}
+          {activeTab === "user" && <UserView />}
+          {activeTab === "view" && <ArcheryGame3D />}
           {activeTab === "upload" && <UploadView />}
+          {activeTab === "live" && <LiveListView />}
+          {activeTab === "checker" && <UsernameCheckerView />}
           {activeTab === "admin" && <AdminView />}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/20 mt-12 py-6 text-center text-xs text-muted-foreground">
-        <p>
+      {/* Game Master Footer */}
+      <footer
+        style={{
+          marginTop: 80,
+          padding: 40,
+          borderTop: "1px solid #333",
+          textAlign: "center",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <h3
+          style={{
+            fontStyle: "italic",
+            fontWeight: "bold",
+            color: "#00FFFF",
+            marginBottom: 10,
+          }}
+        >
+          ***GAME MASTER: NISHANT CHAUDHARY***
+        </h3>
+        <p
+          style={{
+            color: "#ccc",
+            maxWidth: 600,
+            margin: "0 auto 20px auto",
+            lineHeight: 1.6,
+          }}
+        >
+          Join our elite community for premium review work. We provide
+          high-quality engagement at the best market prices with guaranteed
+          weekly payouts.
+        </p>
+        <a
+          href="https://chat.whatsapp.com/JZ5w3hyx4gYDtPWx91Xena"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "none", display: "inline-block" }}
+        >
+          <div
+            style={{
+              background: "#25D366",
+              color: "white",
+              padding: "12px 24px",
+              borderRadius: 50,
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <span>Join WhatsApp Community</span>
+            <small>(7986131899)</small>
+          </div>
+        </a>
+
+        {/* Caffeine attribution */}
+        <p className="mt-6 text-xs" style={{ color: "#555" }}>
           © {new Date().getFullYear()} Review Empire · Built with{" "}
-          <span className="text-red-500">♥</span> using{" "}
+          <span style={{ color: "#e53e3e" }}>♥</span> using{" "}
           <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${appId}`}
+            href={`https://caffeine.ai/?utm_source=caffeine-footer&utm_medium=referral&utm_content=${appId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent hover:underline"
+            style={{ color: "#4fd1c5" }}
           >
             caffeine.ai
           </a>
         </p>
       </footer>
+
+      {/* Sticky Spotify Player */}
+      <SpotifyPlayer
+        visible={spotifyVisible}
+        isPlaying={spotifyVisible}
+        onClose={() => setSpotifyVisible(false)}
+      />
 
       <Toaster />
     </div>
