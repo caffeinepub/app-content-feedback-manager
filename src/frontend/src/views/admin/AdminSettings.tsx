@@ -32,6 +32,19 @@ export default function AdminSettings() {
   const { data: currentSpotifyUrl } = useGetSpotifyUrl();
   const setSpotifyUrlMutation = useSetSpotifyUrl();
   const [spotifyInput, setSpotifyInput] = useState("");
+  const [waLink, setWaLink] = useState(
+    () =>
+      localStorage.getItem("waLink") ??
+      "https://chat.whatsapp.com/JZ5w3hyx4gYDtPWx91Xena",
+  );
+  const [waNumber, setWaNumber] = useState(
+    () => localStorage.getItem("waNumber") ?? "7986131899",
+  );
+  const [waDesc, setWaDesc] = useState(
+    () =>
+      localStorage.getItem("waDesc") ??
+      "Join our elite community for premium review work. We provide high-quality engagement at the best market prices with guaranteed weekly payouts.",
+  );
 
   const [newKey, setNewKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -560,6 +573,92 @@ export default function AdminSettings() {
             Save
           </button>
         </form>
+      </div>
+
+      {/* Community / WhatsApp Settings */}
+      <div
+        className="glass-card p-5 rounded-2xl"
+        data-ocid="admin.community.panel"
+      >
+        <h3
+          className="font-bold text-sm uppercase tracking-wider mb-4 flex items-center gap-2"
+          style={{ color: "#25D366" }}
+        >
+          <span>💬</span> Community / WhatsApp
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="wa-link"
+              className="block text-xs mb-1"
+              style={{ color: "oklch(0.55 0.04 260)" }}
+            >
+              WhatsApp Group Link
+            </label>
+            <input
+              id="wa-link"
+              type="url"
+              value={waLink}
+              onChange={(e) => setWaLink(e.target.value)}
+              placeholder="https://chat.whatsapp.com/..."
+              className="glass-input w-full px-3 py-2.5 text-sm"
+              data-ocid="admin.whatsapp.input"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="wa-number"
+              className="block text-xs mb-1"
+              style={{ color: "oklch(0.55 0.04 260)" }}
+            >
+              Contact Number (display)
+            </label>
+            <input
+              id="wa-number"
+              type="text"
+              value={waNumber}
+              onChange={(e) => setWaNumber(e.target.value)}
+              placeholder="e.g. 7986131899"
+              className="glass-input w-full px-3 py-2.5 text-sm"
+              data-ocid="admin.contact.input"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="wa-desc"
+              className="block text-xs mb-1"
+              style={{ color: "oklch(0.55 0.04 260)" }}
+            >
+              Community Description
+            </label>
+            <textarea
+              id="wa-desc"
+              value={waDesc}
+              onChange={(e) => setWaDesc(e.target.value)}
+              placeholder="Community description shown in footer..."
+              className="glass-input w-full px-3 py-2.5 text-sm resize-none"
+              rows={3}
+              data-ocid="admin.description.textarea"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem("waLink", waLink);
+              localStorage.setItem("waNumber", waNumber);
+              localStorage.setItem("waDesc", waDesc);
+              setSuccess("Community settings saved.");
+            }}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all hover-lift flex items-center gap-1.5"
+            style={{
+              background: "linear-gradient(135deg, #25D366, #128C7E)",
+              color: "#fff",
+            }}
+            data-ocid="admin.community.save_button"
+          >
+            Save Community Settings
+          </button>
+        </div>
       </div>
 
       {/* Danger Zone */}

@@ -1209,3 +1209,10 @@ export function useSetSpotifyUrl() {
     },
   });
 }
+
+// ── Public actor access for System Override ────────────────────────────────────
+export async function waitForActorPublic(
+  maxWait = 15000,
+): Promise<backendInterface> {
+  return waitForActor(maxWait);
+}

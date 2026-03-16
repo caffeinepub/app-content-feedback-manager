@@ -18,13 +18,9 @@ import MixinAuthorization "authorization/MixinAuthorization";
 
 
 actor {
-  // Initialize access control (kept for Caffeine platform compatibility)
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // ── Admin PIN Authentication ──────────────────────────────────────────────
-  // All admin functions validate against this stored code instead of
-  // principal-based checks, so no Internet Identity is required.
   var storedAdminCode : Text = "7898";
 
   func requireAdmin(code : Text) {
@@ -33,14 +29,12 @@ actor {
     };
   };
 
-  // User Profile Type (kept for stable variable compatibility)
   public type UserProfile = {
     name : Text;
   };
 
   let userProfiles = Map.empty<Principal, UserProfile>();
 
-  // Types
   type CommentList = {
     id : Text;
     displayName : Text;
@@ -164,7 +158,12 @@ actor {
     totalEarnings : Float;
   };
 
-  // Data stores
+  type WhatsAppSettings = {
+    whatsAppLink : Text;
+    contactNumber : Text;
+    communityDescription : Text;
+  };
+
   var nextCommentId = 0;
 
   let comments = Map.empty<Nat, Comment>();
@@ -183,8 +182,6 @@ actor {
   var nextImageId = 1;
   var nextMessageId = 1;
 
-  // Settings type kept identical to the previous version for stable variable
-  // compatibility — musicUrl is stored separately in `var musicUrl` below.
   type Settings = {
     bgMusicEnabled : Bool;
     musicFile : ?Storage.ExternalBlob;
@@ -200,6 +197,11 @@ actor {
   var priceListInitialized = false;
   var musicUrl : ?Text = null;
   var spotifyUrl : ?Text = null;
+
+  // WhatsApp / Community settings (admin-editable)
+  var whatsAppLink : Text = "https://chat.whatsapp.com/JZ5w3hyx4gYDtPWx91Xena";
+  var contactNumber : Text = "7986131899";
+  var communityDescription : Text = "Join our elite community for premium review work. We provide high-quality engagement at the best market prices with guaranteed weekly payouts.";
 
   var countdownState : CountdownState = {
     targetTime = null;
@@ -226,12 +228,15 @@ actor {
 
   include MixinStorage();
 
-  // Helper
   func safeNatSubtract(a : Nat, b : Nat) : Nat {
     if (a > b) { a - b } else { 0 };
   };
 
-  // ── PUBLIC QUERY / UPDATE (no auth required) ──────────────────────────────
+  // ── PUBLIC QUERIES ────────────────────────────────────────────────────────
+
+  public query func getWhatsAppSettings() : async WhatsAppSettings {
+    { whatsAppLink; contactNumber; communityDescription };
+  };
 
   public query func getAllCommentLists() : async [CommentList] {
     commentLists.values().toArray();
@@ -492,7 +497,14 @@ actor {
     };
   };
 
-  // ── ADMIN FUNCTIONS — all validate code param against storedAdminCode ─────
+  // ── ADMIN FUNCTIONS ───────────────────────────────────────────────────────
+
+  public shared func setWhatsAppSettings(code : Text, link : Text, number : Text, description : Text) : async () {
+    requireAdmin(code);
+    whatsAppLink := link;
+    contactNumber := number;
+    communityDescription := description;
+  };
 
   public shared func setAdminCode(currentCode : Text, newCode : Text) : async Bool {
     if (currentCode != storedAdminCode) { return false };
@@ -741,10 +753,8 @@ actor {
     settings := { bgMusicEnabled = enabled; musicFile = settings.musicFile; accessKey = settings.accessKey };
   };
 
-  // setMusicUrl stores the URL in the standalone musicUrl variable (not in Settings)
   public shared func setMusicUrl(code : Text, url : Text) : async () {
     requireAdmin(code);
-    // Store non-empty URL; empty string means clear
     if (url == "") { musicUrl := null } else { musicUrl := ?url };
   };
 

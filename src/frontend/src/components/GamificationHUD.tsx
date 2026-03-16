@@ -134,6 +134,20 @@ export default function GamificationHUD() {
             textShadow: "0 0 8px rgba(0,255,255,0.7)",
             letterSpacing: "0.05em",
             lineHeight: 1.3,
+            marginBottom: "2px",
+          }}
+        >
+          ACTOR: GUEST_OPERATOR
+        </div>
+        <div
+          style={{
+            fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
+            fontSize: "clamp(0.65rem, 2.5vw, 0.8rem)",
+            fontWeight: 700,
+            color: "#00FFFF",
+            textShadow: "0 0 8px rgba(0,255,255,0.7)",
+            letterSpacing: "0.05em",
+            lineHeight: 1.3,
           }}
         >
           SCORE: {formattedScore}

@@ -179,7 +179,6 @@ export default function ArcheryGame3D() {
     scheduleAiShot();
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: three.js setup
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
