@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Check, Copy, RefreshCw, Zap } from "lucide-react";
 import React, { useState } from "react";
+import MissionBriefingModal from "../components/MissionBriefingModal";
 import { useGenerateBulkGlobal, useGetPoolStats } from "../hooks/useQueries";
 
 export default function BulkGeneratorView() {
@@ -23,6 +24,7 @@ export default function BulkGeneratorView() {
   );
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showMission, setShowMission] = useState(false);
 
   const { data: poolStats } = useGetPoolStats();
   const generateBulk = useGenerateBulkGlobal();
@@ -44,6 +46,8 @@ export default function BulkGeneratorView() {
     try {
       const comments = await generateBulk.mutateAsync(BigInt(parsedBatchSize));
       setGeneratedComments(comments);
+      setShowMission(true);
+      setShowMission(true);
     } catch (err: unknown) {
       const raw =
         err instanceof Error ? err.message : "Failed to generate comments";
@@ -218,6 +222,11 @@ export default function BulkGeneratorView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MissionBriefingModal
+        open={showMission}
+        onClose={() => setShowMission(false)}
+      />
     </div>
   );
 }

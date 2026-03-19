@@ -74,7 +74,7 @@ const SECTOR_GLOWS = {
 };
 
 export default function App() {
-  const [activeSector, setActiveSector] = useState<Sector>("lobby");
+  const [activeSector, setActiveSector] = useState<Sector>("tools");
   const [toolsTab, setToolsTab] = useState<ToolsTab>("generators");
   const [stealthMode, setStealthMode] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
@@ -132,27 +132,51 @@ export default function App() {
   const attemptOverride = async () => {
     if (!adminInputValue.trim() || adminLoading) return;
     setAdminLoading(true);
+
+    const doReveal = () => {
+      setCubeGlitching(true);
+      setTimeout(() => {
+        setHeroDissolving(true);
+        setTimeout(() => {
+          setCubeGlitching(false);
+          setHeroDissolving(false);
+          setAdminUnlocked(true);
+          setActiveSector("admin");
+        }, 800);
+      }, 800);
+    };
+
+    const FALLBACK_CODE = "7898";
+    const localCode = localStorage.getItem("adminCode") ?? FALLBACK_CODE;
+
     try {
       const actor = await waitForActorPublic();
       const ok = await actor.verifyAdminCode(adminInputValue.trim());
       if (ok) {
-        setCubeGlitching(true);
-        setTimeout(() => {
-          setHeroDissolving(true);
-          setTimeout(() => {
-            setCubeGlitching(false);
-            setHeroDissolving(false);
-            setAdminUnlocked(true);
-            setActiveSector("admin");
-          }, 800);
-        }, 800);
+        doReveal();
+      } else {
+        // Backend says wrong — also try local fallback
+        if (
+          adminInputValue.trim() === localCode ||
+          adminInputValue.trim() === FALLBACK_CODE
+        ) {
+          doReveal();
+        } else {
+          setInputShake(true);
+          setTimeout(() => setInputShake(false), 500);
+        }
+      }
+    } catch {
+      // Backend unavailable — fall back to local code check
+      if (
+        adminInputValue.trim() === localCode ||
+        adminInputValue.trim() === FALLBACK_CODE
+      ) {
+        doReveal();
       } else {
         setInputShake(true);
         setTimeout(() => setInputShake(false), 500);
       }
-    } catch {
-      setInputShake(true);
-      setTimeout(() => setInputShake(false), 500);
     } finally {
       setAdminLoading(false);
     }
@@ -531,7 +555,7 @@ export default function App() {
         data-ocid="nav.panel"
         aria-label="Sector navigation"
       >
-        {(["lobby", "game", "tools"] as Sector[]).map((sector) => {
+        {(["tools", "game", "lobby"] as Sector[]).map((sector) => {
           const isActive = activeSector === sector;
           const col = SECTOR_COLORS[sector];
           const glow = SECTOR_GLOWS[sector];

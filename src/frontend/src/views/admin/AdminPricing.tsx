@@ -5,6 +5,7 @@ import type { PriceEntry } from "../../backend";
 import {
   useAddPriceEntry,
   useBulkUploadPrices,
+  useCalculateAllEarnings,
   useDeletePriceEntry,
   useEditPriceEntry,
   useGetPriceList,
@@ -12,6 +13,7 @@ import {
 
 export default function AdminPricing() {
   const { data: priceList = [], isLoading } = useGetPriceList();
+  const { data: earningsSummary } = useCalculateAllEarnings();
   const addPriceEntry = useAddPriceEntry();
   const editPriceEntry = useEditPriceEntry();
   const deletePriceEntry = useDeletePriceEntry();
@@ -326,6 +328,23 @@ export default function AdminPricing() {
                         style={{ color: "oklch(0.50 0.04 260)" }}
                       >
                         ₹{entry.pricePerEntry.toFixed(2)} per entry
+                        {(() => {
+                          const ae = earningsSummary?.appEarnings?.find(
+                            (x) => x.appName === entry.appName,
+                          );
+                          if (ae && Number(ae.totalUsernamesFound) > 0) {
+                            return (
+                              <span
+                                className="ml-2 font-bold"
+                                style={{ color: "oklch(0.78 0.22 188)" }}
+                              >
+                                · Total: ₹{ae.totalAmount.toFixed(2)} (
+                                {Number(ae.totalUsernamesFound)} entries)
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                         <span
                           className="ml-2 px-1.5 py-0.5 rounded-full text-xs"
                           style={{
@@ -375,6 +394,36 @@ export default function AdminPricing() {
           </div>
         )}
       </div>
+
+      {/* Grand Total */}
+      {earningsSummary && earningsSummary.appEarnings.length > 0 && (
+        <div
+          className="glass-card p-4 rounded-2xl"
+          style={{
+            border: "1px solid oklch(0.78 0.22 188 / 0.3)",
+            background: "oklch(0.10 0.025 260 / 0.5)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span
+              className="font-orbitron font-bold text-sm uppercase tracking-wider"
+              style={{ color: "oklch(0.78 0.22 188)" }}
+            >
+              Grand Total Earnings
+            </span>
+            <span className="font-orbitron font-bold text-lg gold-text">
+              ₹{earningsSummary.totalEarnings.toFixed(2)}
+            </span>
+          </div>
+          <div
+            className="text-xs font-rajdhani mt-1"
+            style={{ color: "oklch(0.50 0.04 260)" }}
+          >
+            {Number(earningsSummary.totalValidEntries)} total entries across{" "}
+            {Number(earningsSummary.totalAppsWithPrices)} apps
+          </div>
+        </div>
+      )}
 
       {/* Bulk Upload */}
       <div className="glass-card p-5 rounded-2xl">

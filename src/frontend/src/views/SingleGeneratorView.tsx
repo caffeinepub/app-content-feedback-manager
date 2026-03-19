@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Copy, RefreshCw, Zap } from "lucide-react";
 import React, { useState } from "react";
+import MissionBriefingModal from "../components/MissionBriefingModal";
 import { useGenerateSingle } from "../hooks/useQueries";
 
 export default function SingleGeneratorView() {
@@ -18,6 +19,7 @@ export default function SingleGeneratorView() {
     null,
   );
   const [copied, setCopied] = useState(false);
+  const [showMission, setShowMission] = useState(false);
 
   const generateSingle = useGenerateSingle();
 
@@ -27,6 +29,7 @@ export default function SingleGeneratorView() {
     try {
       const comment = await generateSingle.mutateAsync();
       setGeneratedComment(comment);
+      setShowMission(true);
     } catch (err: unknown) {
       const raw =
         err instanceof Error ? err.message : "Failed to generate comment";
@@ -148,6 +151,11 @@ export default function SingleGeneratorView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MissionBriefingModal
+        open={showMission}
+        onClose={() => setShowMission(false)}
+      />
     </div>
   );
 }
