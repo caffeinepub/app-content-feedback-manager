@@ -520,6 +520,10 @@ export default function UsernameCheckerView() {
             <div className="mt-4 space-y-2">
               {bulkResults.map(({ username, apps }) => {
                 const found = apps.filter((a) => a.found);
+                const userEarnings = found.reduce(
+                  (sum, a) => sum + (a.price ?? 0),
+                  0,
+                );
                 return (
                   <div
                     key={username}
@@ -539,14 +543,33 @@ export default function UsernameCheckerView() {
                       >
                         {username}
                       </span>
-                      <span
-                        className="text-xs"
-                        style={{ color: found.length > 0 ? "#50C878" : "#555" }}
-                      >
-                        {found.length > 0
-                          ? `✓ ${found.length} app${found.length > 1 ? "s" : ""}`
-                          : "✗ Not found"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="text-xs"
+                          style={{
+                            color: found.length > 0 ? "#50C878" : "#555",
+                          }}
+                        >
+                          {found.length > 0
+                            ? `✓ ${found.length} app${
+                                found.length > 1 ? "s" : ""
+                              }`
+                            : "✗ Not found"}
+                        </span>
+                        {userEarnings > 0 && (
+                          <span
+                            className="flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full"
+                            style={{
+                              color: "#FFD700",
+                              background: "rgba(255,215,0,0.1)",
+                              border: "1px solid rgba(255,215,0,0.25)",
+                            }}
+                          >
+                            <TrendingUp className="w-3 h-3" />₹
+                            {userEarnings.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {found.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -561,6 +584,14 @@ export default function UsernameCheckerView() {
                             }}
                           >
                             {a.appName}
+                            {a.price ? (
+                              <span
+                                className="ml-1 font-bold"
+                                style={{ color: "#FFD700" }}
+                              >
+                                ₹{a.price}
+                              </span>
+                            ) : null}
                           </span>
                         ))}
                       </div>
@@ -568,6 +599,100 @@ export default function UsernameCheckerView() {
                   </div>
                 );
               })}
+
+              {/* Grand total summary */}
+              {(() => {
+                const grandTotal = bulkResults.reduce((sum, { apps }) => {
+                  return (
+                    sum +
+                    apps
+                      .filter((a) => a.found)
+                      .reduce((s, a) => s + (a.price ?? 0), 0)
+                  );
+                }, 0);
+                const usersFound = bulkResults.filter(({ apps }) =>
+                  apps.some((a) => a.found),
+                ).length;
+                if (grandTotal <= 0) return null;
+                return (
+                  <div
+                    className="rounded-xl p-4 mt-2"
+                    style={{
+                      background: "rgba(168,85,247,0.08)",
+                      border: "1px solid rgba(168,85,247,0.3)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp
+                        className="w-4 h-4"
+                        style={{ color: "#FFD700" }}
+                      />
+                      <span
+                        className="font-bold text-sm"
+                        style={{ color: "#C084FC", fontStyle: "italic" }}
+                      >
+                        Bulk Check Summary
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div
+                        className="rounded-lg p-2 text-center"
+                        style={{ background: "rgba(15,15,25,0.6)" }}
+                      >
+                        <p
+                          className="text-xs"
+                          style={{ color: "#666", fontStyle: "italic" }}
+                        >
+                          Total Checked
+                        </p>
+                        <p
+                          className="font-bold text-sm mt-0.5"
+                          style={{ color: "#e0e0e0" }}
+                        >
+                          {bulkResults.length}
+                        </p>
+                      </div>
+                      <div
+                        className="rounded-lg p-2 text-center"
+                        style={{ background: "rgba(15,15,25,0.6)" }}
+                      >
+                        <p
+                          className="text-xs"
+                          style={{ color: "#666", fontStyle: "italic" }}
+                        >
+                          Users Found
+                        </p>
+                        <p
+                          className="font-bold text-sm mt-0.5"
+                          style={{ color: "#50C878" }}
+                        >
+                          {usersFound}
+                        </p>
+                      </div>
+                      <div
+                        className="rounded-lg p-2 text-center"
+                        style={{
+                          background: "rgba(255,215,0,0.08)",
+                          border: "1px solid rgba(255,215,0,0.2)",
+                        }}
+                      >
+                        <p
+                          className="text-xs"
+                          style={{ color: "#999", fontStyle: "italic" }}
+                        >
+                          Grand Total
+                        </p>
+                        <p
+                          className="font-bold text-sm mt-0.5"
+                          style={{ color: "#FFD700" }}
+                        >
+                          ₹{grandTotal.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
