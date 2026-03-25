@@ -203,6 +203,11 @@ actor {
   var contactNumber : Text = "7986131899";
   var communityDescription : Text = "Join our elite community for premium review work. We provide high-quality engagement at the best market prices with guaranteed weekly payouts.";
 
+  var perLinkRate : Float = 0.0;
+  var earningsMode : Text = "flatRate"; // "flatRate" or "valueSum"
+  var singleCheckerEarningsEnabled : Bool = true;
+  var bulkCheckerEarningsEnabled : Bool = true;
+
   var countdownState : CountdownState = {
     targetTime = null;
     isActive = false;
@@ -407,6 +412,8 @@ actor {
     { bgMusicEnabled = settings.bgMusicEnabled; musicFile = settings.musicFile };
   };
 
+  // Returns the stored music URL (text). When using blob storage, the frontend
+  // stores the blob's direct URL via setMusicUrl after uploading via setMusicBlob.
   public query func getMusicUrl() : async ?Text {
     musicUrl;
   };
@@ -497,6 +504,16 @@ actor {
     };
   };
 
+  public query func getEarningsMode() : async Text {
+    earningsMode;
+  };
+
+  public query func getSingleCheckerEarningsEnabled() : async Bool {
+    singleCheckerEarningsEnabled;
+  };
+  public query func getBulkCheckerEarningsEnabled() : async Bool {
+    bulkCheckerEarningsEnabled;
+  };
   // ── ADMIN FUNCTIONS ───────────────────────────────────────────────────────
 
   public shared func setWhatsAppSettings(code : Text, link : Text, number : Text, description : Text) : async () {
@@ -756,11 +773,21 @@ actor {
   public shared func setMusicUrl(code : Text, url : Text) : async () {
     requireAdmin(code);
     if (url == "") { musicUrl := null } else { musicUrl := ?url };
+    // Clear blob when setting text URL
+    settings := { settings with musicFile = null };
   };
 
   public shared func clearMusicUrl(code : Text) : async () {
     requireAdmin(code);
     musicUrl := null;
+    settings := { settings with musicFile = null };
+  };
+
+  // Stores a blob file for music. The frontend should also call setMusicUrl
+  // with the blob's direct URL so getMusicUrl() can return a playable URL.
+  public shared func setMusicBlob(code : Text, blob : Storage.ExternalBlob) : async () {
+    requireAdmin(code);
+    settings := { settings with musicFile = ?blob };
   };
 
   public query func getSpotifyUrl() : async ?Text {
@@ -778,6 +805,19 @@ actor {
     musicUrl := newMusicUrl;
   };
 
+  public shared func setEarningsMode(code : Text, mode : Text) : async () {
+    requireAdmin(code);
+    earningsMode := mode;
+  };
+
+  public shared func setSingleCheckerEarningsEnabled(code : Text, enabled : Bool) : async () {
+    requireAdmin(code);
+    singleCheckerEarningsEnabled := enabled;
+  };
+  public shared func setBulkCheckerEarningsEnabled(code : Text, enabled : Bool) : async () {
+    requireAdmin(code);
+    bulkCheckerEarningsEnabled := enabled;
+  };
   public shared func addPriceEntry(code : Text, appName : Text, pricePerEntry : Float, isActive : Bool) : async () {
     requireAdmin(code);
     priceList.add(appName, { pricePerEntry; isActive });
@@ -879,5 +919,27 @@ actor {
   public shared func clearCountdown(code : Text) : async () {
     requireAdmin(code);
     countdownState := { targetTime = null; isActive = false };
+  };
+
+  public query func getPerLinkRate() : async Float {
+    perLinkRate;
+  };
+
+  public shared func setPerLinkRate(code : Text, rate : Float) : async () {
+    requireAdmin(code);
+    perLinkRate := rate;
+  };
+
+  public shared func wipeCompletedWithdrawals(code : Text) : async Nat {
+    requireAdmin(code);
+    var count = 0;
+    let entries = withdrawalRequests.entries().toArray();
+    for ((key, req) in entries.vals()) {
+      if (req.status == #completed or req.status == #rejected) {
+        withdrawalRequests.remove(key);
+        count += 1;
+      };
+    };
+    count;
   };
 };

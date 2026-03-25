@@ -93,7 +93,6 @@ export const BulkCommentsResult = IDL.Record({
   'generatedCount' : IDL.Nat,
   'comments' : IDL.Vec(IDL.Text),
 });
-export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const CountdownState = IDL.Record({
   'isActive' : IDL.Bool,
   'targetTime' : IDL.Opt(Time),
@@ -120,6 +119,11 @@ export const Settings = IDL.Record({
   'accessKey' : IDL.Opt(IDL.Text),
   'bgMusicEnabled' : IDL.Bool,
   'musicFile' : IDL.Opt(ExternalBlob),
+});
+export const WhatsAppSettings = IDL.Record({
+  'whatsAppLink' : IDL.Text,
+  'communityDescription' : IDL.Text,
+  'contactNumber' : IDL.Text,
 });
 export const AppImport = IDL.Record({
   'appName' : IDL.Text,
@@ -184,6 +188,7 @@ export const idlService = IDL.Service({
   'claimComment' : IDL.Func([IDL.Text, IDL.Text], [ClaimCommentResult], []),
   'clearAccessKey' : IDL.Func([IDL.Text], [], []),
   'clearCountdown' : IDL.Func([IDL.Text], [], []),
+  'clearMusicUrl' : IDL.Func([IDL.Text], [], []),
   'consumeFromList' : IDL.Func(
       [IDL.Text, IDL.Nat],
       [IDL.Variant({ 'ok' : IDL.Vec(IDL.Text), 'err' : IDL.Text })],
@@ -246,10 +251,10 @@ export const idlService = IDL.Service({
       [BulkCommentsResult],
       [],
     ),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
   'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+  'getEarningsMode' : IDL.Func([], [IDL.Text], ['query']),
   'getGlobalCommentPoolStats' : IDL.Func(
       [],
       [GlobalCommentPoolStats],
@@ -259,12 +264,12 @@ export const idlService = IDL.Service({
   'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
   'getMusicUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
-  'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'getMyWithdrawalRequests' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(WithdrawalRequest)],
       ['query'],
     ),
+  'getPerLinkRate' : IDL.Func([], [IDL.Float64], ['query']),
   'getPoolStats' : IDL.Func(
       [],
       [IDL.Record({ 'totalPoolSize' : IDL.Nat, 'availableCount' : IDL.Nat })],
@@ -274,11 +279,8 @@ export const idlService = IDL.Service({
   'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
   'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
   'getSettings' : IDL.Func([IDL.Text], [Settings], ['query']),
-  'getUserProfile' : IDL.Func(
-      [IDL.Principal],
-      [IDL.Opt(UserProfile)],
-      ['query'],
-    ),
+  'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'getWhatsAppSettings' : IDL.Func([], [WhatsAppSettings], ['query']),
   'importLiveLists' : IDL.Func(
       [IDL.Text, IDL.Vec(AppImport)],
       [ImportSummary],
@@ -290,7 +292,6 @@ export const idlService = IDL.Service({
   'regenerateAccessKey' : IDL.Func([IDL.Text], [IDL.Text], []),
   'renameCommentList' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'resetUsedTemplates' : IDL.Func([IDL.Text, IDL.Text], [], []),
-  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setAccessKey' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setAdminCode' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'setBgMusicEnabled' : IDL.Func([IDL.Text, IDL.Bool], [], []),
@@ -300,10 +301,18 @@ export const idlService = IDL.Service({
       [],
     ),
   'setCountdown' : IDL.Func([IDL.Text, Time], [], []),
+  'setEarningsMode' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setInventoryCount' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
+  'setMusicBlob' : IDL.Func([IDL.Text, ExternalBlob], [], []),
   'setMusicUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
-  'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setPerLinkRate' : IDL.Func([IDL.Text, IDL.Float64], [], []),
   'setPriceListInitialized' : IDL.Func([IDL.Text, IDL.Bool], [], []),
+  'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setWhatsAppSettings' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
   'stopCountdown' : IDL.Func([IDL.Text], [], []),
   'submitWithdrawalRequest' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Float64],
@@ -326,6 +335,7 @@ export const idlService = IDL.Service({
   'validateAccessKey' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   'verifyAdminCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   'wipeAllData' : IDL.Func([IDL.Text], [], []),
+  'wipeCompletedWithdrawals' : IDL.Func([IDL.Text], [IDL.Nat], []),
 });
 
 export const idlInitArgs = [];
@@ -416,7 +426,6 @@ export const idlFactory = ({ IDL }) => {
     'generatedCount' : IDL.Nat,
     'comments' : IDL.Vec(IDL.Text),
   });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const CountdownState = IDL.Record({
     'isActive' : IDL.Bool,
     'targetTime' : IDL.Opt(Time),
@@ -443,6 +452,11 @@ export const idlFactory = ({ IDL }) => {
     'accessKey' : IDL.Opt(IDL.Text),
     'bgMusicEnabled' : IDL.Bool,
     'musicFile' : IDL.Opt(ExternalBlob),
+  });
+  const WhatsAppSettings = IDL.Record({
+    'whatsAppLink' : IDL.Text,
+    'communityDescription' : IDL.Text,
+    'contactNumber' : IDL.Text,
   });
   const AppImport = IDL.Record({
     'appName' : IDL.Text,
@@ -511,6 +525,7 @@ export const idlFactory = ({ IDL }) => {
     'claimComment' : IDL.Func([IDL.Text, IDL.Text], [ClaimCommentResult], []),
     'clearAccessKey' : IDL.Func([IDL.Text], [], []),
     'clearCountdown' : IDL.Func([IDL.Text], [], []),
+    'clearMusicUrl' : IDL.Func([IDL.Text], [], []),
     'consumeFromList' : IDL.Func(
         [IDL.Text, IDL.Nat],
         [IDL.Variant({ 'ok' : IDL.Vec(IDL.Text), 'err' : IDL.Text })],
@@ -573,10 +588,10 @@ export const idlFactory = ({ IDL }) => {
         [BulkCommentsResult],
         [],
       ),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCommentList' : IDL.Func([IDL.Text], [IDL.Opt(CommentList)], ['query']),
     'getCountdownState' : IDL.Func([], [CountdownState], ['query']),
+    'getEarningsMode' : IDL.Func([], [IDL.Text], ['query']),
     'getGlobalCommentPoolStats' : IDL.Func(
         [],
         [GlobalCommentPoolStats],
@@ -586,12 +601,12 @@ export const idlFactory = ({ IDL }) => {
     'getInventoryCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getListMetrics' : IDL.Func([], [IDL.Vec(ListMetrics)], ['query']),
     'getMusicUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
-  'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
     'getMyWithdrawalRequests' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(WithdrawalRequest)],
         ['query'],
       ),
+    'getPerLinkRate' : IDL.Func([], [IDL.Float64], ['query']),
     'getPoolStats' : IDL.Func(
         [],
         [IDL.Record({ 'totalPoolSize' : IDL.Nat, 'availableCount' : IDL.Nat })],
@@ -601,11 +616,8 @@ export const idlFactory = ({ IDL }) => {
     'getPriceList' : IDL.Func([], [IDL.Vec(PriceEntry)], ['query']),
     'getPublicSettings' : IDL.Func([], [PublicSettings], ['query']),
     'getSettings' : IDL.Func([IDL.Text], [Settings], ['query']),
-    'getUserProfile' : IDL.Func(
-        [IDL.Principal],
-        [IDL.Opt(UserProfile)],
-        ['query'],
-      ),
+    'getSpotifyUrl' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+    'getWhatsAppSettings' : IDL.Func([], [WhatsAppSettings], ['query']),
     'importLiveLists' : IDL.Func(
         [IDL.Text, IDL.Vec(AppImport)],
         [ImportSummary],
@@ -617,7 +629,6 @@ export const idlFactory = ({ IDL }) => {
     'regenerateAccessKey' : IDL.Func([IDL.Text], [IDL.Text], []),
     'renameCommentList' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'resetUsedTemplates' : IDL.Func([IDL.Text, IDL.Text], [], []),
-    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setAccessKey' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setAdminCode' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'setBgMusicEnabled' : IDL.Func([IDL.Text, IDL.Bool], [], []),
@@ -627,10 +638,18 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'setCountdown' : IDL.Func([IDL.Text, Time], [], []),
+    'setEarningsMode' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setInventoryCount' : IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [], []),
+    'setMusicBlob' : IDL.Func([IDL.Text, ExternalBlob], [], []),
     'setMusicUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
-  'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'setPerLinkRate' : IDL.Func([IDL.Text, IDL.Float64], [], []),
     'setPriceListInitialized' : IDL.Func([IDL.Text, IDL.Bool], [], []),
+    'setSpotifyUrl' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'setWhatsAppSettings' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
     'stopCountdown' : IDL.Func([IDL.Text], [], []),
     'submitWithdrawalRequest' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Float64],
@@ -661,6 +680,7 @@ export const idlFactory = ({ IDL }) => {
     'validateAccessKey' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'verifyAdminCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'wipeAllData' : IDL.Func([IDL.Text], [], []),
+    'wipeCompletedWithdrawals' : IDL.Func([IDL.Text], [IDL.Nat], []),
   });
 };
 

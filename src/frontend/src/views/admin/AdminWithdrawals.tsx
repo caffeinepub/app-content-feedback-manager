@@ -1,14 +1,24 @@
 import {
+  CheckCircle,
   Clock,
   DollarSign,
   Loader2,
   RefreshCw,
+  Settings2,
+  Trash2,
   User,
   Wallet,
+  XCircle,
 } from "lucide-react";
+import { useState } from "react";
 import type { WithdrawalRequest } from "../../backend";
 import { WithdrawalStatus } from "../../backend";
-import { useGetAllWithdrawalRequests } from "../../hooks/useQueries";
+import WithdrawalManageModal from "../../components/WithdrawalManageModal";
+import {
+  useGetAllWithdrawalRequests,
+  useUpdateWithdrawalStatus,
+  useWipeCompletedWithdrawals,
+} from "../../hooks/useQueries";
 
 function formatTimestamp(ts: bigint): string {
   const ms = Number(ts) / 1_000_000;
@@ -30,6 +40,23 @@ export default function AdminWithdrawals() {
     refetch,
     isFetching,
   } = useGetAllWithdrawalRequests();
+  const updateStatus = useUpdateWithdrawalStatus();
+  const wipeMutation = useWipeCompletedWithdrawals();
+  const [manageReq, setManageReq] = useState<WithdrawalRequest | null>(null);
+
+  const handleApprove = (req: WithdrawalRequest) => {
+    const key = `${req.username}-${req.timestamp.toString()}`;
+    updateStatus.mutate({ key, status: WithdrawalStatus.completed });
+  };
+
+  const handleReject = (req: WithdrawalRequest) => {
+    const key = `${req.username}-${req.timestamp.toString()}`;
+    updateStatus.mutate({ key, status: WithdrawalStatus.rejected });
+  };
+
+  const handleWipe = () => {
+    wipeMutation.mutate();
+  };
 
   const pending = requests.filter((r) => r.status === WithdrawalStatus.pending);
   const completed = requests.filter(
@@ -55,21 +82,44 @@ export default function AdminWithdrawals() {
               User earnings withdrawal requests
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="p-2.5 rounded-xl transition-all duration-300 hover-lift"
-            style={{
-              background: "oklch(0.70 0.20 185 / 0.15)",
-              border: "1px solid oklch(0.70 0.20 185 / 0.3)",
-              color: "oklch(0.78 0.22 188)",
-            }}
-          >
-            <RefreshCw
-              className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
-            />
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-ocid="admin.withdrawals.wipe_archive.button"
+              onClick={handleWipe}
+              disabled={wipeMutation.isPending}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition-all duration-300 hover-lift flex items-center gap-1.5"
+              style={{
+                background: "oklch(0.65 0.18 65 / 0.15)",
+                border: "1px solid oklch(0.65 0.18 65 / 0.4)",
+                color: "oklch(0.80 0.18 70)",
+                boxShadow: "0 0 8px oklch(0.65 0.18 65 / 0.2)",
+                fontStyle: "italic",
+              }}
+            >
+              {wipeMutation.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Trash2 className="w-3 h-3" />
+              )}
+              WIPE ARCHIVE
+            </button>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-2.5 rounded-xl transition-all duration-300 hover-lift"
+              style={{
+                background: "oklch(0.70 0.20 185 / 0.15)",
+                border: "1px solid oklch(0.70 0.20 185 / 0.3)",
+                color: "oklch(0.78 0.22 188)",
+              }}
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -152,6 +202,7 @@ export default function AdminWithdrawals() {
                   <th className="text-left">Wallet No.</th>
                   <th className="text-left">Time</th>
                   <th className="text-left">Status</th>
+                  <th className="text-left">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -214,6 +265,75 @@ export default function AdminWithdrawals() {
                     <td>
                       <StatusBadge status={req.status} />
                     </td>
+                    <td>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {/* MANAGE button — always visible */}
+                        <button
+                          type="button"
+                          data-ocid="admin.withdrawals.open_modal_button"
+                          onClick={() => setManageReq(req)}
+                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                          style={{
+                            background: "oklch(0.70 0.20 185 / 0.12)",
+                            border: "1px solid oklch(0.70 0.20 185 / 0.35)",
+                            color: "oklch(0.78 0.20 185)",
+                            boxShadow: "0 0 6px oklch(0.70 0.20 185 / 0.15)",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          <Settings2 className="w-3 h-3" />
+                          MANAGE
+                        </button>
+
+                        {req.status === WithdrawalStatus.pending && (
+                          <>
+                            <button
+                              type="button"
+                              data-ocid="admin.withdrawals.approve_button"
+                              onClick={() => handleApprove(req)}
+                              disabled={updateStatus.isPending}
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                              style={{
+                                background: "oklch(0.65 0.18 145 / 0.15)",
+                                border: "1px solid oklch(0.65 0.18 145 / 0.4)",
+                                color: "oklch(0.72 0.20 145)",
+                                boxShadow: "0 0 6px oklch(0.65 0.18 145 / 0.2)",
+                              }}
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              APPROVE
+                            </button>
+                            <button
+                              type="button"
+                              data-ocid="admin.withdrawals.reject_button"
+                              onClick={() => handleReject(req)}
+                              disabled={updateStatus.isPending}
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                              style={{
+                                background: "oklch(0.55 0.22 25 / 0.15)",
+                                border: "1px solid oklch(0.55 0.22 25 / 0.4)",
+                                color: "oklch(0.65 0.22 25)",
+                                boxShadow: "0 0 6px oklch(0.55 0.22 25 / 0.2)",
+                              }}
+                            >
+                              <XCircle className="w-3 h-3" />
+                              REJECT
+                            </button>
+                          </>
+                        )}
+                        {req.status !== WithdrawalStatus.pending && (
+                          <span
+                            className="text-xs"
+                            style={{
+                              color: "oklch(0.40 0.04 260)",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Processed
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -221,6 +341,13 @@ export default function AdminWithdrawals() {
           </div>
         )}
       </div>
+
+      {/* Manage Modal */}
+      <WithdrawalManageModal
+        request={manageReq}
+        open={manageReq !== null}
+        onClose={() => setManageReq(null)}
+      />
     </div>
   );
 }

@@ -14,7 +14,11 @@ import {
   useConsumeFromList,
   useGetAllCommentLists,
   useGetAvailableCount,
+  useGetBulkCheckerEarningsEnabled,
+  useGetEarningsMode,
+  useGetPerLinkRate,
   useGetSettings,
+  usePriceList,
 } from "../hooks/useQueries";
 
 interface BulkCommentGeneratorProps {
@@ -40,6 +44,11 @@ export default function BulkCommentGenerator({
   const { data: availableCountRaw, isLoading: countLoading } =
     useGetAvailableCount(selectedListId);
   const consumeFromList = useConsumeFromList();
+  const { data: bulkCheckerEarningsEnabled = true } =
+    useGetBulkCheckerEarningsEnabled();
+  const { data: earningsMode = "flatRate" } = useGetEarningsMode();
+  const { data: perLinkRate = 0 } = useGetPerLinkRate();
+  const { data: priceList = [] } = usePriceList();
 
   const accessKey = settings?.accessKey ?? null;
   const available =
@@ -408,6 +417,83 @@ export default function BulkCommentGenerator({
           </div>
         )}
       </div>
+
+      {/* Bulk Earnings Display */}
+      {bulkCheckerEarningsEnabled && generatedComments.length > 0 && (
+        <div
+          className="glass-card p-4 rounded-2xl space-y-3 animate-fadeInUp"
+          style={{
+            border: "1px solid oklch(0.65 0.20 145 / 0.3)",
+            background: "oklch(0.65 0.20 145 / 0.05)",
+          }}
+        >
+          <h4
+            className="font-bold text-xs uppercase tracking-wider"
+            style={{ color: "oklch(0.72 0.20 145)" }}
+          >
+            💰 Bulk Earnings
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{
+                background: "oklch(0.10 0.03 260 / 0.6)",
+                border: "1px solid oklch(0.22 0.05 260 / 0.4)",
+              }}
+            >
+              <p
+                className="text-xs mb-1"
+                style={{ color: "oklch(0.55 0.04 260)" }}
+              >
+                Comments Generated
+              </p>
+              <p
+                className="font-bold text-lg"
+                style={{ color: "oklch(0.82 0.04 260)" }}
+              >
+                {generatedComments.length}
+              </p>
+            </div>
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{
+                background: "oklch(0.10 0.03 260 / 0.6)",
+                border: "1px solid oklch(0.65 0.20 145 / 0.3)",
+              }}
+            >
+              <p
+                className="text-xs mb-1"
+                style={{ color: "oklch(0.55 0.04 260)" }}
+              >
+                Earnings ({earningsMode === "valueSum" ? "Mode A" : "Mode B"})
+              </p>
+              <p
+                className="font-bold text-lg"
+                style={{
+                  color: "oklch(0.72 0.20 145)",
+                  textShadow: "0 0 10px oklch(0.72 0.20 145 / 0.4)",
+                }}
+              >
+                ₹
+                {earningsMode === "valueSum"
+                  ? priceList
+                      .filter((p) => p.isActive)
+                      .reduce((sum, p) => sum + Number(p.pricePerEntry), 0)
+                      .toFixed(2)
+                  : (generatedComments.length * perLinkRate).toFixed(2)}
+              </p>
+            </div>
+          </div>
+          {earningsMode === "flatRate" && (
+            <p
+              className="text-xs text-center"
+              style={{ color: "oklch(0.50 0.04 260)" }}
+            >
+              ₹{perLinkRate.toFixed(2)} × {generatedComments.length} comments
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Error Modal */}
       <Dialog

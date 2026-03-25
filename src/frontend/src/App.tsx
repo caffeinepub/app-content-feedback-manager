@@ -6,6 +6,7 @@ import HeroCube from "./components/HeroCube";
 import NeonJewelBlast from "./components/NeonJewelBlast";
 import SpotifyPlayer from "./components/SpotifyPlayer";
 import StealthModeToggle from "./components/StealthModeToggle";
+import ZenZone from "./components/ZenZone";
 import {
   useGetMusicUrl,
   useGetPublicSettings,
@@ -73,6 +74,105 @@ const SECTOR_GLOWS = {
   admin: "rgba(255,51,51,0.5)",
 };
 
+// ── Game Sector sub-tab component ──────────────────────────────────────────
+function GameSector() {
+  const [gameSubTab, setGameSubTab] = useState<"arcade" | "zen">("arcade");
+  const ARCADE_COLOR = "oklch(0.82 0.20 70)";
+  const ZEN_COLOR = "oklch(0.72 0.20 300)";
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 640,
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.25rem",
+      }}
+    >
+      {/* Sub-tab buttons */}
+      <div
+        style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}
+      >
+        <button
+          type="button"
+          data-ocid="game.arcade.tab"
+          onClick={() => setGameSubTab("arcade")}
+          style={{
+            padding: "0.45rem 1.4rem",
+            borderRadius: "999px",
+            fontSize: "0.78rem",
+            fontWeight: 900,
+            fontStyle: "italic",
+            letterSpacing: "0.06em",
+            background:
+              gameSubTab === "arcade"
+                ? "oklch(0.82 0.20 70 / 0.18)"
+                : "oklch(0.10 0.03 260)",
+            border: `1px solid ${gameSubTab === "arcade" ? ARCADE_COLOR : "oklch(0.22 0.04 260)"}`,
+            color:
+              gameSubTab === "arcade" ? ARCADE_COLOR : "oklch(0.50 0.04 260)",
+            boxShadow:
+              gameSubTab === "arcade"
+                ? "0 0 14px oklch(0.82 0.20 70 / 0.35)"
+                : "none",
+            cursor: "pointer",
+            transition: "all 0.25s ease",
+          }}
+        >
+          🕹️ ARCADE
+        </button>
+        <button
+          type="button"
+          data-ocid="game.zen.tab"
+          onClick={() => setGameSubTab("zen")}
+          style={{
+            padding: "0.45rem 1.4rem",
+            borderRadius: "999px",
+            fontSize: "0.78rem",
+            fontWeight: 900,
+            fontStyle: "italic",
+            letterSpacing: "0.06em",
+            background:
+              gameSubTab === "zen"
+                ? "oklch(0.72 0.20 300 / 0.18)"
+                : "oklch(0.10 0.03 260)",
+            border: `1px solid ${gameSubTab === "zen" ? ZEN_COLOR : "oklch(0.22 0.04 260)"}`,
+            color: gameSubTab === "zen" ? ZEN_COLOR : "oklch(0.50 0.04 260)",
+            boxShadow:
+              gameSubTab === "zen"
+                ? "0 0 14px oklch(0.72 0.20 300 / 0.35)"
+                : "none",
+            cursor: "pointer",
+            transition: "all 0.25s ease",
+          }}
+        >
+          🧘 ZEN ZONE
+        </button>
+      </div>
+
+      {/* Sub-tab content */}
+      <div
+        style={{
+          background: "rgba(5,10,30,0.85)",
+          border: `1px solid ${gameSubTab === "arcade" ? "oklch(0.82 0.20 70 / 0.2)" : "oklch(0.72 0.20 300 / 0.2)"}`,
+          borderRadius: "1.25rem",
+          padding: "1.5rem",
+          backdropFilter: "blur(20px)",
+          width: "100%",
+          boxShadow:
+            gameSubTab === "arcade"
+              ? "0 0 40px oklch(0.82 0.20 70 / 0.08)"
+              : "0 0 40px oklch(0.72 0.20 300 / 0.08)",
+          transition: "all 0.3s ease",
+        }}
+      >
+        {gameSubTab === "arcade" ? <NeonJewelBlast /> : <ZenZone />}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeSector, setActiveSector] = useState<Sector>("tools");
   const [toolsTab, setToolsTab] = useState<ToolsTab>("generators");
@@ -80,6 +180,7 @@ export default function App() {
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [spotifyVisible, setSpotifyVisible] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const firstInteractionDone = useRef(false);
 
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminInputValue, setAdminInputValue] = useState("");
@@ -106,7 +207,44 @@ export default function App() {
       } else {
         audioRef.current.src = musicUrl;
       }
+      // Attempt immediate autoplay
+      audioRef.current
+        .play()
+        .then(() => {
+          setMusicPlaying(true);
+          firstInteractionDone.current = true;
+        })
+        .catch(() => {
+          // Browser blocked autoplay — will play on first interaction (existing listener handles this)
+        });
     }
+  }, [musicUrl]);
+
+  // First-interaction autoplay — respects browser autoplay policy
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (firstInteractionDone.current) return;
+      firstInteractionDone.current = true;
+      if (audioRef.current && musicUrl) {
+        audioRef.current
+          .play()
+          .then(() => {
+            setMusicPlaying(true);
+          })
+          .catch(() => {});
+      }
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("scroll", handleFirstInteraction);
+    };
+    document.addEventListener("click", handleFirstInteraction);
+    document.addEventListener("touchstart", handleFirstInteraction);
+    document.addEventListener("scroll", handleFirstInteraction);
+    return () => {
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("scroll", handleFirstInteraction);
+    };
   }, [musicUrl]);
 
   const toggleMusic = () => {
@@ -764,6 +902,7 @@ export default function App() {
                 flexDirection: "column",
                 gap: "2rem",
                 alignItems: "center",
+                width: "100%",
               }}
             >
               <h2
@@ -778,22 +917,10 @@ export default function App() {
                   textAlign: "center",
                 }}
               >
-                🟡 GAME — PRECISION JEWEL BLAST
+                🟡 GAME SECTOR
               </h2>
-              <div
-                style={{
-                  background: "rgba(5,10,30,0.85)",
-                  border: `1px solid ${SECTOR_COLORS.game}33`,
-                  borderRadius: "1.25rem",
-                  padding: "2rem",
-                  backdropFilter: "blur(20px)",
-                  width: "100%",
-                  maxWidth: 600,
-                  boxShadow: `0 0 40px ${SECTOR_GLOWS.game}22`,
-                }}
-              >
-                <NeonJewelBlast />
-              </div>
+
+              <GameSector />
             </div>
           )}
 

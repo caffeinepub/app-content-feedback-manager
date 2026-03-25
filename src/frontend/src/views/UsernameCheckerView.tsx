@@ -13,6 +13,9 @@ import WithdrawalModal from "../components/WithdrawalModal";
 import {
   useAppsEvents,
   useCalculateAllEarnings,
+  useGetEarningsMode,
+  useGetPerLinkRate,
+  useGetSingleCheckerEarningsEnabled,
   usePriceList,
 } from "../hooks/useQueries";
 
@@ -43,6 +46,8 @@ export default function UsernameCheckerView() {
   >(null);
   const [appFilterExpanded, setAppFilterExpanded] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [singleValidLinks, setSingleValidLinks] = useState(0);
+  const [bulkValidLinks, setBulkValidLinks] = useState(0);
   const [withdrawalModal, setWithdrawalModal] = useState<EarningsResult | null>(
     null,
   );
@@ -51,6 +56,10 @@ export default function UsernameCheckerView() {
   const { data: priceList = [] } = usePriceList();
   const { data: allEarnings } = useCalculateAllEarnings();
   void allEarnings;
+  const { data: perLinkRate = 0 } = useGetPerLinkRate();
+  const { data: earningsMode = "flatRate" } = useGetEarningsMode();
+  const { data: singleCheckerEarningsEnabled = true } =
+    useGetSingleCheckerEarningsEnabled();
 
   const getPriceForApp = useCallback(
     (appName: string) => {
@@ -62,6 +71,7 @@ export default function UsernameCheckerView() {
 
   const checkSingleUsername = () => {
     if (!singleUsername.trim()) return;
+    localStorage.setItem("actorName", singleUsername.trim());
     setIsChecking(true);
     const appsToCheck =
       selectedApps.length > 0 ? selectedApps : appsEvents.map((a) => a.name);
@@ -80,18 +90,8 @@ export default function UsernameCheckerView() {
       };
     });
     setSingleResults(results);
+    setSingleValidLinks(results.filter((r) => r.found).length);
     setIsChecking(false);
-
-    const foundInAny = results.some((r) => r.found);
-    if (foundInAny) {
-      let totalEarnings = 0;
-      for (const r of results) {
-        if (r.found && r.price) totalEarnings += r.price;
-      }
-      if (totalEarnings > 0) {
-        setWithdrawalModal({ username: singleUsername.trim(), totalEarnings });
-      }
-    }
   };
 
   const checkBulkUsernames = () => {
@@ -121,6 +121,11 @@ export default function UsernameCheckerView() {
       }),
     }));
     setBulkResults(results);
+    const totalFound = results.reduce(
+      (sum, { apps }) => sum + apps.filter((a) => a.found).length,
+      0,
+    );
+    setBulkValidLinks(totalFound);
     setIsChecking(false);
   };
 
@@ -141,6 +146,88 @@ export default function UsernameCheckerView() {
       prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name],
     );
   };
+
+  const totalValidLinks = singleValidLinks + bulkValidLinks;
+  // Dual-logic earnings: Mode A = sum of app prices, Mode B = flat rate × links
+  const totalEarningsValueSum = singleResults
+    ? singleResults
+        .filter((r) => r.found && r.price)
+        .reduce((s, r) => s + (r.price ?? 0), 0)
+    : 0;
+  const totalEarningsUnified =
+    earningsMode === "valueSum"
+      ? totalEarningsValueSum
+      : totalValidLinks * perLinkRate;
+
+  const downloadReceipt = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = "#02040f";
+    ctx.fillRect(0, 0, 800, 400);
+
+    // Border
+    ctx.strokeStyle = "#00ffc8";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, 780, 380);
+
+    // Title
+    ctx.fillStyle = "#00ffc8";
+    ctx.font = "bold 22px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("REVIEW EMPIRE — EARNINGS RECEIPT", 400, 60);
+
+    // Divider
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 80);
+    ctx.lineTo(760, 80);
+    ctx.stroke();
+
+    // Fields
+    const fields = [
+      ["Actor Name", actorName],
+      ["Date", new Date().toLocaleDateString()],
+      ["Total Valid Links", String(totalValidLinks)],
+      ["Per Link Rate", `₹${perLinkRate.toFixed(2)}`],
+      ["Total Earnings", `₹${totalEarningsUnified.toFixed(2)}`],
+    ];
+
+    ctx.textAlign = "left";
+    fields.forEach(([label, value], i) => {
+      const y = 120 + i * 50;
+      ctx.fillStyle = "#888";
+      ctx.font = "16px monospace";
+      ctx.fillText(label, 60, y);
+      ctx.fillStyle = i === fields.length - 1 ? "#FFD700" : "#ffffff";
+      ctx.font =
+        i === fields.length - 1 ? "bold 20px monospace" : "16px monospace";
+      ctx.textAlign = "right";
+      ctx.fillText(value, 740, y);
+      ctx.textAlign = "left";
+    });
+
+    // Footer
+    ctx.fillStyle = "#555";
+    ctx.font = "12px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME MASTER: NISHANT CHAUDHARY", 400, 375);
+
+    const link = document.createElement("a");
+    link.download = "review-empire-receipt.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const actorName =
+    typeof window !== "undefined"
+      ? localStorage.getItem("actorName") || "GUEST_OPERATOR"
+      : "GUEST_OPERATOR";
 
   const checkerBg = "rgba(10,10,20,0.8)";
   const checkerBorder = "1px solid rgba(123,47,190,0.2)";
@@ -269,7 +356,7 @@ export default function UsernameCheckerView() {
                         border: isSelected
                           ? "1px solid rgba(168,85,247,0.5)"
                           : "1px solid rgba(60,60,90,0.4)",
-                        color: isSelected ? "#C084FC" : "#666",
+                        color: isSelected ? "#C084FC" : "#ccc",
                       }}
                     >
                       {app.name} ({app.usernames.length})
@@ -697,6 +784,191 @@ export default function UsernameCheckerView() {
           )}
         </div>
       )}
+
+      {/* Unified Earnings Dashboard */}
+      {singleCheckerEarningsEnabled &&
+        (singleValidLinks > 0 || bulkValidLinks > 0) && (
+          <div
+            className="rounded-2xl p-5 space-y-4"
+            style={{
+              background: "rgba(0,255,200,0.05)",
+              border: "1px solid rgba(0,255,200,0.25)",
+              boxShadow: "0 0 20px rgba(0,255,200,0.08)",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-5 h-5" style={{ color: "#00ffc8" }} />
+              <h3
+                className="font-bold text-base"
+                style={{ color: "#00ffc8", fontStyle: "italic" }}
+              >
+                UNIFIED EARNINGS DASHBOARD
+              </h3>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div
+                className="rounded-xl p-3 text-center"
+                style={{
+                  background: "rgba(15,15,25,0.7)",
+                  border: "1px solid rgba(0,255,200,0.15)",
+                }}
+              >
+                <p
+                  className="text-xs"
+                  style={{ color: "#666", fontStyle: "italic" }}
+                >
+                  Single Links
+                </p>
+                <p
+                  className="font-bold text-lg mt-0.5"
+                  style={{ color: "#00ffc8" }}
+                >
+                  {singleValidLinks}
+                </p>
+              </div>
+              <div
+                className="rounded-xl p-3 text-center"
+                style={{
+                  background: "rgba(15,15,25,0.7)",
+                  border: "1px solid rgba(0,255,200,0.15)",
+                }}
+              >
+                <p
+                  className="text-xs"
+                  style={{ color: "#666", fontStyle: "italic" }}
+                >
+                  Bulk Links
+                </p>
+                <p
+                  className="font-bold text-lg mt-0.5"
+                  style={{ color: "#00ffc8" }}
+                >
+                  {bulkValidLinks}
+                </p>
+              </div>
+              <div
+                className="rounded-xl p-3 text-center"
+                style={{
+                  background: "rgba(255,215,0,0.08)",
+                  border: "1px solid rgba(255,215,0,0.25)",
+                }}
+              >
+                <p
+                  className="text-xs"
+                  style={{ color: "#999", fontStyle: "italic" }}
+                >
+                  Total Links
+                </p>
+                <p
+                  className="font-bold text-lg mt-0.5"
+                  style={{ color: "#FFD700" }}
+                >
+                  {totalValidLinks}
+                </p>
+              </div>
+            </div>
+            <div
+              className="rounded-xl p-4"
+              style={{
+                background: "rgba(255,215,0,0.06)",
+                border: "1px solid rgba(255,215,0,0.2)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  {earningsMode === "flatRate" ? (
+                    <>
+                      <p
+                        className="text-xs"
+                        style={{ color: "#999", fontStyle: "italic" }}
+                      >
+                        Per Link Rate
+                      </p>
+                      <p
+                        className="font-bold text-sm"
+                        style={{ color: "#ccc" }}
+                      >
+                        ₹{perLinkRate.toFixed(2)} × {totalValidLinks} links
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p
+                        className="text-xs"
+                        style={{ color: "#999", fontStyle: "italic" }}
+                      >
+                        Mode A: Value Sum
+                      </p>
+                      <p
+                        className="font-bold text-sm"
+                        style={{ color: "#ccc" }}
+                      >
+                        Sum of{" "}
+                        {singleResults?.filter((r) => r.found && r.price)
+                          .length ?? 0}{" "}
+                        app prices
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p
+                    className="text-xs"
+                    style={{ color: "#999", fontStyle: "italic" }}
+                  >
+                    Total Earnings
+                  </p>
+                  <p
+                    className="font-bold text-2xl"
+                    style={{ color: "#FFD700" }}
+                  >
+                    ₹{totalEarningsUnified.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                data-ocid="checker.withdrawal.open_modal_button"
+                onClick={() =>
+                  setWithdrawalModal({
+                    username: actorName,
+                    totalEarnings: totalEarningsUnified,
+                  })
+                }
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(0,255,200,0.2), rgba(0,200,255,0.2))",
+                  border: "1px solid rgba(0,255,200,0.4)",
+                  color: "#00ffc8",
+                  fontStyle: "italic",
+                  boxShadow: "0 0 12px rgba(0,255,200,0.15)",
+                }}
+              >
+                REQUEST WITHDRAWAL
+              </button>
+              <button
+                type="button"
+                data-ocid="checker.receipt.button"
+                onClick={downloadReceipt}
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-all"
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.2))",
+                  border: "1px solid rgba(255,215,0,0.4)",
+                  color: "#FFD700",
+                  fontStyle: "italic",
+                  boxShadow: "0 0 12px rgba(255,215,0,0.15)",
+                }}
+              >
+                DOWNLOAD RECEIPT
+              </button>
+            </div>
+          </div>
+        )}
 
       {withdrawalModal && (
         <WithdrawalModal

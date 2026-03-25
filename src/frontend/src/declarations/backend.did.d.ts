@@ -99,10 +99,14 @@ export interface Settings {
   'musicFile' : [] | [ExternalBlob],
 }
 export type Time = bigint;
-export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface WhatsAppSettings {
+  'whatsAppLink' : string,
+  'communityDescription' : string,
+  'contactNumber' : string,
+}
 export interface WithdrawalRequest {
   'status' : WithdrawalStatus,
   'username' : string,
@@ -159,6 +163,7 @@ export interface _SERVICE {
   'claimComment' : ActorMethod<[string, string], ClaimCommentResult>,
   'clearAccessKey' : ActorMethod<[string], undefined>,
   'clearCountdown' : ActorMethod<[string], undefined>,
+  'clearMusicUrl' : ActorMethod<[string], undefined>,
   'consumeFromList' : ActorMethod<
     [string, bigint],
     { 'ok' : Array<string> } |
@@ -195,17 +200,19 @@ export interface _SERVICE {
   'getAppEvent' : ActorMethod<[string], [] | [AppEvent]>,
   'getAvailableCount' : ActorMethod<[string], bigint>,
   'getBulkComments' : ActorMethod<[string, string, bigint], BulkCommentsResult>,
-  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCommentList' : ActorMethod<[string], [] | [CommentList]>,
   'getCountdownState' : ActorMethod<[], CountdownState>,
+  'getEarningsMode' : ActorMethod<[], string>,
+  'getSingleCheckerEarningsEnabled' : ActorMethod<[], boolean>,
+  'getBulkCheckerEarningsEnabled' : ActorMethod<[], boolean>,
   'getGlobalCommentPoolStats' : ActorMethod<[], GlobalCommentPoolStats>,
   'getImage' : ActorMethod<[bigint], [] | [ImageMeta]>,
   'getInventoryCount' : ActorMethod<[string], bigint>,
   'getListMetrics' : ActorMethod<[], Array<ListMetrics>>,
   'getMusicUrl' : ActorMethod<[], [] | [string]>,
-  'getSpotifyUrl' : ActorMethod<[], [] | [string]>,
   'getMyWithdrawalRequests' : ActorMethod<[string], Array<WithdrawalRequest>>,
+  'getPerLinkRate' : ActorMethod<[], number>,
   'getPoolStats' : ActorMethod<
     [],
     { 'totalPoolSize' : bigint, 'availableCount' : bigint }
@@ -214,7 +221,8 @@ export interface _SERVICE {
   'getPriceList' : ActorMethod<[], Array<PriceEntry>>,
   'getPublicSettings' : ActorMethod<[], PublicSettings>,
   'getSettings' : ActorMethod<[string], Settings>,
-  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getSpotifyUrl' : ActorMethod<[], [] | [string]>,
+  'getWhatsAppSettings' : ActorMethod<[], WhatsAppSettings>,
   'importLiveLists' : ActorMethod<[string, Array<AppImport>], ImportSummary>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isPriceListInitialized' : ActorMethod<[], boolean>,
@@ -222,7 +230,6 @@ export interface _SERVICE {
   'regenerateAccessKey' : ActorMethod<[string], string>,
   'renameCommentList' : ActorMethod<[string, string, string], undefined>,
   'resetUsedTemplates' : ActorMethod<[string, string], undefined>,
-  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAccessKey' : ActorMethod<[string, string], undefined>,
   'setAdminCode' : ActorMethod<[string, string], boolean>,
   'setBgMusicEnabled' : ActorMethod<[string, boolean], undefined>,
@@ -231,10 +238,19 @@ export interface _SERVICE {
     undefined
   >,
   'setCountdown' : ActorMethod<[string, Time], undefined>,
+  'setEarningsMode' : ActorMethod<[string, string], undefined>,
+  'setSingleCheckerEarningsEnabled' : ActorMethod<[string, boolean], undefined>,
+  'setBulkCheckerEarningsEnabled' : ActorMethod<[string, boolean], undefined>,
   'setInventoryCount' : ActorMethod<[string, string, bigint], undefined>,
+  'setMusicBlob' : ActorMethod<[string, ExternalBlob], undefined>,
   'setMusicUrl' : ActorMethod<[string, string], undefined>,
-  'setSpotifyUrl' : ActorMethod<[string, string], undefined>,
+  'setPerLinkRate' : ActorMethod<[string, number], undefined>,
   'setPriceListInitialized' : ActorMethod<[string, boolean], undefined>,
+  'setSpotifyUrl' : ActorMethod<[string, string], undefined>,
+  'setWhatsAppSettings' : ActorMethod<
+    [string, string, string, string],
+    undefined
+  >,
   'stopCountdown' : ActorMethod<[string], undefined>,
   'submitWithdrawalRequest' : ActorMethod<
     [string, string, number],
@@ -254,6 +270,7 @@ export interface _SERVICE {
   'validateAccessKey' : ActorMethod<[string], boolean>,
   'verifyAdminCode' : ActorMethod<[string], boolean>,
   'wipeAllData' : ActorMethod<[string], undefined>,
+  'wipeCompletedWithdrawals' : ActorMethod<[string], bigint>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

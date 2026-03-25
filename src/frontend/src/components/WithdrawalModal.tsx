@@ -1,5 +1,6 @@
 import {
   CheckCircle,
+  Clock,
   DollarSign,
   Loader2,
   User,
@@ -7,7 +8,11 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { useCheckAndRequestWithdrawal } from "../hooks/useQueries";
+import { WithdrawalStatus } from "../backend";
+import {
+  useCheckAndRequestWithdrawal,
+  useGetMyWithdrawalRequests,
+} from "../hooks/useQueries";
 
 interface WithdrawalModalProps {
   username: string;
@@ -25,6 +30,12 @@ export default function WithdrawalModal({
   const [validationError, setValidationError] = useState("");
 
   const withdrawalMutation = useCheckAndRequestWithdrawal();
+  const { data: myRequests = [] } = useGetMyWithdrawalRequests(username);
+  const hasPendingRequest = myRequests.some(
+    (r) => r.status === WithdrawalStatus.pending,
+  );
+  const latestRequest =
+    myRequests.length > 0 ? myRequests[myRequests.length - 1] : null;
 
   const handleWalletChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -202,6 +213,51 @@ export default function WithdrawalModal({
                   </p>
                 </div>
 
+                {hasPendingRequest && (
+                  <div
+                    className="rounded-xl p-3 flex items-center gap-2"
+                    style={{
+                      background: "rgba(255,200,0,0.1)",
+                      border: "1px solid rgba(255,200,0,0.3)",
+                    }}
+                  >
+                    <Clock className="w-4 h-4" style={{ color: "#FFD700" }} />
+                    <span
+                      className="text-sm font-rajdhani"
+                      style={{ color: "#FFD700" }}
+                    >
+                      Active request PENDING — await admin clearance
+                    </span>
+                  </div>
+                )}
+                {latestRequest &&
+                  latestRequest.status !== WithdrawalStatus.pending && (
+                    <div
+                      className="rounded-xl p-3 flex items-center gap-2"
+                      style={{
+                        background:
+                          latestRequest.status === WithdrawalStatus.completed
+                            ? "rgba(80,200,120,0.1)"
+                            : "rgba(220,50,50,0.1)",
+                        border: `1px solid ${latestRequest.status === WithdrawalStatus.completed ? "rgba(80,200,120,0.3)" : "rgba(220,50,50,0.3)"}`,
+                      }}
+                    >
+                      <span
+                        className="text-sm font-rajdhani"
+                        style={{
+                          color:
+                            latestRequest.status === WithdrawalStatus.completed
+                              ? "#50C878"
+                              : "#FF6B6B",
+                        }}
+                      >
+                        Last request:{" "}
+                        {latestRequest.status === WithdrawalStatus.completed
+                          ? "✓ APPROVED"
+                          : "✗ REJECTED"}
+                      </span>
+                    </div>
+                  )}
                 <div className="flex gap-3 pt-1">
                   <button
                     type="button"
@@ -218,7 +274,9 @@ export default function WithdrawalModal({
                   <button
                     type="submit"
                     disabled={
-                      withdrawalMutation.isPending || walletNumber.length !== 10
+                      withdrawalMutation.isPending ||
+                      walletNumber.length !== 10 ||
+                      hasPendingRequest
                     }
                     className="flex-1 py-3 rounded-xl font-orbitron font-bold text-sm transition-all duration-300 hover-lift flex items-center justify-center gap-2"
                     style={{

@@ -12,12 +12,21 @@ import {
 import type React from "react";
 import { useRef, useState } from "react";
 import {
+  useGetBulkCheckerEarningsEnabled,
+  useGetEarningsMode,
   useGetMusicUrl,
+  useGetPerLinkRate,
   useGetSettings,
+  useGetSingleCheckerEarningsEnabled,
   useGetSpotifyUrl,
   useSetAccessKey,
   useSetBgMusicEnabled,
+  useSetBulkCheckerEarningsEnabled,
+  useSetEarningsMode,
+  useSetMusicBlob,
   useSetMusicUrl,
+  useSetPerLinkRate,
+  useSetSingleCheckerEarningsEnabled,
   useSetSpotifyUrl,
   useWipeAllData,
 } from "../../hooks/useQueries";
@@ -30,8 +39,20 @@ export default function AdminSettings() {
   const setMusicUrlMutation = useSetMusicUrl();
   const wipeAll = useWipeAllData();
   const { data: currentSpotifyUrl } = useGetSpotifyUrl();
+  const { data: perLinkRate = 0 } = useGetPerLinkRate();
+  const setPerLinkRateMutation = useSetPerLinkRate();
   const setSpotifyUrlMutation = useSetSpotifyUrl();
+  const setMusicBlobMutation = useSetMusicBlob();
+  const { data: earningsMode = "flatRate" } = useGetEarningsMode();
+  const setEarningsModeMutation = useSetEarningsMode();
+  const { data: singleCheckerEarningsEnabled = true } =
+    useGetSingleCheckerEarningsEnabled();
+  const setSingleCheckerEarningsMutation = useSetSingleCheckerEarningsEnabled();
+  const { data: bulkCheckerEarningsEnabled = true } =
+    useGetBulkCheckerEarningsEnabled();
+  const setBulkCheckerEarningsMutation = useSetBulkCheckerEarningsEnabled();
   const [spotifyInput, setSpotifyInput] = useState("");
+  const [rateInput, setRateInput] = useState("");
   const [waLink, setWaLink] = useState(
     () =>
       localStorage.getItem("waLink") ??
@@ -134,14 +155,8 @@ export default function AdminSettings() {
     setError(null);
     setSuccess(null);
     try {
-      // Convert file to a data URL and store it as music URL
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(selectedFile);
-      });
-      await setMusicUrlMutation.mutateAsync(dataUrl);
+      // Use ExternalBlob for large file uploads (bypasses IC 2MB limit)
+      await setMusicBlobMutation.mutateAsync(selectedFile);
       setSuccess(`Music uploaded: ${selectedFile.name}`);
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -658,6 +673,267 @@ export default function AdminSettings() {
           >
             Save Community Settings
           </button>
+        </div>
+      </div>
+
+      {/* Per Link Rate */}
+      <div className="glass-card p-5 rounded-2xl">
+        <h3
+          className="font-bold text-sm uppercase tracking-wider mb-3 flex items-center gap-2"
+          style={{ color: "oklch(0.70 0.20 185)" }}
+        >
+          💰 Per Link Rate
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Set the earnings rate per valid link. Current rate: ₹
+          {perLinkRate.toFixed(2)}
+        </p>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+              style={{ color: "oklch(0.70 0.20 185)" }}
+            >
+              ₹
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={rateInput}
+              onChange={(e) => setRateInput(e.target.value)}
+              placeholder={perLinkRate.toFixed(2)}
+              className="glass-input w-full pl-8 pr-3 py-2.5 text-sm"
+              data-ocid="admin.settings.rate.input"
+            />
+          </div>
+          <button
+            type="button"
+            data-ocid="admin.settings.rate.save_button"
+            onClick={async () => {
+              const v = Number.parseFloat(rateInput);
+              if (Number.isNaN(v) || v < 0) return;
+              try {
+                await setPerLinkRateMutation.mutateAsync(v);
+                setRateInput("");
+                setSuccess("Per link rate updated!");
+              } catch (e: unknown) {
+                setError(
+                  e instanceof Error ? e.message : "Failed to update rate",
+                );
+              }
+            }}
+            disabled={setPerLinkRateMutation.isPending || !rateInput.trim()}
+            className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5"
+            style={{
+              background: "oklch(0.70 0.20 185 / 0.15)",
+              border: "1px solid oklch(0.70 0.20 185 / 0.4)",
+              color: "oklch(0.78 0.22 188)",
+              opacity: !rateInput.trim() ? 0.5 : 1,
+            }}
+          >
+            <Save className="w-3.5 h-3.5" />
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* Earnings Calculation Mode */}
+      <div className="glass-card p-5 rounded-2xl">
+        <h3
+          className="font-bold text-sm uppercase tracking-wider mb-3 flex items-center gap-2"
+          style={{ color: "oklch(0.75 0.18 280)" }}
+        >
+          ⚡ Earnings Calculation Mode
+        </h3>
+        <p className="text-xs mb-4" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Choose how total earnings are calculated for the username checker.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            data-ocid="admin.settings.mode_a.toggle"
+            disabled={setEarningsModeMutation.isPending}
+            onClick={async () => {
+              try {
+                await setEarningsModeMutation.mutateAsync("valueSum");
+                setSuccess("Earnings mode set to Value Sum!");
+              } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : "Failed to set mode");
+              }
+            }}
+            className="p-3 rounded-xl text-left transition-all"
+            style={{
+              background:
+                earningsMode === "valueSum"
+                  ? "oklch(0.70 0.18 145 / 0.15)"
+                  : "oklch(0.10 0.025 260 / 0.5)",
+              border: `1px solid ${earningsMode === "valueSum" ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.22 0.05 260 / 0.4)"}`,
+              color:
+                earningsMode === "valueSum"
+                  ? "oklch(0.75 0.22 145)"
+                  : "oklch(0.55 0.04 260)",
+            }}
+          >
+            <div className="font-bold text-xs uppercase mb-1">
+              {setEarningsModeMutation.isPending
+                ? "SAVING..."
+                : "Mode A: Value Sum"}
+            </div>
+            <div className="text-xs" style={{ color: "oklch(0.50 0.04 260)" }}>
+              Sum of individual app prices from price list
+            </div>
+          </button>
+          <button
+            type="button"
+            data-ocid="admin.settings.mode_b.toggle"
+            disabled={setEarningsModeMutation.isPending}
+            onClick={async () => {
+              try {
+                await setEarningsModeMutation.mutateAsync("flatRate");
+                setSuccess("Earnings mode set to Flat Rate!");
+              } catch (e: unknown) {
+                setError(e instanceof Error ? e.message : "Failed to set mode");
+              }
+            }}
+            className="p-3 rounded-xl text-left transition-all"
+            style={{
+              background:
+                earningsMode === "flatRate"
+                  ? "oklch(0.70 0.20 185 / 0.15)"
+                  : "oklch(0.10 0.025 260 / 0.5)",
+              border: `1px solid ${earningsMode === "flatRate" ? "oklch(0.70 0.20 185 / 0.5)" : "oklch(0.22 0.05 260 / 0.4)"}`,
+              color:
+                earningsMode === "flatRate"
+                  ? "oklch(0.78 0.22 188)"
+                  : "oklch(0.55 0.04 260)",
+            }}
+          >
+            <div className="font-bold text-xs uppercase mb-1">
+              {setEarningsModeMutation.isPending
+                ? "SAVING..."
+                : "Mode B: Flat Rate × Links"}
+            </div>
+            <div className="text-xs" style={{ color: "oklch(0.50 0.04 260)" }}>
+              Total valid links × per link rate
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Checker Earnings On/Off Toggles */}
+      <div
+        className="glass-card p-5 rounded-2xl space-y-4"
+        style={{ border: "1px solid oklch(0.65 0.20 145 / 0.3)" }}
+      >
+        <h3
+          className="font-bold text-sm uppercase tracking-wider flex items-center gap-2"
+          style={{ color: "oklch(0.72 0.20 145)" }}
+        >
+          ⚙️ Checker Earnings Visibility
+        </h3>
+        <p className="text-xs" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Turn off earnings calculation display in each checker.
+        </p>
+        <div className="flex flex-col gap-3">
+          {/* Single Checker toggle */}
+          <div
+            className="flex items-center justify-between px-4 py-3 rounded-xl"
+            style={{
+              background: "oklch(0.10 0.03 260 / 0.6)",
+              border: "1px solid oklch(0.22 0.05 260 / 0.4)",
+            }}
+          >
+            <div>
+              <div
+                className="font-bold text-xs uppercase"
+                style={{ color: "oklch(0.82 0.04 260)" }}
+              >
+                Single Checker Earnings
+              </div>
+              <div
+                className="text-xs mt-0.5"
+                style={{ color: "oklch(0.50 0.04 260)" }}
+              >
+                Show/hide earnings in username checker
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={setSingleCheckerEarningsMutation.isPending}
+              onClick={async () => {
+                await setSingleCheckerEarningsMutation.mutateAsync(
+                  !singleCheckerEarningsEnabled,
+                );
+              }}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+              style={{
+                background: singleCheckerEarningsEnabled
+                  ? "oklch(0.65 0.20 145 / 0.2)"
+                  : "oklch(0.55 0.22 25 / 0.2)",
+                border: `1px solid ${singleCheckerEarningsEnabled ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.55 0.22 25 / 0.5)"}`,
+                color: singleCheckerEarningsEnabled
+                  ? "oklch(0.72 0.20 145)"
+                  : "oklch(0.68 0.22 25)",
+                opacity: setSingleCheckerEarningsMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {setSingleCheckerEarningsMutation.isPending
+                ? "SAVING..."
+                : singleCheckerEarningsEnabled
+                  ? "ON"
+                  : "OFF"}
+            </button>
+          </div>
+          {/* Bulk Checker toggle */}
+          <div
+            className="flex items-center justify-between px-4 py-3 rounded-xl"
+            style={{
+              background: "oklch(0.10 0.03 260 / 0.6)",
+              border: "1px solid oklch(0.22 0.05 260 / 0.4)",
+            }}
+          >
+            <div>
+              <div
+                className="font-bold text-xs uppercase"
+                style={{ color: "oklch(0.82 0.04 260)" }}
+              >
+                Bulk Checker Earnings
+              </div>
+              <div
+                className="text-xs mt-0.5"
+                style={{ color: "oklch(0.50 0.04 260)" }}
+              >
+                Show/hide earnings in bulk checker
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={setBulkCheckerEarningsMutation.isPending}
+              onClick={async () => {
+                await setBulkCheckerEarningsMutation.mutateAsync(
+                  !bulkCheckerEarningsEnabled,
+                );
+              }}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+              style={{
+                background: bulkCheckerEarningsEnabled
+                  ? "oklch(0.65 0.20 145 / 0.2)"
+                  : "oklch(0.55 0.22 25 / 0.2)",
+                border: `1px solid ${bulkCheckerEarningsEnabled ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.55 0.22 25 / 0.5)"}`,
+                color: bulkCheckerEarningsEnabled
+                  ? "oklch(0.72 0.20 145)"
+                  : "oklch(0.68 0.22 25)",
+                opacity: setBulkCheckerEarningsMutation.isPending ? 0.6 : 1,
+              }}
+            >
+              {setBulkCheckerEarningsMutation.isPending
+                ? "SAVING..."
+                : bulkCheckerEarningsEnabled
+                  ? "ON"
+                  : "OFF"}
+            </button>
+          </div>
         </div>
       </div>
 

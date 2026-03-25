@@ -10,6 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useState } from "react";
+import WithdrawalHistoryLookup from "../components/WithdrawalHistoryLookup";
 import WithdrawalModal from "../components/WithdrawalModal";
 import {
   useAppsEvents,
@@ -637,6 +638,8 @@ export default function LiveChecker() {
           </div>
         )}
       </div>
+      {/* Withdrawal History Lookup */}
+      <WithdrawalHistoryLookup />
     </div>
   );
 }

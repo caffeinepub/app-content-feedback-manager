@@ -15,7 +15,7 @@ import type {
   PriceEntry,
   PublicSettings,
   Settings,
-  UserProfile,
+  UserRole,
   WithdrawalRequest,
   WithdrawalStatus,
 } from "../backend";
@@ -966,6 +966,7 @@ export function useGetMyWithdrawalRequests(username: string) {
       return actor.getMyWithdrawalRequests(username);
     },
     enabled: !!actor && !isFetching && !!username,
+    refetchInterval: 4000,
   });
 }
 
@@ -1100,11 +1101,11 @@ export function useClearCountdown() {
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
-  const query = useQuery<UserProfile | null>({
+  const query = useQuery<UserRole | null>({
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       if (!actor) return null;
-      return actor.getCallerUserProfile();
+      return actor.getCallerUserRole();
     },
     enabled: !!actor && !actorFetching,
     retry: false,
@@ -1119,9 +1120,9 @@ export function useGetCallerUserProfile() {
 export function useSaveCallerUserProfile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (profile: UserProfile) => {
-      const a = await waitForActor();
-      return a.saveCallerUserProfile(profile);
+    mutationFn: async (_profile: unknown) => {
+      // saveCallerUserProfile removed in backend v2; no-op
+      void _profile;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["currentUserProfile"] });
@@ -1215,4 +1216,145 @@ export async function waitForActorPublic(
   maxWait = 15000,
 ): Promise<backendInterface> {
   return waitForActor(maxWait);
+}
+
+// ── Per Link Rate ──────────────────────────────────────────────────────────────
+
+export function useGetPerLinkRate() {
+  const { actor, isFetching } = useActor();
+  return useQuery<number>({
+    queryKey: ["perLinkRate"],
+    queryFn: async () => {
+      if (!actor) return 0;
+      return actor.getPerLinkRate();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useSetPerLinkRate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rate: number) => {
+      const a = await waitForActor();
+      return a.setPerLinkRate(getAdminCode(), rate);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["perLinkRate"] });
+    },
+  });
+}
+
+export function useWipeCompletedWithdrawals() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const a = await waitForActor();
+      return a.wipeCompletedWithdrawals(getAdminCode());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["withdrawalRequests"] });
+    },
+  });
+}
+
+// ── Earnings Mode ─────────────────────────────────────────────────────────────
+
+export function useGetEarningsMode() {
+  const { actor, isFetching } = useActor();
+  return useQuery<string>({
+    queryKey: ["earningsMode"],
+    queryFn: async () => {
+      if (!actor) return "flatRate";
+      return actor.getEarningsMode();
+    },
+    enabled: !!actor && !isFetching,
+    staleTime: 0,
+  });
+}
+
+export function useSetEarningsMode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mode: string) => {
+      const a = await waitForActor();
+      return a.setEarningsMode(getAdminCode(), mode);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["earningsMode"] });
+    },
+  });
+}
+
+// ── Music Blob Upload ─────────────────────────────────────────────────────────
+
+export function useSetMusicBlob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const a = await waitForActor();
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const { ExternalBlob } = await import("../backend");
+      const blob = ExternalBlob.fromBytes(bytes);
+      return a.setMusicBlob(getAdminCode(), blob);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["musicUrl"] });
+    },
+  });
+}
+
+// ── Checker Earnings Enabled Flags ────────────────────────────────────────────
+
+export function useGetSingleCheckerEarningsEnabled() {
+  return useQuery({
+    queryKey: ["singleCheckerEarningsEnabled"],
+    queryFn: async () => {
+      const a = await waitForActor();
+      return a.getSingleCheckerEarningsEnabled();
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSetSingleCheckerEarningsEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const a = await waitForActor();
+      return a.setSingleCheckerEarningsEnabled(getAdminCode(), enabled);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["singleCheckerEarningsEnabled"],
+      });
+    },
+  });
+}
+
+export function useGetBulkCheckerEarningsEnabled() {
+  return useQuery({
+    queryKey: ["bulkCheckerEarningsEnabled"],
+    queryFn: async () => {
+      const a = await waitForActor();
+      return a.getBulkCheckerEarningsEnabled();
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useSetBulkCheckerEarningsEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const a = await waitForActor();
+      return a.setBulkCheckerEarningsEnabled(getAdminCode(), enabled);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["bulkCheckerEarningsEnabled"],
+      });
+    },
+  });
 }
