@@ -193,13 +193,34 @@ export default function UserView() {
                     <SelectTrigger
                       id="comment-list-select"
                       data-ocid="single-gen.list.select"
-                      className="w-full min-h-[48px] bg-card text-card-foreground border-border font-medium shadow-sm focus:ring-2 focus:ring-teal-400/50 focus:border-teal-400/80 transition"
+                      className="w-full min-h-[48px] border-border font-bold shadow-sm focus:ring-2 focus:ring-teal-400/50 focus:border-teal-400/80 transition"
+                      style={{
+                        background: "#0d1b2a",
+                        color: "#e0f7ff",
+                        fontWeight: 700,
+                        border: "1px solid rgba(0,255,255,0.3)",
+                      }}
                     >
                       <SelectValue placeholder="Choose a list..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      style={{
+                        background: "#0d1b2a",
+                        border: "1px solid rgba(0,255,255,0.3)",
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                      }}
+                    >
                       {availableLists.map((list: CommentList) => (
-                        <SelectItem key={list.id} value={list.id}>
+                        <SelectItem
+                          key={list.id}
+                          value={list.id}
+                          style={{
+                            color: "#e0f7ff",
+                            fontWeight: 700,
+                            fontSize: "0.95rem",
+                          }}
+                          className="cursor-pointer focus:bg-cyan-900/60 focus:text-white data-[highlighted]:bg-cyan-900/60 data-[highlighted]:text-white"
+                        >
                           {list.displayName}
                           {hasClaimedComment(list.id) && (
                             <span className="ml-2 text-xs opacity-60">
