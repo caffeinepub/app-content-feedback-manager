@@ -1,11 +1,13 @@
 import { Toaster } from "@/components/ui/sonner";
 import { Music2, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import HeroCube from "./components/HeroCube";
+import BootSequence from "./components/BootSequence";
+import DiamondGem from "./components/DiamondGem";
 import NeonJewelBlast from "./components/NeonJewelBlast";
-import ParticleConstellation from "./components/ParticleConstellation";
+import RuneBackground from "./components/RuneBackground";
 import SpotifyPlayer from "./components/SpotifyPlayer";
 import StealthModeToggle from "./components/StealthModeToggle";
+import ThemeSwitcher from "./components/ThemeSwitcher";
 import ZenZone from "./components/ZenZone";
 import {
   useGetMusicUrl,
@@ -25,6 +27,7 @@ type ToolsTab = "generators" | "upload" | "checker";
 
 function useCountdown() {
   const [timeLeft, setTimeLeft] = useState("");
+  const [dayProgress, setDayProgress] = useState(0);
   useEffect(() => {
     const update = () => {
       const now = new Date();
@@ -33,6 +36,7 @@ function useCountdown() {
       const diff = midnight.getTime() - now.getTime();
       if (diff <= 0) {
         setTimeLeft("00:00:00");
+        setDayProgress(100);
         return;
       }
       const h = Math.floor(diff / 3600000);
@@ -41,12 +45,15 @@ function useCountdown() {
       setTimeLeft(
         `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`,
       );
+      // Progress = minutes elapsed out of 1440
+      const elapsed = now.getHours() * 60 + now.getMinutes();
+      setDayProgress(Math.round((elapsed / 1440) * 100));
     };
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, []);
-  return timeLeft;
+  return { timeLeft, dayProgress };
 }
 
 function useWhatsAppSettings() {
@@ -60,10 +67,8 @@ function useWhatsAppSettings() {
   return { waLink, waNumber, waDesc };
 }
 
-const GOLD = "#F5C842";
-const ROYAL_BLUE = "#2D6FF7";
 const SECTOR_COLORS = {
-  lobby: ROYAL_BLUE,
+  lobby: "#2D6FF7",
   game: "#FFD700",
   tools: "#00C853",
   admin: "#FF3333",
@@ -79,8 +84,6 @@ const SECTOR_GLOWS = {
 // ── Game Sector sub-tab component ──────────────────────────────────────────
 function GameSector() {
   const [gameSubTab, setGameSubTab] = useState<"arcade" | "zen">("arcade");
-  const ARCADE_COLOR = "oklch(0.82 0.20 70)";
-  const ZEN_COLOR = "oklch(0.72 0.20 300)";
 
   return (
     <div
@@ -92,80 +95,50 @@ function GameSector() {
         gap: "1.25rem",
       }}
     >
-      {/* Sub-tab buttons */}
       <div
         style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}
       >
-        <button
-          type="button"
-          data-ocid="game.arcade.tab"
-          onClick={() => setGameSubTab("arcade")}
-          style={{
-            padding: "0.45rem 1.4rem",
-            borderRadius: "999px",
-            fontSize: "0.78rem",
-            fontWeight: 900,
-            fontStyle: "italic",
-            letterSpacing: "0.06em",
-            background:
-              gameSubTab === "arcade"
-                ? "oklch(0.82 0.20 70 / 0.18)"
-                : "oklch(0.10 0.03 260)",
-            border: `1px solid ${gameSubTab === "arcade" ? ARCADE_COLOR : "oklch(0.22 0.04 260)"}`,
-            color:
-              gameSubTab === "arcade" ? ARCADE_COLOR : "oklch(0.50 0.04 260)",
-            boxShadow:
-              gameSubTab === "arcade"
-                ? "0 0 14px oklch(0.82 0.20 70 / 0.35)"
-                : "none",
-            cursor: "pointer",
-            transition: "all 0.25s ease",
-          }}
-        >
-          🕹️ ARCADE
-        </button>
-        <button
-          type="button"
-          data-ocid="game.zen.tab"
-          onClick={() => setGameSubTab("zen")}
-          style={{
-            padding: "0.45rem 1.4rem",
-            borderRadius: "999px",
-            fontSize: "0.78rem",
-            fontWeight: 900,
-            fontStyle: "italic",
-            letterSpacing: "0.06em",
-            background:
-              gameSubTab === "zen"
-                ? "oklch(0.72 0.20 300 / 0.18)"
-                : "oklch(0.10 0.03 260)",
-            border: `1px solid ${gameSubTab === "zen" ? ZEN_COLOR : "oklch(0.22 0.04 260)"}`,
-            color: gameSubTab === "zen" ? ZEN_COLOR : "oklch(0.50 0.04 260)",
-            boxShadow:
-              gameSubTab === "zen"
-                ? "0 0 14px oklch(0.72 0.20 300 / 0.35)"
-                : "none",
-            cursor: "pointer",
-            transition: "all 0.25s ease",
-          }}
-        >
-          🧘 ZEN ZONE
-        </button>
+        {(["arcade", "zen"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            data-ocid={`game.${tab}.tab`}
+            onClick={() => setGameSubTab(tab)}
+            style={{
+              padding: "0.45rem 1.4rem",
+              borderRadius: 4,
+              fontSize: "0.75rem",
+              fontFamily: "'Orbitron', sans-serif",
+              fontWeight: 900,
+              fontStyle: "italic",
+              letterSpacing: "0.06em",
+              background:
+                gameSubTab === tab
+                  ? "rgba(255,215,0,0.1)"
+                  : "rgba(255,255,255,0.03)",
+              border: `1px solid ${gameSubTab === tab ? "#FFD700" : "rgba(255,255,255,0.1)"}`,
+              color: gameSubTab === tab ? "#FFD700" : "rgba(212,216,224,0.6)",
+              boxShadow:
+                gameSubTab === tab ? "0 0 14px rgba(255,215,0,0.3)" : "none",
+              cursor: "pointer",
+              transition: "all 0.25s ease",
+              textTransform: "uppercase",
+            }}
+          >
+            {tab === "arcade" ? "🕹 ARCADE" : "🧘 ZEN ZONE"}
+          </button>
+        ))}
       </div>
 
-      {/* Sub-tab content */}
       <div
         style={{
-          background: "rgba(5,10,30,0.85)",
-          border: `1px solid ${gameSubTab === "arcade" ? "oklch(0.82 0.20 70 / 0.2)" : "oklch(0.72 0.20 300 / 0.2)"}`,
-          borderRadius: "1.25rem",
+          background: "rgba(5,5,10,0.88)",
+          border: `1px solid ${gameSubTab === "arcade" ? "rgba(255,215,0,0.18)" : "rgba(168,127,255,0.18)"}`,
+          borderTop: `2px solid ${gameSubTab === "arcade" ? "#FFD700" : "#A87FFF"}`,
+          borderRadius: "0.5rem",
           padding: "1.5rem",
           backdropFilter: "blur(20px)",
           width: "100%",
-          boxShadow:
-            gameSubTab === "arcade"
-              ? "0 0 40px oklch(0.82 0.20 70 / 0.08)"
-              : "0 0 40px oklch(0.72 0.20 300 / 0.08)",
           transition: "all 0.3s ease",
         }}
       >
@@ -175,7 +148,11 @@ function GameSector() {
   );
 }
 
+const alreadyBooted =
+  typeof window !== "undefined" ? !!sessionStorage.getItem("booted") : true;
+
 export default function App() {
+  const [booted, setBooted] = useState(alreadyBooted);
   const [activeSector, setActiveSector] = useState<Sector>("tools");
   const [toolsTab, setToolsTab] = useState<ToolsTab>("generators");
   const [stealthMode, setStealthMode] = useState(false);
@@ -193,7 +170,48 @@ export default function App() {
 
   const cursorRef = useRef<HTMLDivElement>(null);
 
-  // Gold cursor effect
+  // Restore theme from localStorage on mount
+  useEffect(() => {
+    const idx = Number(localStorage.getItem("themeIndex") ?? "0");
+    const themes = [
+      {
+        primary: "#C0C0C0",
+        glow: "rgba(192,192,192,0.3)",
+        border: "rgba(192,192,192,0.18)",
+      },
+      {
+        primary: "#F5C842",
+        glow: "rgba(245,200,66,0.3)",
+        border: "rgba(245,200,66,0.18)",
+      },
+      {
+        primary: "#00F5FF",
+        glow: "rgba(0,245,255,0.3)",
+        border: "rgba(0,245,255,0.18)",
+      },
+      {
+        primary: "#FF1744",
+        glow: "rgba(255,23,68,0.3)",
+        border: "rgba(255,23,68,0.18)",
+      },
+      {
+        primary: "#76FF03",
+        glow: "rgba(118,255,3,0.3)",
+        border: "rgba(118,255,3,0.18)",
+      },
+      {
+        primary: "#A87FFF",
+        glow: "rgba(168,127,255,0.3)",
+        border: "rgba(168,127,255,0.18)",
+      },
+    ];
+    const t = themes[idx] ?? themes[0];
+    document.documentElement.style.setProperty("--theme-primary", t.primary);
+    document.documentElement.style.setProperty("--theme-glow", t.glow);
+    document.documentElement.style.setProperty("--theme-border", t.border);
+  }, []);
+
+  // Custom cursor
   useEffect(() => {
     const cursor = cursorRef.current;
     if (!cursor) return;
@@ -218,7 +236,7 @@ export default function App() {
     };
   }, []);
 
-  const timeLeft = useCountdown();
+  const { timeLeft, dayProgress } = useCountdown();
   const { waLink, waNumber, waDesc } = useWhatsAppSettings();
 
   const { data: publicSettings } = useGetPublicSettings();
@@ -236,20 +254,16 @@ export default function App() {
       } else {
         audioRef.current.src = musicUrl;
       }
-      // Attempt immediate autoplay
       audioRef.current
         .play()
         .then(() => {
           setMusicPlaying(true);
           firstInteractionDone.current = true;
         })
-        .catch(() => {
-          // Browser blocked autoplay — will play on first interaction (existing listener handles this)
-        });
+        .catch(() => {});
     }
   }, [musicUrl]);
 
-  // First-interaction autoplay — respects browser autoplay policy
   useEffect(() => {
     const handleFirstInteraction = () => {
       if (firstInteractionDone.current) return;
@@ -257,9 +271,7 @@ export default function App() {
       if (audioRef.current && musicUrl) {
         audioRef.current
           .play()
-          .then(() => {
-            setMusicPlaying(true);
-          })
+          .then(() => setMusicPlaying(true))
           .catch(() => {});
       }
       document.removeEventListener("click", handleFirstInteraction);
@@ -322,7 +334,6 @@ export default function App() {
       if (ok) {
         doReveal();
       } else {
-        // Backend says wrong — also try local fallback
         if (
           adminInputValue.trim() === localCode ||
           adminInputValue.trim() === FALLBACK_CODE
@@ -334,7 +345,6 @@ export default function App() {
         }
       }
     } catch {
-      // Backend unavailable — fall back to local code check
       if (
         adminInputValue.trim() === localCode ||
         adminInputValue.trim() === FALLBACK_CODE
@@ -374,18 +384,22 @@ export default function App() {
   const activeSectorColor = SECTOR_COLORS[activeSector];
   const activeSectorGlow = SECTOR_GLOWS[activeSector];
 
+  if (!booted) {
+    return <BootSequence onComplete={() => setBooted(true)} />;
+  }
+
   return (
     <div
       className={`min-h-screen${stealthMode ? " stealth-active" : ""}`}
       style={{
-        background: "#080C1A",
-        color: "#e0e0e0",
+        background: "var(--bg-void)",
+        color: "#d4d8e0",
         position: "relative",
         overflowX: "hidden",
       }}
     >
       <div id="gold-cursor" ref={cursorRef} />
-      <ParticleConstellation stealthMode={stealthMode} />
+      <RuneBackground stealthMode={stealthMode} />
       <StealthModeToggle
         stealthMode={stealthMode}
         onToggle={() => setStealthMode((v) => !v)}
@@ -397,7 +411,7 @@ export default function App() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(8,12,26,0.92)",
+          background: "rgba(5,5,8,0.95)",
           borderBottom: `1px solid ${activeSectorColor}22`,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
@@ -422,7 +436,7 @@ export default function App() {
               flexShrink: 0,
             }}
           >
-            <div className="rw-avatar">RW</div>
+            <div className="rw-avatar">RE</div>
           </div>
 
           <div
@@ -436,35 +450,37 @@ export default function App() {
           >
             <span
               style={{
-                fontSize: "0.58rem",
-                letterSpacing: "0.12em",
+                fontSize: "0.55rem",
+                letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "rgba(245,200,66,0.7)",
-                fontStyle: "italic",
+                color: "rgba(192,192,192,0.5)",
+                fontFamily: "'Share Tech Mono', monospace",
               }}
             >
-              Time Until Midnight
+              TIME UNTIL MIDNIGHT
             </span>
             <span
               style={{
-                fontSize: "1.3rem",
+                fontSize: "1.25rem",
                 fontWeight: 900,
-                fontFamily: "'Geist Mono', monospace",
-                color: "#F5C842",
+                fontFamily: "'Share Tech Mono', 'Geist Mono', monospace",
+                color: "var(--theme-primary)",
                 letterSpacing: "0.1em",
-                textShadow: "0 0 12px rgba(245,200,66,0.6)",
+                textShadow: "0 0 12px var(--theme-glow)",
+                animation: "heartbeatPulse 1s ease-in-out infinite",
               }}
             >
               {timeLeft}
             </span>
             <span
               style={{
-                fontSize: "0.52rem",
-                color: "rgba(224,224,224,0.5)",
-                fontStyle: "italic",
+                fontSize: "0.5rem",
+                color: "rgba(212,216,224,0.4)",
+                fontFamily: "'Share Tech Mono', monospace",
+                letterSpacing: "0.1em",
               }}
             >
-              Make the most of today! ✨
+              MAKE THE MOST OF TODAY
             </span>
           </div>
 
@@ -481,8 +497,8 @@ export default function App() {
               onClick={toggleMusic}
               data-ocid="music.toggle"
               style={{
-                background: "rgba(245,200,66,0.08)",
-                border: `1px solid ${activeSectorColor}55`,
+                background: "rgba(192,192,192,0.06)",
+                border: `1px solid ${activeSectorColor}44`,
                 color: activeSectorColor,
                 borderRadius: "50%",
                 width: 36,
@@ -508,10 +524,12 @@ export default function App() {
                 data-ocid="spotify.toggle.button"
                 style={{
                   background: spotifyVisible
-                    ? "rgba(0,255,255,0.1)"
-                    : "rgba(10,22,40,0.7)",
-                  border: `1px solid ${spotifyVisible ? "#00FFFF" : "rgba(0,255,255,0.2)"}`,
-                  color: spotifyVisible ? "#00FFFF" : "rgba(224,224,224,0.7)",
+                    ? "rgba(0,245,255,0.08)"
+                    : "rgba(10,10,20,0.7)",
+                  border: `1px solid ${spotifyVisible ? "var(--theme-primary)" : "var(--theme-border)"}`,
+                  color: spotifyVisible
+                    ? "var(--theme-primary)"
+                    : "rgba(212,216,224,0.6)",
                   borderRadius: "50%",
                   width: 36,
                   height: 36,
@@ -519,9 +537,6 @@ export default function App() {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  boxShadow: spotifyVisible
-                    ? "0 0 14px rgba(0,255,255,0.55)"
-                    : "none",
                   transition: "all 0.2s",
                 }}
                 title={spotifyVisible ? "Hide Spotify" : "Play Sound"}
@@ -533,7 +548,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Hero Lobby */}
+      {/* ── Hero Lobby ────────────────────────────────────────────────────── */}
       <div
         className={heroDissolving ? "dissolving" : ""}
         style={{
@@ -546,16 +561,21 @@ export default function App() {
           zIndex: 2,
         }}
       >
+        {/* Title */}
         <div style={{ textAlign: "center" }}>
           <h1
             style={{
-              fontSize: "clamp(1.8rem, 6vw, 3.2rem)",
+              fontSize: "clamp(1.6rem, 6vw, 3rem)",
               fontWeight: 900,
               fontStyle: "italic",
-              background: "linear-gradient(135deg, #00AAFF, #BF00FF)",
+              fontFamily: "'Orbitron', sans-serif",
+              background:
+                "linear-gradient(135deg, var(--theme-primary) 0%, #fff 50%, var(--theme-primary) 100%)",
+              backgroundSize: "200% auto",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
+              animation: "holographicShift 5s ease infinite",
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               lineHeight: 1,
@@ -565,12 +585,12 @@ export default function App() {
           </h1>
           <p
             style={{
-              color: "rgba(0,170,255,0.5)",
-              fontSize: "0.65rem",
-              letterSpacing: "0.2em",
-              marginTop: "0.3rem",
+              color: "rgba(192,192,192,0.45)",
+              fontSize: "0.58rem",
+              letterSpacing: "0.3em",
+              marginTop: "0.35rem",
               textTransform: "uppercase",
-              fontStyle: "italic",
+              fontFamily: "'Share Tech Mono', monospace",
             }}
           >
             NEON COMMAND CENTER
@@ -595,43 +615,17 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Enter") attemptOverride();
             }}
-            placeholder="Enter Access Code"
-            className={inputShake ? "shake" : ""}
+            placeholder="ENTER ACCESS CODE"
+            className={`admin-access-input${inputShake ? " shake" : ""}`}
             data-ocid="admin.access.input"
             autoComplete="off"
-            style={{
-              background: "rgba(5,10,30,0.9)",
-              border: "1.5px solid rgba(0,255,255,0.25)",
-              borderRadius: "0.5rem",
-              color: "#00ffff",
-              fontFamily: "'Geist Mono', monospace",
-              fontSize: "0.9rem",
-              padding: "0.5rem 1rem",
-              letterSpacing: "0.1em",
-              outline: "none",
-              width: 180,
-            }}
           />
           <button
             type="button"
             onClick={attemptOverride}
             disabled={adminLoading || !adminInputValue.trim()}
+            className="admin-access-btn"
             data-ocid="admin.access.button"
-            style={{
-              background: "transparent",
-              border: "2px solid #FF3333",
-              color: "#FF3333",
-              padding: "0.5rem 1.2rem",
-              borderRadius: "0.5rem",
-              fontWeight: 900,
-              fontStyle: "italic",
-              fontSize: "0.82rem",
-              letterSpacing: "0.06em",
-              cursor: "pointer",
-              boxShadow: "0 0 10px rgba(255,51,51,0.25)",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
-            }}
           >
             {adminLoading ? "VERIFYING..." : "⚡ ACCESS ADMIN"}
           </button>
@@ -645,14 +639,14 @@ export default function App() {
               }}
               style={{
                 background: "transparent",
-                border: "1px solid rgba(252,165,165,0.4)",
+                border: "1px solid rgba(252,165,165,0.3)",
                 color: "#fca5a5",
-                borderRadius: "0.4rem",
+                borderRadius: 4,
                 padding: "0.45rem 0.75rem",
-                fontSize: "0.75rem",
+                fontSize: "0.72rem",
                 cursor: "pointer",
                 letterSpacing: "0.05em",
-                fontStyle: "italic",
+                fontFamily: "'Share Tech Mono', monospace",
               }}
             >
               ✕ EXIT ADMIN
@@ -660,81 +654,54 @@ export default function App() {
           )}
         </div>
 
-        {/* 3D Cube */}
+        {/* Diamond Gem */}
         <div
           style={{
             position: "relative",
-            width: "min(300px, 70vw)",
+            width: "min(260px, 65vw)",
             height: "min(300px, 70vw)",
             margin: "0 auto",
           }}
         >
-          <HeroCube glitching={cubeGlitching} />
+          <DiamondGem glitching={cubeGlitching} />
         </div>
+
+        {/* Theme Switcher */}
+        <ThemeSwitcher />
 
         {/* Countdown Card */}
         <div
-          style={{
-            background: "#fffbeb",
-            border: "2px solid rgba(180,140,60,0.4)",
-            borderRadius: "1rem",
-            padding: "1.25rem 2.5rem",
-            textAlign: "center",
-            boxShadow: "0 4px 32px rgba(255,215,0,0.15)",
-          }}
+          className="hero-countdown-card"
+          style={{ minWidth: "min(260px, 80vw)" }}
         >
-          <div
-            style={{
-              fontSize: "0.65rem",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: "#7c5c2e",
-              fontWeight: 700,
-              fontStyle: "italic",
-              marginBottom: "0.4rem",
-            }}
-          >
-            ⏱ TIME UNTIL MIDNIGHT
+          <div className="hero-countdown-label">⏱ TIME UNTIL MIDNIGHT</div>
+          <div className="hero-countdown-time">{timeLeft || "00:00:00"}</div>
+          <div className="day-progress-track">
+            <div
+              className="day-progress-fill"
+              style={{ width: `${dayProgress}%` }}
+            />
           </div>
-          <div
-            style={{
-              fontFamily: "'Geist Mono', monospace",
-              fontSize: "clamp(2rem,8vw,3.5rem)",
-              fontWeight: 900,
-              color: "#3d2b1f",
-              letterSpacing: "0.08em",
-              lineHeight: 1,
-            }}
-          >
-            {timeLeft || "00:00:00"}
-          </div>
-          <div
-            style={{
-              fontSize: "0.72rem",
-              color: "#8b6a3e",
-              fontStyle: "italic",
-              marginTop: "0.4rem",
-            }}
-          >
-            Make the most of today! ✨
+          <div className="hero-countdown-sub">
+            DAY PROGRESS — {dayProgress}% ELAPSED
           </div>
         </div>
       </div>
 
-      {/* 4-Sector Navigation */}
+      {/* ── 4-Sector Navigation ───────────────────────────────────────────── */}
       <nav
         style={{
           position: "sticky",
           top: 60,
           zIndex: 40,
-          background: "rgba(8,12,26,0.92)",
+          background: "rgba(5,5,8,0.96)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(245,200,66,0.08)",
+          borderBottom: "1px solid var(--theme-border)",
           display: "flex",
           gap: "0.5rem",
           justifyContent: "center",
-          padding: "0.75rem 1rem",
+          padding: "0.6rem 1rem",
           flexWrap: "wrap",
         }}
         data-ocid="nav.panel"
@@ -743,7 +710,11 @@ export default function App() {
         {(["tools", "game", "lobby"] as Sector[]).map((sector) => {
           const isActive = activeSector === sector;
           const col = SECTOR_COLORS[sector];
-          const _glow = SECTOR_GLOWS[sector];
+          const dots: Record<string, string> = {
+            tools: "#00C853",
+            game: "#FFD700",
+            lobby: "#2D6FF7",
+          };
           return (
             <button
               key={sector}
@@ -757,25 +728,58 @@ export default function App() {
               style={{
                 fontStyle: "italic",
                 fontWeight: 900,
-                letterSpacing: "0.1em",
-                padding: "0.5rem 1.5rem",
-                borderRadius: "50px",
-                border: `2px solid ${isActive ? GOLD : `${col}55`}`,
-                background: isActive ? "rgba(245,200,66,0.12)" : "transparent",
-                color: isActive ? GOLD : `${col}88`,
+                fontFamily: "'Orbitron', sans-serif",
+                letterSpacing: "0.08em",
+                padding: sector === "lobby" ? "0.55rem 2rem" : "0.45rem 1.5rem",
+                borderRadius: 4,
+                border: `1px solid ${isActive ? col : "var(--theme-border)"}`,
+                background: isActive ? `${col}12` : "rgba(255,255,255,0.03)",
+                backdropFilter: "blur(12px)",
+                color: isActive ? col : "rgba(212,216,224,0.55)",
                 cursor: "pointer",
-                transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                transition: "all 0.25s ease",
                 textTransform: "uppercase",
-                fontSize: "0.82rem",
-                boxShadow: isActive ? "0 0 18px rgba(245,200,66,0.5)" : "none",
-                transform: isActive ? "scale(1.05)" : "scale(1)",
+                fontSize: "0.7rem",
+                boxShadow: isActive ? `0 0 18px ${col}44` : "none",
+                transform: isActive ? "translateY(-2px)" : "translateY(0)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                position: "relative",
               }}
             >
+              {/* Status dot */}
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: dots[sector],
+                  boxShadow: isActive ? `0 0 6px ${dots[sector]}` : "none",
+                  flexShrink: 0,
+                  display: "inline-block",
+                }}
+              />
               {sector === "lobby"
-                ? "🔵 LOBBY"
+                ? "LOBBY"
                 : sector === "game"
-                  ? "🟡 GAME"
-                  : "🟢 TOOLS"}
+                  ? "GAME"
+                  : "TOOLS"}
+
+              {/* Underline grows from center */}
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: "50%",
+                  transform: `translateX(-50%) scaleX(${isActive ? 1 : 0})`,
+                  width: "100%",
+                  height: 2,
+                  background: col,
+                  transition: "transform 0.3s ease",
+                  transformOrigin: "center",
+                }}
+              />
             </button>
           );
         })}
@@ -788,24 +792,27 @@ export default function App() {
             style={{
               fontStyle: "italic",
               fontWeight: 900,
-              letterSpacing: "0.1em",
-              padding: "0.5rem 1.5rem",
-              borderRadius: "50px",
-              border: `2px solid ${activeSector === "admin" ? "#FF3333" : "#FF333355"}`,
+              fontFamily: "'Orbitron', sans-serif",
+              letterSpacing: "0.08em",
+              padding: "0.45rem 1.5rem",
+              borderRadius: 4,
+              border: `1px solid ${activeSector === "admin" ? "#FF3333" : "rgba(255,51,51,0.3)"}`,
               background:
                 activeSector === "admin"
-                  ? "rgba(255,51,51,0.18)"
-                  : "transparent",
-              color: activeSector === "admin" ? "#FF3333" : "#FF333388",
+                  ? "rgba(255,51,51,0.12)"
+                  : "rgba(255,255,255,0.03)",
+              color:
+                activeSector === "admin" ? "#FF3333" : "rgba(255,51,51,0.6)",
               cursor: "pointer",
-              transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+              transition: "all 0.25s ease",
               textTransform: "uppercase",
-              fontSize: "0.82rem",
+              fontSize: "0.7rem",
               boxShadow:
                 activeSector === "admin"
-                  ? "0 0 18px rgba(255,51,51,0.5)"
+                  ? "0 0 18px rgba(255,51,51,0.44)"
                   : "none",
-              transform: activeSector === "admin" ? "scale(1.05)" : "scale(1)",
+              transform:
+                activeSector === "admin" ? "translateY(-2px)" : "translateY(0)",
               animation: "livePulse 2s ease-in-out infinite",
             }}
           >
@@ -814,7 +821,7 @@ export default function App() {
         )}
       </nav>
 
-      {/* Main Content */}
+      {/* ── Main Content ──────────────────────────────────────────────────── */}
       <main
         style={{
           maxWidth: 1100,
@@ -838,11 +845,12 @@ export default function App() {
                 style={{
                   fontStyle: "italic",
                   fontWeight: 900,
-                  fontSize: "clamp(1.2rem,3vw,1.8rem)",
+                  fontFamily: "'Orbitron', sans-serif",
+                  fontSize: "clamp(1.1rem,3vw,1.6rem)",
                   color: SECTOR_COLORS.lobby,
                   textShadow: `0 0 20px ${SECTOR_GLOWS.lobby}`,
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   textAlign: "center",
                 }}
               >
@@ -852,9 +860,10 @@ export default function App() {
               {spotifyUrl && (
                 <div
                   style={{
-                    background: "rgba(5,10,30,0.85)",
+                    background: "rgba(5,5,10,0.88)",
                     border: `1px solid ${SECTOR_COLORS.lobby}33`,
-                    borderRadius: "1rem",
+                    borderTop: `2px solid ${SECTOR_COLORS.lobby}`,
+                    borderRadius: "0.5rem",
                     padding: "1.5rem",
                     backdropFilter: "blur(20px)",
                   }}
@@ -863,29 +872,21 @@ export default function App() {
                     style={{
                       fontStyle: "italic",
                       fontWeight: 900,
+                      fontFamily: "'Orbitron', sans-serif",
                       color: SECTOR_COLORS.lobby,
                       marginBottom: "1rem",
-                      fontSize: "0.85rem",
-                      letterSpacing: "0.08em",
+                      fontSize: "0.75rem",
+                      letterSpacing: "0.1em",
                     }}
                   >
                     🎵 SONIC PLAYER
                   </div>
                   <div
                     style={{
-                      border: `2px solid ${SECTOR_COLORS.lobby}55`,
-                      borderRadius: "0.75rem",
+                      border: `1px solid ${SECTOR_COLORS.lobby}44`,
+                      borderRadius: "0.5rem",
                       overflow: "hidden",
                       boxShadow: `0 0 20px ${SECTOR_GLOWS.lobby}`,
-                      transition: "transform 0.3s, box-shadow 0.3s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.transform =
-                        "scale(1.01)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.transform =
-                        "scale(1)";
                     }}
                   >
                     <iframe
@@ -903,9 +904,10 @@ export default function App() {
 
               <div
                 style={{
-                  background: "rgba(5,10,30,0.85)",
+                  background: "rgba(5,5,10,0.88)",
                   border: `1px solid ${SECTOR_COLORS.lobby}33`,
-                  borderRadius: "1rem",
+                  borderTop: `2px solid ${SECTOR_COLORS.lobby}`,
+                  borderRadius: "0.5rem",
                   padding: "2rem",
                   backdropFilter: "blur(20px)",
                   textAlign: "center",
@@ -916,18 +918,21 @@ export default function App() {
                   style={{
                     fontStyle: "italic",
                     fontWeight: 900,
+                    fontFamily: "'Orbitron', sans-serif",
                     color: SECTOR_COLORS.lobby,
-                    fontSize: "1.1rem",
+                    fontSize: "0.9rem",
                     marginBottom: "0.75rem",
+                    letterSpacing: "0.08em",
                   }}
                 >
                   WELCOME TO REVIEW EMPIRE
                 </h3>
                 <p
                   style={{
-                    color: "rgba(224,224,224,0.7)",
+                    color: "rgba(212,216,224,0.65)",
                     lineHeight: 1.7,
                     fontSize: "0.9rem",
+                    fontFamily: "'Rajdhani', sans-serif",
                   }}
                 >
                   Your premium hub for app review management. Navigate to{" "}
@@ -956,17 +961,17 @@ export default function App() {
                 style={{
                   fontStyle: "italic",
                   fontWeight: 900,
-                  fontSize: "clamp(1.2rem,3vw,1.8rem)",
+                  fontFamily: "'Orbitron', sans-serif",
+                  fontSize: "clamp(1.1rem,3vw,1.6rem)",
                   color: SECTOR_COLORS.game,
                   textShadow: `0 0 20px ${SECTOR_GLOWS.game}`,
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   textAlign: "center",
                 }}
               >
                 🟡 GAME SECTOR
               </h2>
-
               <GameSector />
             </div>
           )}
@@ -984,11 +989,12 @@ export default function App() {
                 style={{
                   fontStyle: "italic",
                   fontWeight: 900,
-                  fontSize: "clamp(1.2rem,3vw,1.8rem)",
+                  fontFamily: "'Orbitron', sans-serif",
+                  fontSize: "clamp(1.1rem,3vw,1.6rem)",
                   color: SECTOR_COLORS.tools,
                   textShadow: `0 0 20px ${SECTOR_GLOWS.tools}`,
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   textAlign: "center",
                 }}
               >
@@ -1016,25 +1022,28 @@ export default function App() {
                         style={{
                           fontStyle: "italic",
                           fontWeight: 900,
+                          fontFamily: "'Orbitron', sans-serif",
                           padding: "0.4rem 1.2rem",
-                          borderRadius: "50px",
-                          border: `1.5px solid ${isActive ? GOLD : `${col}44`}`,
+                          borderRadius: 4,
+                          border: `1px solid ${isActive ? col : "var(--theme-border)"}`,
                           background: isActive
-                            ? "rgba(245,200,66,0.12)"
-                            : "transparent",
-                          color: isActive ? GOLD : `${col}77`,
+                            ? `${col}10`
+                            : "rgba(255,255,255,0.03)",
+                          color: isActive ? col : "rgba(212,216,224,0.5)",
                           cursor: "pointer",
                           transition: "all 0.2s",
                           textTransform: "uppercase",
-                          fontSize: "0.78rem",
+                          fontSize: "0.7rem",
                           letterSpacing: "0.08em",
+                          boxShadow: isActive ? `0 0 14px ${col}44` : "none",
+                          transform: isActive ? "translateY(-1px)" : "none",
                         }}
                       >
                         {tab === "generators"
-                          ? "GENERATORS"
+                          ? "⚡ GENERATORS"
                           : tab === "upload"
-                            ? "UPLOAD"
-                            : "CHECKER"}
+                            ? "📁 UPLOAD"
+                            : "🔍 CHECKER"}
                       </button>
                     );
                   },
@@ -1043,12 +1052,12 @@ export default function App() {
 
               <div
                 style={{
-                  background: "rgba(5,10,30,0.85)",
+                  background: "rgba(5,5,10,0.88)",
                   border: `1px solid ${SECTOR_COLORS.tools}22`,
-                  borderRadius: "1rem",
+                  borderTop: `2px solid ${SECTOR_COLORS.tools}`,
+                  borderRadius: "0.5rem",
                   padding: "1.5rem",
                   backdropFilter: "blur(20px)",
-                  boxShadow: `0 0 30px ${SECTOR_GLOWS.tools}11`,
                 }}
               >
                 {toolsTab === "generators" && <UserView />}
@@ -1082,11 +1091,12 @@ export default function App() {
                 style={{
                   fontStyle: "italic",
                   fontWeight: 900,
-                  fontSize: "clamp(1.2rem,3vw,1.8rem)",
+                  fontFamily: "'Orbitron', sans-serif",
+                  fontSize: "clamp(1.1rem,3vw,1.6rem)",
                   color: SECTOR_COLORS.admin,
                   textShadow: `0 0 20px ${SECTOR_GLOWS.admin}`,
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  letterSpacing: "0.1em",
                   textAlign: "center",
                 }}
               >
@@ -1100,26 +1110,27 @@ export default function App() {
         </div>
       </main>
 
-      {/* Footer */}
+      {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer
         style={{
           marginTop: 40,
           padding: "40px 20px",
-          borderTop: "1px solid rgba(245,200,66,0.18)",
+          borderTop: "1px solid var(--theme-border)",
           textAlign: "center",
           position: "relative",
           zIndex: 2,
           background:
-            "linear-gradient(0deg, rgba(2,4,15,0.98) 0%, transparent 100%)",
+            "linear-gradient(0deg, rgba(2,2,6,0.98) 0%, transparent 100%)",
         }}
       >
         <h3
           className="holographic-text"
           style={{
+            fontFamily: "'Orbitron', sans-serif",
             fontStyle: "italic",
             fontWeight: 900,
-            fontSize: "1.1rem",
-            letterSpacing: "0.08em",
+            fontSize: "1rem",
+            letterSpacing: "0.1em",
             marginBottom: 10,
           }}
         >
@@ -1127,11 +1138,12 @@ export default function App() {
         </h3>
         <p
           style={{
-            color: "rgba(224,224,224,0.6)",
+            color: "rgba(212,216,224,0.5)",
             maxWidth: 600,
             margin: "0 auto 20px auto",
             lineHeight: 1.6,
             fontSize: "0.85rem",
+            fontFamily: "'Rajdhani', sans-serif",
           }}
         >
           {waDesc}
@@ -1148,25 +1160,28 @@ export default function App() {
               background: "linear-gradient(135deg, #25D366, #128C7E)",
               color: "white",
               padding: "12px 28px",
-              borderRadius: 50,
+              borderRadius: 4,
               fontWeight: "bold",
               fontStyle: "italic",
+              fontFamily: "'Orbitron', sans-serif",
               display: "flex",
               alignItems: "center",
               gap: 10,
-              fontSize: "0.9rem",
+              fontSize: "0.78rem",
               boxShadow: "0 0 20px rgba(37,211,102,0.3)",
+              letterSpacing: "0.06em",
             }}
           >
-            <span>Join WhatsApp Community</span>
+            <span>JOIN WHATSAPP COMMUNITY</span>
             <small>({waNumber})</small>
           </div>
         </a>
         <p
           style={{
-            color: "rgba(100,100,120,0.7)",
+            color: "rgba(100,100,120,0.6)",
             marginTop: "1.5rem",
-            fontSize: "0.75rem",
+            fontSize: "0.72rem",
+            fontFamily: "'Share Tech Mono', monospace",
           }}
         >
           © {new Date().getFullYear()} Review Empire · Built with{" "}
@@ -1175,7 +1190,7 @@ export default function App() {
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${appId}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: "#4fd1c5" }}
+            style={{ color: "var(--theme-primary)" }}
           >
             caffeine.ai
           </a>
