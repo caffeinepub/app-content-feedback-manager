@@ -8,10 +8,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        orbitron: ['Outfit', 'sans-serif'],
-        rajdhani: ['Outfit', 'Inter', 'sans-serif'],
-        sans: ['Outfit', 'Inter', 'sans-serif'],
-        display: ['Cabinet Grotesk', 'Outfit', 'sans-serif'],
+        heading: ['Syne', 'sans-serif'],
+        display: ['Syne', 'sans-serif'],
+        subheading: ['DM Sans', 'sans-serif'],
+        sans: ['DM Sans', 'Inter', 'sans-serif'],
         mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
       },
       colors: {
@@ -48,22 +48,23 @@ export default {
         border: 'oklch(var(--border) / <alpha-value>)',
         input: 'oklch(var(--input) / <alpha-value>)',
         ring: 'oklch(var(--ring) / <alpha-value>)',
-        // Neon palette tokens
+        gold: {
+          DEFAULT: '#F5C842',
+          dim: 'rgba(245,200,66,0.15)',
+          glow: 'rgba(245,200,66,0.25)',
+        },
+        royalBlue: '#2D6FF7',
         neon: {
           cyan: '#00cfff',
           blue: '#00a8e8',
           green: '#00e87a',
           purple: '#BF00FF',
         },
-        cyber: {
-          purple: '#BF00FF',
-          purpleDim: 'rgba(191,0,255,0.4)',
-        },
         navy: {
-          bg: '#02040F',
-          card: '#080D1E',
-          elevated: '#0C1228',
-          deep: '#050A30',
+          bg: '#080C1A',
+          card: '#0D1225',
+          elevated: '#111830',
+          deep: '#050810',
         },
       },
       borderRadius: {
@@ -75,15 +76,12 @@ export default {
         '3xl': '1.5rem',
       },
       boxShadow: {
+        'neon-gold': '0 0 12px rgba(245,200,66,0.4), 0 0 24px rgba(245,200,66,0.15)',
+        'neon-gold-lg': '0 0 24px rgba(245,200,66,0.6), 0 0 48px rgba(245,200,66,0.25)',
         'neon-cyan': '0 0 12px rgba(0, 255, 255, 0.3), 0 0 24px rgba(0, 255, 255, 0.1)',
-        'neon-cyan-lg': '0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.2)',
-        'neon-purple': '0 0 12px rgba(191, 0, 255, 0.3), 0 0 24px rgba(191, 0, 255, 0.1)',
-        'neon-purple-lg': '0 0 20px rgba(191, 0, 255, 0.5), 0 0 40px rgba(191, 0, 255, 0.2)',
-        'glass': '0 4px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 255, 255, 0.07)',
+        'glass': '0 4px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(245,200,66,0.07)',
         'navy-card': '0 4px 24px rgba(0, 0, 0, 0.5)',
-        '3d-sm': '0 2px 8px rgba(0, 0, 30, 0.6)',
-        '3d-md': '0 4px 16px rgba(0, 0, 30, 0.7)',
-        '3d-lg': '0 8px 32px rgba(0, 0, 30, 0.8)',
+        '3d-lg': '0 8px 32px rgba(0, 0, 20, 0.8)',
       },
       keyframes: {
         fadeInUp: {
@@ -98,43 +96,46 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(-16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        floatShape: {
-          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
-          '33%': { transform: 'translate(30px, -30px) scale(1.05)' },
-          '66%': { transform: 'translate(-20px, 20px) scale(0.95)' },
-        },
         neonPulse: {
-          '0%, 100%': { boxShadow: '0 0 10px rgba(0, 255, 255, 0.3)' },
-          '50%': { boxShadow: '0 0 28px rgba(0, 255, 255, 0.65)' },
+          '0%, 100%': { boxShadow: '0 0 10px rgba(245,200,66,0.3)' },
+          '50%': { boxShadow: '0 0 28px rgba(245,200,66,0.65)' },
         },
-        neonGlow: {
-          '0%, 100%': { borderColor: 'rgba(0, 255, 255, 0.4)' },
-          '50%': { borderColor: 'rgba(0, 255, 255, 0.9)' },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% center' },
+          '100%': { backgroundPosition: '200% center' },
         },
-        hudFlicker: {
-          '0%, 100%': { borderColor: 'rgba(0, 255, 255, 0.6)' },
-          '30%': { borderColor: '#BF00FF' },
-          '60%': { borderColor: '#00FFFF' },
+        goldPulse: {
+          '0%,100%': { boxShadow: '0 0 10px rgba(245,200,66,0.3)' },
+          '50%': { boxShadow: '0 0 28px rgba(245,200,66,0.7)' },
         },
         musicGlowPulse: {
-          '0%, 100%': { boxShadow: '0 0 18px rgba(0, 255, 255, 0.5)' },
-          '50%': { boxShadow: '0 0 32px rgba(0, 255, 255, 0.8)' },
+          '0%, 100%': { boxShadow: '0 0 18px rgba(245,200,66,0.5)' },
+          '50%': { boxShadow: '0 0 32px rgba(245,200,66,0.8)' },
         },
         revealUp: {
           '0%': { opacity: '0', transform: 'translateY(30px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        holographicShift: {
+          '0%,100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        livePulse: {
+          '0%,100%': { boxShadow: '0 0 8px rgba(255,51,51,0.3)' },
+          '50%': { boxShadow: '0 0 20px rgba(255,51,51,0.7)' },
         },
       },
       animation: {
         fadeInUp: 'fadeInUp 0.5s ease-out both',
         fadeIn: 'fadeIn 0.4s ease-out both',
         slideDown: 'slideDown 0.4s ease-out both',
-        floatShape: 'floatShape 20s ease-in-out infinite',
         neonPulse: 'neonPulse 2.5s ease-in-out infinite',
-        neonGlow: 'neonGlow 2s ease-in-out infinite',
-        hudFlicker: 'hudFlicker 0.6s ease-in-out',
+        shimmer: 'shimmer 2.5s linear infinite',
+        goldPulse: 'goldPulse 2.5s ease-in-out infinite',
         musicGlowPulse: 'musicGlowPulse 2s ease-in-out infinite',
         revealUp: 'revealUp 0.6s cubic-bezier(0.175,0.885,0.32,1.275) both',
+        holographicShift: 'holographicShift 4s ease infinite',
+        livePulse: 'livePulse 2s ease-in-out infinite',
       },
     },
   },

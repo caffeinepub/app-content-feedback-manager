@@ -17,7 +17,6 @@ export default function HeroCube({ glitching }: HeroCubeProps) {
     const mount = mountRef.current;
     if (!mount) return;
 
-    // Scene
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
     camera.position.set(0, 0, 5);
@@ -37,38 +36,40 @@ export default function HeroCube({ glitching }: HeroCubeProps) {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(mount);
 
-    // Geometry
     const geometry = new THREE.BoxGeometry(2, 2, 2);
     const material = new THREE.MeshStandardMaterial({
-      color: 0x00ffff,
-      emissive: 0x003333,
-      metalness: 0.8,
-      roughness: 0.2,
+      color: 0xf5c842,
+      emissive: 0x3d2b00,
+      metalness: 0.85,
+      roughness: 0.15,
+      transparent: true,
+      opacity: 0.88,
     });
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
-    // Wireframe edges
     const edges = new THREE.EdgesGeometry(geometry);
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x00ffff,
+      color: 0xf5c842,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.7,
     });
     const wireframe = new THREE.LineSegments(edges, lineMat);
     cube.add(wireframe);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0x050a30, 2);
+    // Warm gold lights
+    const ambientLight = new THREE.AmbientLight(0x1a1000, 2);
     scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0x00ffff, 10, 50);
+    const pointLight = new THREE.PointLight(0xffd700, 12, 50);
     pointLight.position.set(5, 5, 5);
     scene.add(pointLight);
-    const pointLight2 = new THREE.PointLight(0x0044ff, 5, 30);
+    const pointLight2 = new THREE.PointLight(0xff8c00, 6, 30);
     pointLight2.position.set(-5, -3, 3);
     scene.add(pointLight2);
+    const pointLight3 = new THREE.PointLight(0xffe580, 4, 20);
+    pointLight3.position.set(0, 5, -3);
+    scene.add(pointLight3);
 
-    // Mouse tilt
     let mouseX = 0;
     let mouseY = 0;
     const handleMouseMove = (e: MouseEvent) => {
@@ -79,29 +80,31 @@ export default function HeroCube({ glitching }: HeroCubeProps) {
     };
     window.addEventListener("mousemove", handleMouseMove);
 
-    // Animation
     let frameId: number;
     const animate = () => {
       frameId = requestAnimationFrame(animate);
 
       if (glitchingRef.current) {
-        material.color.setHex(0xff0040);
-        material.emissive.setHex(0x330010);
-        lineMat.color.setHex(0xff0040);
+        material.color.setHex(0xff3333);
+        material.emissive.setHex(0x330000);
+        lineMat.color.setHex(0xff3333);
         cube.position.x = (Math.random() - 0.5) * 0.25;
         cube.position.y = (Math.random() - 0.5) * 0.25;
         cube.position.z = (Math.random() - 0.5) * 0.1;
       } else {
-        // Iridescent: cycle Purple(~300°) → Blue(~240°) → Cyan(~180°)
+        // Gold → Amber → Deep Gold iridescent cycle
         const t = Date.now() * 0.001;
-        const hue = 0.5 + 0.17 * Math.sin(t * 0.3); // 0.33..0.67 → Cyan to Purple
-        material.color.setHSL(hue, 1.0, 0.55);
-        material.emissive.setHSL(hue, 0.8, 0.08);
-        lineMat.color.setHSL(hue, 1.0, 0.65);
+        // hue range 0.11..0.17 (gold to amber in HSL)
+        const hue = 0.13 + 0.03 * Math.sin(t * 0.4);
+        const sat = 0.9 + 0.1 * Math.sin(t * 0.7);
+        const light = 0.52 + 0.06 * Math.sin(t * 0.5);
+        material.color.setHSL(hue, sat, light);
+        material.emissive.setHSL(hue, 0.7, 0.08);
+        lineMat.color.setHSL(hue + 0.02, 1.0, 0.7);
         cube.position.x *= 0.9;
         cube.position.y *= 0.9;
         cube.position.z = 0;
-        // 60 BPM pulse: Math.PI*2 rad/s ≈ 1s cycle
+        // 60 BPM pulse
         const pulse = 1.0 + 0.03 * Math.sin(t * Math.PI * 2);
         cube.scale.set(pulse, pulse, pulse);
       }

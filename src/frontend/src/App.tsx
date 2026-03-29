@@ -1,9 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { Music2, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import FluidSimulation from "./components/FluidSimulation";
 import HeroCube from "./components/HeroCube";
 import NeonJewelBlast from "./components/NeonJewelBlast";
+import ParticleConstellation from "./components/ParticleConstellation";
 import SpotifyPlayer from "./components/SpotifyPlayer";
 import StealthModeToggle from "./components/StealthModeToggle";
 import ZenZone from "./components/ZenZone";
@@ -60,15 +60,17 @@ function useWhatsAppSettings() {
   return { waLink, waNumber, waDesc };
 }
 
+const GOLD = "#F5C842";
+const ROYAL_BLUE = "#2D6FF7";
 const SECTOR_COLORS = {
-  lobby: "#00AAFF",
+  lobby: ROYAL_BLUE,
   game: "#FFD700",
   tools: "#00C853",
   admin: "#FF3333",
 };
 
 const SECTOR_GLOWS = {
-  lobby: "rgba(0,170,255,0.5)",
+  lobby: "rgba(45,111,247,0.5)",
   game: "rgba(255,215,0,0.5)",
   tools: "rgba(0,200,83,0.5)",
   admin: "rgba(255,51,51,0.5)",
@@ -188,6 +190,33 @@ export default function App() {
   const [cubeGlitching, setCubeGlitching] = useState(false);
   const [heroDissolving, setHeroDissolving] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
+
+  const cursorRef = useRef<HTMLDivElement>(null);
+
+  // Gold cursor effect
+  useEffect(() => {
+    const cursor = cursorRef.current;
+    if (!cursor) return;
+    const onMove = (e: MouseEvent) => {
+      cursor.style.left = `${e.clientX}px`;
+      cursor.style.top = `${e.clientY}px`;
+    };
+    const onEnter = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("button, a, input, textarea, [data-ocid]")) {
+        cursor.classList.add("hovering");
+      }
+    };
+    const onLeave = () => cursor.classList.remove("hovering");
+    window.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseover", onEnter);
+    document.addEventListener("mouseout", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseover", onEnter);
+      document.removeEventListener("mouseout", onLeave);
+    };
+  }, []);
 
   const timeLeft = useCountdown();
   const { waLink, waNumber, waDesc } = useWhatsAppSettings();
@@ -320,6 +349,23 @@ export default function App() {
     }
   };
 
+  // Scroll reveal
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("reveal-up");
+          }
+        }
+      },
+      { threshold: 0.1 },
+    );
+    const els = document.querySelectorAll("[data-reveal]");
+    for (const el of els) observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const appId =
     typeof window !== "undefined"
       ? encodeURIComponent(window.location.hostname)
@@ -332,13 +378,14 @@ export default function App() {
     <div
       className={`min-h-screen${stealthMode ? " stealth-active" : ""}`}
       style={{
-        background: "#02040F",
+        background: "#080C1A",
         color: "#e0e0e0",
         position: "relative",
         overflowX: "hidden",
       }}
     >
-      <FluidSimulation stealthMode={stealthMode} />
+      <div id="gold-cursor" ref={cursorRef} />
+      <ParticleConstellation stealthMode={stealthMode} />
       <StealthModeToggle
         stealthMode={stealthMode}
         onToggle={() => setStealthMode((v) => !v)}
@@ -350,7 +397,7 @@ export default function App() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(2,4,15,0.92)",
+          background: "rgba(8,12,26,0.92)",
           borderBottom: `1px solid ${activeSectorColor}22`,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
@@ -392,7 +439,7 @@ export default function App() {
                 fontSize: "0.58rem",
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
-                color: `${activeSectorColor}aa`,
+                color: "rgba(245,200,66,0.7)",
                 fontStyle: "italic",
               }}
             >
@@ -403,9 +450,9 @@ export default function App() {
                 fontSize: "1.3rem",
                 fontWeight: 900,
                 fontFamily: "'Geist Mono', monospace",
-                color: activeSectorColor,
+                color: "#F5C842",
                 letterSpacing: "0.1em",
-                textShadow: `0 0 12px ${activeSectorGlow}`,
+                textShadow: "0 0 12px rgba(245,200,66,0.6)",
               }}
             >
               {timeLeft}
@@ -434,7 +481,7 @@ export default function App() {
               onClick={toggleMusic}
               data-ocid="music.toggle"
               style={{
-                background: "rgba(0,255,255,0.08)",
+                background: "rgba(245,200,66,0.08)",
                 border: `1px solid ${activeSectorColor}55`,
                 color: activeSectorColor,
                 borderRadius: "50%",
@@ -680,10 +727,10 @@ export default function App() {
           position: "sticky",
           top: 60,
           zIndex: 40,
-          background: "rgba(2,4,15,0.92)",
+          background: "rgba(8,12,26,0.92)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(0,255,255,0.08)",
+          borderBottom: "1px solid rgba(245,200,66,0.08)",
           display: "flex",
           gap: "0.5rem",
           justifyContent: "center",
@@ -696,7 +743,7 @@ export default function App() {
         {(["tools", "game", "lobby"] as Sector[]).map((sector) => {
           const isActive = activeSector === sector;
           const col = SECTOR_COLORS[sector];
-          const glow = SECTOR_GLOWS[sector];
+          const _glow = SECTOR_GLOWS[sector];
           return (
             <button
               key={sector}
@@ -713,14 +760,14 @@ export default function App() {
                 letterSpacing: "0.1em",
                 padding: "0.5rem 1.5rem",
                 borderRadius: "50px",
-                border: `2px solid ${isActive ? col : `${col}55`}`,
-                background: isActive ? `${col}18` : "transparent",
-                color: isActive ? col : `${col}88`,
+                border: `2px solid ${isActive ? GOLD : `${col}55`}`,
+                background: isActive ? "rgba(245,200,66,0.12)" : "transparent",
+                color: isActive ? GOLD : `${col}88`,
                 cursor: "pointer",
                 transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                 textTransform: "uppercase",
                 fontSize: "0.82rem",
-                boxShadow: isActive ? `0 0 18px ${glow}` : "none",
+                boxShadow: isActive ? "0 0 18px rgba(245,200,66,0.5)" : "none",
                 transform: isActive ? "scale(1.05)" : "scale(1)",
               }}
             >
@@ -971,9 +1018,11 @@ export default function App() {
                           fontWeight: 900,
                           padding: "0.4rem 1.2rem",
                           borderRadius: "50px",
-                          border: `1.5px solid ${isActive ? col : `${col}44`}`,
-                          background: isActive ? `${col}18` : "transparent",
-                          color: isActive ? col : `${col}77`,
+                          border: `1.5px solid ${isActive ? GOLD : `${col}44`}`,
+                          background: isActive
+                            ? "rgba(245,200,66,0.12)"
+                            : "transparent",
+                          color: isActive ? GOLD : `${col}77`,
                           cursor: "pointer",
                           transition: "all 0.2s",
                           textTransform: "uppercase",
@@ -1056,7 +1105,7 @@ export default function App() {
         style={{
           marginTop: 40,
           padding: "40px 20px",
-          borderTop: "1px solid rgba(0,255,255,0.12)",
+          borderTop: "1px solid rgba(245,200,66,0.18)",
           textAlign: "center",
           position: "relative",
           zIndex: 2,

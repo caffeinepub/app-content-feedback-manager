@@ -21,20 +21,20 @@ export default function StealthModeToggle({ stealthMode, onToggle }: Props) {
         height: 40,
         borderRadius: "50%",
         background: stealthMode
-          ? "rgba(10, 20, 40, 0.95)"
-          : "rgba(2, 4, 15, 0.85)",
+          ? "rgba(8, 12, 26, 0.95)"
+          : "rgba(8, 12, 26, 0.85)",
         border: stealthMode
-          ? "1.5px solid rgba(100,120,160,0.5)"
-          : "1.5px solid rgba(0,255,255,0.4)",
-        color: stealthMode ? "rgba(150,170,200,0.8)" : "#00ffff",
+          ? "1.5px solid rgba(120,130,160,0.4)"
+          : "1.5px solid rgba(245,200,66,0.5)",
+        color: stealthMode ? "rgba(150,170,200,0.7)" : "#F5C842",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
         transition: "all 0.3s",
         boxShadow: stealthMode
-          ? "0 0 8px rgba(80,100,140,0.3)"
-          : "0 0 14px rgba(0,255,255,0.4), 0 0 28px rgba(0,255,255,0.15)",
+          ? "0 0 8px rgba(80,90,120,0.2)"
+          : "0 0 14px rgba(245,200,66,0.4), 0 0 28px rgba(245,200,66,0.15)",
         backdropFilter: "blur(10px)",
       }}
     >
