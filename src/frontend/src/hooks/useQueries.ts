@@ -1297,10 +1297,19 @@ export function useSetMusicBlob() {
       const bytes = new Uint8Array(arrayBuffer);
       const { ExternalBlob } = await import("../backend");
       const blob = ExternalBlob.fromBytes(bytes);
-      return a.setMusicBlob(getAdminCode(), blob);
+      await a.setMusicBlob(getAdminCode(), blob);
+      // After blob upload, retrieve the URL and save it as the musicUrl text field
+      const settings = await a.getPublicSettings();
+      if (settings?.musicFile) {
+        const url = settings?.musicFile?.getDirectURL();
+        if (url) {
+          await a.setMusicUrl(getAdminCode(), url);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["musicUrl"] });
+      queryClient.invalidateQueries({ queryKey: ["publicSettings"] });
     },
   });
 }

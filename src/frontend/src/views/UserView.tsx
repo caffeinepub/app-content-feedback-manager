@@ -1,4 +1,5 @@
 import type { CommentList } from "@/backend";
+import MissionBriefingModal from "@/components/MissionBriefingModal";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -20,18 +21,29 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+const MAX_CLAIMS = 6;
+
 export default function UserView() {
   const { data: commentLists = [], isLoading: listsLoading } =
     useCommentLists();
   const claimComment = useClaimComment();
-  const { getClaimedComment, storeClaimedComment, hasClaimedComment } =
-    useClaimedComments();
+  const {
+    getClaimedComment,
+    getClaimedComments,
+    storeClaimedComment,
+    hasClaimedComment,
+    hasReachedLimit,
+    getRemainingClaims,
+  } = useClaimedComments();
 
   const [selectedListId, setSelectedListId] = useState<string>("");
   const [generatedComment, setGeneratedComment] = useState<string>("");
+  const [claimedComments, setClaimedComments] = useState<string[]>([]);
   const [noCommentsLeft, setNoCommentsLeft] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [isPreviousClaim, setIsPreviousClaim] = useState(false);
+  const [showMission, setShowMission] = useState(false);
 
   const selectedList: CommentList | null =
     commentLists.find((l: CommentList) => l.id === selectedListId) ?? null;
@@ -44,10 +56,12 @@ export default function UserView() {
     setSelectedListId(listId);
     setNoCommentsLeft(false);
     setCopied(false);
+    setCopiedIdx(null);
 
-    const existing = getClaimedComment(listId);
-    if (existing) {
-      setGeneratedComment(existing.comment);
+    const all = getClaimedComments(listId);
+    setClaimedComments(all);
+    if (all.length > 0) {
+      setGeneratedComment(all[all.length - 1]);
       setIsPreviousClaim(true);
     } else {
       setGeneratedComment("");
@@ -59,6 +73,8 @@ export default function UserView() {
   useEffect(() => {
     if (selectedListId) {
       const existing = getClaimedComment(selectedListId);
+      const all = getClaimedComments(selectedListId);
+      setClaimedComments(all);
       if (existing) {
         setGeneratedComment(existing.comment);
         setIsPreviousClaim(true);
@@ -72,11 +88,10 @@ export default function UserView() {
       return;
     }
 
-    const existing = getClaimedComment(selectedList.id);
-    if (existing) {
-      setGeneratedComment(existing.comment);
-      setIsPreviousClaim(true);
-      toast.info("You already claimed a comment from this list.");
+    if (hasReachedLimit(selectedList.id)) {
+      toast.info(
+        "You have reached the 6-comment limit for this list on this device.",
+      );
       return;
     }
 
@@ -89,10 +104,13 @@ export default function UserView() {
       if (result.__kind__ === "claimSuccess") {
         const comment = result.claimSuccess;
         storeClaimedComment(selectedList.id, comment);
+        const updatedAll = getClaimedComments(selectedList.id);
+        setClaimedComments(updatedAll);
         setGeneratedComment(comment);
         setNoCommentsLeft(false);
         setIsPreviousClaim(false);
         toast.success("Comment generated successfully!");
+        setShowMission(true);
       } else {
         setGeneratedComment("");
         setNoCommentsLeft(true);
@@ -112,13 +130,32 @@ export default function UserView() {
     });
   };
 
+  const handleCopyHistory = (comment: string, idx: number) => {
+    navigator.clipboard.writeText(comment).then(() => {
+      setCopiedIdx(idx);
+      toast.success("Comment copied!");
+      setTimeout(() => setCopiedIdx(null), 2000);
+    });
+  };
+
   const isGenerating = claimComment.isPending;
+  const limitReached = selectedListId ? hasReachedLimit(selectedListId) : false;
+  const remainingClaims = selectedListId
+    ? getRemainingClaims(selectedListId)
+    : MAX_CLAIMS;
+  const usedClaims = selectedListId ? claimedComments.length : 0;
   const alreadyClaimed = selectedListId
     ? hasClaimedComment(selectedListId)
     : false;
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Mission Briefing Modal */}
+      <MissionBriefingModal
+        open={showMission}
+        onClose={() => setShowMission(false)}
+      />
+
       {/* Page Title */}
       <div className="text-center pt-2">
         <h2
@@ -132,7 +169,7 @@ export default function UserView() {
           USER
         </h2>
         <p className="text-sm mt-1" style={{ color: "#9fb3c8" }}>
-          Generate your unique comment — first come, first served
+          Generate your unique comments — up to {MAX_CLAIMS} per list per device
         </p>
       </div>
 
@@ -157,7 +194,7 @@ export default function UserView() {
               Single Comment Generator
             </h3>
             <p className="text-sm" style={{ color: "#6f88a3" }}>
-              Each comment is a one-time treasure — first come, first served
+              Up to {MAX_CLAIMS} unique comments per device per list
             </p>
           </div>
         </div>
@@ -224,7 +261,10 @@ export default function UserView() {
                           {list.displayName}
                           {hasClaimedComment(list.id) && (
                             <span className="ml-2 text-xs opacity-60">
-                              ✓ claimed
+                              ✓{" "}
+                              {getRemainingClaims(list.id) === 0
+                                ? "full"
+                                : `${MAX_CLAIMS - getRemainingClaims(list.id)}/${MAX_CLAIMS}`}
                             </span>
                           )}
                         </SelectItem>
@@ -234,30 +274,72 @@ export default function UserView() {
                 )}
               </div>
 
-              {/* Previously claimed badge */}
-              {alreadyClaimed && selectedListId && !noCommentsLeft && (
-                <div
-                  className="flex items-center gap-2 rounded-xl px-4 py-2.5"
-                  style={{
-                    background: "rgba(135,206,235,0.08)",
-                    border: "1px solid rgba(135,206,235,0.2)",
-                  }}
-                >
-                  <History
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    style={{ color: "#87CEEB" }}
-                  />
-                  <p
-                    className="text-xs font-medium"
-                    style={{ color: "#87CEEB" }}
+              {/* Progress indicator */}
+              {selectedListId && usedClaims > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-xs font-semibold"
+                      style={{ color: "#87CEEB" }}
+                    >
+                      {usedClaims} of {MAX_CLAIMS} slots used
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: limitReached ? "#ff4466" : "#6f88a3" }}
+                    >
+                      {limitReached
+                        ? "Limit reached"
+                        : `${remainingClaims} remaining`}
+                    </span>
+                  </div>
+                  <div
+                    className="w-full h-1.5 rounded-full overflow-hidden"
+                    style={{ background: "rgba(135,206,235,0.1)" }}
                   >
-                    You've already claimed a comment from this list — showing
-                    your saved comment below.
-                  </p>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(usedClaims / MAX_CLAIMS) * 100}%`,
+                        background: limitReached
+                          ? "linear-gradient(90deg, #ff4466, #cc1133)"
+                          : "linear-gradient(90deg, #87CEEB, #4682B4)",
+                        boxShadow: limitReached
+                          ? "0 0 8px rgba(255,68,102,0.5)"
+                          : "0 0 8px rgba(135,206,235,0.4)",
+                      }}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* Status badges */}
+              {/* Previously claimed notice */}
+              {alreadyClaimed &&
+                selectedListId &&
+                !noCommentsLeft &&
+                !limitReached && (
+                  <div
+                    className="flex items-center gap-2 rounded-xl px-4 py-2.5"
+                    style={{
+                      background: "rgba(135,206,235,0.08)",
+                      border: "1px solid rgba(135,206,235,0.2)",
+                    }}
+                  >
+                    <History
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                      style={{ color: "#87CEEB" }}
+                    />
+                    <p
+                      className="text-xs font-medium"
+                      style={{ color: "#87CEEB" }}
+                    >
+                      You have {usedClaims} comment{usedClaims !== 1 ? "s" : ""}{" "}
+                      from this list. You can generate {remainingClaims} more.
+                    </p>
+                  </div>
+                )}
+
+              {/* Status badge for fresh list */}
               {selectedList && !noCommentsLeft && !alreadyClaimed && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge
@@ -294,51 +376,73 @@ export default function UserView() {
               )}
 
               {/* Generate Button */}
-              {!alreadyClaimed && (
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={!selectedList || isGenerating || noCommentsLeft}
-                  data-ocid="single-gen.generate.button"
-                  className="w-full min-h-[48px] py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
-                  style={{
-                    background:
-                      selectedList && !noCommentsLeft
-                        ? "linear-gradient(135deg, #87CEEB, #4682B4)"
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={
+                  !selectedList ||
+                  isGenerating ||
+                  noCommentsLeft ||
+                  limitReached
+                }
+                data-ocid="single-gen.generate.button"
+                className="w-full min-h-[48px] py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background:
+                    selectedList && !noCommentsLeft && !limitReached
+                      ? "linear-gradient(135deg, #87CEEB, #4682B4)"
+                      : limitReached
+                        ? "rgba(255,68,102,0.1)"
                         : "rgba(30,30,50,0.5)",
-                    color: selectedList && !noCommentsLeft ? "#000" : "#555",
-                    border:
-                      selectedList && !noCommentsLeft
-                        ? "none"
+                  color:
+                    selectedList && !noCommentsLeft && !limitReached
+                      ? "#000"
+                      : limitReached
+                        ? "#ff4466"
+                        : "#555",
+                  border:
+                    selectedList && !noCommentsLeft && !limitReached
+                      ? "none"
+                      : limitReached
+                        ? "1px solid rgba(255,68,102,0.4)"
                         : "1px solid rgba(60,60,90,0.4)",
-                    boxShadow:
-                      selectedList && !noCommentsLeft
-                        ? "0 0 20px rgba(135,206,235,0.3)"
-                        : "none",
-                    fontStyle: "italic",
-                    cursor:
-                      !selectedList || isGenerating || noCommentsLeft
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      !selectedList || isGenerating || noCommentsLeft ? 0.7 : 1,
-                  }}
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Claiming...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Generate Comment
-                    </>
-                  )}
-                </button>
-              )}
+                  boxShadow:
+                    selectedList && !noCommentsLeft && !limitReached
+                      ? "0 0 20px rgba(135,206,235,0.3)"
+                      : "none",
+                  fontStyle: "italic",
+                  cursor:
+                    !selectedList ||
+                    isGenerating ||
+                    noCommentsLeft ||
+                    limitReached
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity:
+                    !selectedList || isGenerating || noCommentsLeft ? 0.7 : 1,
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Claiming...
+                  </>
+                ) : limitReached ? (
+                  <>
+                    <AlertCircle className="w-4 h-4" />
+                    Limit Reached ({MAX_CLAIMS}/{MAX_CLAIMS})
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    {alreadyClaimed
+                      ? `Generate Another (${remainingClaims} left)`
+                      : "Generate Comment"}
+                  </>
+                )}
+              </button>
 
-              {/* Generated Comment Output */}
+              {/* Latest Generated Comment */}
               {generatedComment && (
                 <div
                   className="rounded-xl p-4 relative animate-fade-in"
@@ -357,7 +461,7 @@ export default function UserView() {
                         className="text-xs font-medium"
                         style={{ color: "#87CEEB" }}
                       >
-                        Your saved comment
+                        Latest comment
                       </span>
                     </div>
                   )}
@@ -403,6 +507,70 @@ export default function UserView() {
                       <Copy className="w-4 h-4" />
                       {copied ? "Copied!" : "Copy Comment"}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Comment History */}
+              {claimedComments.length > 1 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <History
+                      className="w-3.5 h-3.5"
+                      style={{ color: "#87CEEB" }}
+                    />
+                    <span
+                      className="text-xs font-bold uppercase tracking-wide"
+                      style={{ color: "#87CEEB" }}
+                    >
+                      Your Comments ({claimedComments.length}/{MAX_CLAIMS})
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {claimedComments.map((c, idx) => (
+                      <div
+                        key={`comment-${idx}-${c.slice(0, 10)}`}
+                        className="rounded-lg px-3 py-2.5 flex items-start gap-2 relative"
+                        data-ocid={`single-gen.item.${idx + 1}`}
+                        style={{
+                          background: "rgba(135,206,235,0.04)",
+                          border: "1px solid rgba(135,206,235,0.1)",
+                        }}
+                      >
+                        <span
+                          className="flex-shrink-0 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center mt-0.5"
+                          style={{
+                            background: "rgba(135,206,235,0.15)",
+                            color: "#87CEEB",
+                          }}
+                        >
+                          {idx + 1}
+                        </span>
+                        <p
+                          className="text-xs pr-7 whitespace-pre-wrap break-words leading-relaxed flex-1"
+                          style={{ color: "#c0d0e0" }}
+                        >
+                          {c}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyHistory(c, idx)}
+                          className="absolute top-2 right-2 p-1 rounded transition-colors"
+                          style={{ color: "#555" }}
+                          title="Copy"
+                          data-ocid={`single-gen.copy.button.${idx + 1}`}
+                        >
+                          {copiedIdx === idx ? (
+                            <CheckCircle2
+                              className="w-3.5 h-3.5"
+                              style={{ color: "#87CEEB" }}
+                            />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

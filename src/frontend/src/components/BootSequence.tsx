@@ -11,12 +11,17 @@ export default function BootSequence({ onComplete }: Props) {
   const [barWidth, setBarWidth] = useState(0);
   const [opacity, setOpacity] = useState(1);
   const doneCalled = useRef(false);
+  // Use a ref so the effect never re-runs due to onComplete identity changes
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  });
 
   useEffect(() => {
     if (sessionStorage.getItem("booted")) {
       if (!doneCalled.current) {
         doneCalled.current = true;
-        onComplete();
+        onCompleteRef.current();
       }
       return;
     }
@@ -40,16 +45,16 @@ export default function BootSequence({ onComplete }: Props) {
     // Fadeout
     const t4 = setTimeout(() => {
       setOpacity(0);
-    }, 1600);
-    // Done
+    }, 2400);
+    // Done — hard cap at 3.5s so it can never get stuck
     const t5 = setTimeout(() => {
       setPhase("done");
       sessionStorage.setItem("booted", "1");
       if (!doneCalled.current) {
         doneCalled.current = true;
-        onComplete();
+        onCompleteRef.current();
       }
-    }, 2000);
+    }, 3000);
 
     return () => {
       clearTimeout(t1);
@@ -58,7 +63,8 @@ export default function BootSequence({ onComplete }: Props) {
       clearTimeout(t4);
       clearTimeout(t5);
     };
-  }, [onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // empty dep array — runs once only
 
   if (phase === "done") return null;
 

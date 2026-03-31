@@ -1,48 +1,95 @@
-# Review Empire — Cinematic Dark Command Center Reskin
+# Review Empire
 
 ## Current State
-Full-stack ICP app with Motoko backend and React frontend. Gold/navy luxury theme with Syne font, ParticleConstellation background, gold iridescent HeroCube (Three.js), TOOLS→GAME→LOBBY tab layout, hidden admin panel (code 7898), all functional features (comment generators, bulk checker, withdrawal system, earnings engine Mode A/B, Neon Jewel Blast + Zen Zone, music system, receipt generator, Mission Briefing popup).
+
+The app is a premium multi-sector web app with:
+- 4-sector nav: TOOLS (default), GAME, LOBBY, ADMIN (hidden)
+- Dragon Three.js WebGL background (night mode only currently)
+- Cinematic boot sequence (sessionStorage gated)
+- Admin panel (code: 7898, session-based unlock)
+- All data in Motoko backend canister
+- `liveListParser.ts` parses pasted text for bulk live list import
+  - Current parser expects `*AppName*` and `*DD/MM/YYYY :-*` format (asterisk-wrapped)
+  - Does NOT handle `Share post :- MM/DD/YY` date format or plain company name lines
+- `AdminPricing.tsx` handles price list with bulk CSV upload (AppName, Price, Active)
+- `DragonBackground.tsx` is the single background component (always night/dark)
+- `App.tsx` renders DragonBackground unconditionally
 
 ## Requested Changes (Diff)
 
 ### Add
-- Cinematic boot sequence (sessionStorage-gated, plays once per session): black screen → "R" then "E" stamp with CSS metallic animation → thin silver progress bar → staggered UI reveal 200ms apart
-- Floating geometric runes (◆ ▲ ⬡ ◇ △ ▽) rising from bottom, rotating, dissolving — replaces particle constellation
-- Drifting silver CSS grid overlay on `#050508` background
-- Floating multifaceted diamond gem (SVG triangular panels in silver/ash/near-white shades) with zero-gravity hover+tilt, two elliptical orbit rings at different angles each with one glowing dot racing around
-- Color Switcher: 6 gem-shaped swatches (Silver, Gold, Electric Cyan, Blood Rose, Toxic Lime, Deep Violet) — one tap repaints entire universe: grid glow, gem panels, orbit rings, card borders, button gradients, nav dots, underline glows. Active swatch = white ring + scale pop.
-- Day progress bar in countdown card: liquid silver fill showing how much of today is gone
-- Boot sequence: each section drops in from slightly above with fade, 200ms stagger
+- **`DayBackground.tsx`**: New Three.js day scene component:
+  - Bright blue sky (gradient from #87CEEB to #E0F4FF)
+  - 3 layered mountain silhouettes (deep green, mid green, light)
+  - Dense dark forest at bottom (instanced pine trees with wind sway)
+  - Brown/earth land strip at very bottom
+  - Same dragon as night but bright/natural (no fire glow, ember cracks dim)
+  - Animated colorful butterflies (CSS-based, 6+ different colors, flutter paths)
+  - Warm sunlight DirectionalLight from upper-right
+  - No fog, no aurora — bright open sky
+- **`DayNightToggle.tsx`**: Floating toggle button:
+  - Shows sun/moon icon
+  - Manual override tap
+  - Displays current mode label
+- **Day theme CSS variables** in `index.css` under `.day-mode` class:
+  - `--bg-primary: #f0f9ff` (light cream-blue)
+  - `--card-bg: rgba(255,255,255,0.7)`
+  - `--card-border: rgba(100,180,120,0.3)` (soft green)
+  - `--text-primary: #1a2a1a` (dark green-black)
+  - `--text-secondary: #3a5a3a`
+  - `--accent: #2a7a2a` (forest green)
+  - Buttons use green gradient instead of gold/navy
 
 ### Modify
-- Background: `#050508` pure black void (from `#080C1A` navy)
-- Fonts: Orbitron 900 (headings/buttons), Share Tech Mono (clock/input/data labels), Rajdhani (body) — load from Google Fonts
-- HeroCube → replaced by the diamond gem SVG in hero section
-- Access code input: dark glass, silver neon border ignites on focus with sonar pulse, placeholder "ENTER ACCESS CODE" in monospace
-- ACCESS ADMIN button: gunmetal gradient, white light sweep left-to-right on hover
-- Nav tabs (TOOLS/GAME/LOBBY): dark glass tiles with colored status dots; hover = center-outward glowing underline + lift
-- LOBBY tab: full width, slightly taller, frosted look
-- Countdown card: frosted obsidian panel, razor-thin silver top edge, monospaced digits with heartbeat pulse, added day progress bar
-- Timer digits: huge, monospaced, silver-white with heartbeat glow every second
-- All card borders, glows, and accents: respond to active theme color from Color Switcher
-- ParticleConstellation component → replaced with RuneBackground component
-- HeroCube component → replaced with DiamondGem component
+- **`src/frontend/src/utils/liveListParser.ts`**: Complete rewrite of parser:
+  - Support new format: first non-empty line = app/company name (strip trailing colon)
+  - Date detection regex: `Share post :-\s*(\d{1,2}\/\d{1,2}\/\d{2,4})` (no asterisks)
+  - Keep backward compatibility: also detect `*DD/MM/YYYY :-*` format
+  - Name lines: numbered `1. Name`, `2. Name` — strip number prefix
+  - Skip lines that are purely special chars or empty after trim
+  - Build entries per date: each date gets its own `ParsedAppEntry` with that date
+  - Same app can appear multiple times (one entry per date section)
+  - Deduplication key: `appName + '|' + username + '|' + date` — skip exact duplicates silently
+  - Handle 1000+ names: no break conditions, full linear scan
+  - Handle lines like `#123 #123` — include as-is (valid username)
+  - After parsing, `importLiveLists` backend call already deduplicates by (appName, username, date)
+- **`src/frontend/src/App.tsx`**: Add day/night mode logic:
+  - `isDayMode` state: auto-computed from `new Date().getHours()` (6–18 = day)
+  - `manualOverride` state: if user taps toggle, override auto
+  - Render `<DayBackground />` when day mode, `<DragonBackground />` when night
+  - Apply `day-mode` class to root `<div>` when day mode active
+  - Render `<DayNightToggle />` in fixed position (bottom-right, above footer)
+  - Pass `isDayMode` to child components that need theme awareness (cards, buttons)
 
 ### Remove
-- Syne font (replaced by Orbitron)
-- Gold particle constellation background (replaced by rune/grid background)
-- Gold iridescent cube (replaced by diamond gem)
-- F5C842 electric gold as fixed primary (now dynamic via Color Switcher, default = Silver theme)
+- Nothing removed
 
 ## Implementation Plan
-1. Add Google Fonts: Orbitron, Share Tech Mono, Rajdhani to index.html
-2. Create BootSequence component (sessionStorage gate, "RE" stamp, progress bar, reveal)
-3. Create RuneBackground component (CSS grid overlay + floating rune symbols)
-4. Create DiamondGem component (SVG multi-panel diamond, orbit rings with racing dots, hover tilt)
-5. Create ThemeSwitcher component (6 gem swatches, CSS custom properties for theme colors)
-6. Update App.tsx: wrap in ThemeProvider, inject CSS vars, add BootSequence, replace ParticleConstellation with RuneBackground, replace HeroCube with DiamondGem
-7. Update hero section: access input with sonar pulse focus, gunmetal ACCESS ADMIN button with light sweep
-8. Update nav: dark glass tiles, colored dots, center-out underline hover, LOBBY full-width
-9. Update countdown card: frosted obsidian, razor edge, heartbeat digits, day progress bar
-10. Update global CSS: apply theme CSS vars to all cards, borders, glows, buttons
-11. Ensure all existing functionality unchanged (generators, withdrawal, admin, game, music)
+
+1. **Rewrite `liveListParser.ts`**:
+   - New regex: `Share post :-\s*(\d{1,2}\/\d{1,2}\/\d{2,4})`
+   - App name = first non-empty, non-date, non-numbered line (strip trailing `:` or `:-`)
+   - Group names under each detected date
+   - One `ParsedAppEntry` per (appName, date) pair
+   - Full dedup set to avoid sending duplicates to backend
+   - No limits — process all lines regardless of count
+
+2. **Create `DayBackground.tsx`**:
+   - Three.js canvas fixed behind all content
+   - Bright sky, layered mountains, forest, brown land
+   - Dragon reuse from DragonBackground logic (simplified, no fire, no dark shader)
+   - CSS butterfly animations (6+ butterflies, random positions/timing)
+
+3. **Create `DayNightToggle.tsx`**:
+   - Fixed bottom-right button with sun/moon icon
+   - Callback to toggle manual override in App.tsx
+
+4. **Add day theme CSS** in `index.css`:
+   - `.day-mode` overrides for cards, nav, buttons, text, backgrounds
+   - Smooth `transition: all 0.6s ease` on root for mode switch
+
+5. **Update `App.tsx`**:
+   - Add `isDayMode` computed state with auto + manual override
+   - Switch background component based on mode
+   - Add `day-mode` class to root div
+   - Place toggle button

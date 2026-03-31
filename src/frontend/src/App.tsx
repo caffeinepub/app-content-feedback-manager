@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { Music2, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import BootSequence from "./components/BootSequence";
+import DayBackground, { DayButterflies } from "./components/DayBackground";
+import DayNightToggle from "./components/DayNightToggle";
 import DiamondGem from "./components/DiamondGem";
+import DragonBackground from "./components/DragonBackground";
 import NeonJewelBlast from "./components/NeonJewelBlast";
-import RuneBackground from "./components/RuneBackground";
 import SpotifyPlayer from "./components/SpotifyPlayer";
 import StealthModeToggle from "./components/StealthModeToggle";
 import ThemeSwitcher from "./components/ThemeSwitcher";
@@ -157,6 +159,7 @@ export default function App() {
   const [toolsTab, setToolsTab] = useState<ToolsTab>("generators");
   const [stealthMode, setStealthMode] = useState(false);
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [musicBlocked, setMusicBlocked] = useState(false);
   const [spotifyVisible, setSpotifyVisible] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const firstInteractionDone = useRef(false);
@@ -167,6 +170,15 @@ export default function App() {
   const [cubeGlitching, setCubeGlitching] = useState(false);
   const [heroDissolving, setHeroDissolving] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
+
+  // Day / Night mode
+  // null = auto (based on device time), true = force day, false = force night
+  const [manualDayMode, setManualDayMode] = useState<boolean | null>(null);
+  const isAutoDay = () => {
+    const h = new Date().getHours();
+    return h >= 6 && h < 18;
+  };
+  const isDayMode = manualDayMode !== null ? manualDayMode : isAutoDay();
 
   const cursorRef = useRef<HTMLDivElement>(null);
 
@@ -258,9 +270,12 @@ export default function App() {
         .play()
         .then(() => {
           setMusicPlaying(true);
+          setMusicBlocked(false);
           firstInteractionDone.current = true;
         })
-        .catch(() => {});
+        .catch(() => {
+          setMusicBlocked(true);
+        });
     }
   }, [musicUrl]);
 
@@ -271,7 +286,10 @@ export default function App() {
       if (audioRef.current && musicUrl) {
         audioRef.current
           .play()
-          .then(() => setMusicPlaying(true))
+          .then(() => {
+            setMusicPlaying(true);
+            setMusicBlocked(false);
+          })
           .catch(() => {});
       }
       document.removeEventListener("click", handleFirstInteraction);
@@ -390,20 +408,70 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen${stealthMode ? " stealth-active" : ""}`}
+      className={`min-h-screen${stealthMode ? " stealth-active" : ""}${isDayMode ? " day-mode" : ""}`}
       style={{
         background: "var(--bg-void)",
         color: "#d4d8e0",
         position: "relative",
         overflowX: "hidden",
+        transition: "background 0.6s ease, color 0.4s ease",
       }}
     >
       <div id="gold-cursor" ref={cursorRef} />
-      <RuneBackground stealthMode={stealthMode} />
+
+      {/* Background — day or night */}
+      {isDayMode ? (
+        <DayBackground />
+      ) : (
+        <DragonBackground isMuted={!musicPlaying} />
+      )}
+      {isDayMode && <DayButterflies />}
+
       <StealthModeToggle
         stealthMode={stealthMode}
         onToggle={() => setStealthMode((v) => !v)}
       />
+
+      {/* Music blocked banner */}
+      {musicBlocked && !!musicUrl && !musicPlaying && (
+        <button
+          type="button"
+          data-ocid="music.toast"
+          onClick={() => {
+            if (audioRef.current) {
+              audioRef.current
+                .play()
+                .then(() => {
+                  setMusicPlaying(true);
+                  setMusicBlocked(false);
+                })
+                .catch(() => {});
+            }
+          }}
+          style={{
+            position: "fixed",
+            bottom: 70,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.85)",
+            border: "1px solid rgba(245,200,66,0.4)",
+            borderRadius: 20,
+            padding: "8px 18px",
+            fontSize: 13,
+            color: "#F5C842",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            boxShadow: "0 0 16px rgba(245,200,66,0.2)",
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          ▶ Tap to start music
+        </button>
+      )}
 
       {/* Header */}
       <header
@@ -411,10 +479,11 @@ export default function App() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(5,5,8,0.95)",
+          background: isDayMode ? "rgba(240,252,240,0.96)" : "rgba(5,5,8,0.95)",
           borderBottom: `1px solid ${activeSectorColor}22`,
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
+          transition: "background 0.5s ease",
         }}
       >
         <div
@@ -453,7 +522,9 @@ export default function App() {
                 fontSize: "0.55rem",
                 letterSpacing: "0.2em",
                 textTransform: "uppercase",
-                color: "rgba(192,192,192,0.5)",
+                color: isDayMode
+                  ? "rgba(30,80,30,0.6)"
+                  : "rgba(192,192,192,0.5)",
                 fontFamily: "'Share Tech Mono', monospace",
               }}
             >
@@ -475,7 +546,9 @@ export default function App() {
             <span
               style={{
                 fontSize: "0.5rem",
-                color: "rgba(212,216,224,0.4)",
+                color: isDayMode
+                  ? "rgba(30,80,30,0.5)"
+                  : "rgba(212,216,224,0.4)",
                 fontFamily: "'Share Tech Mono', monospace",
                 letterSpacing: "0.1em",
               }}
@@ -585,7 +658,9 @@ export default function App() {
           </h1>
           <p
             style={{
-              color: "rgba(192,192,192,0.45)",
+              color: isDayMode
+                ? "rgba(30,80,30,0.6)"
+                : "rgba(192,192,192,0.45)",
               fontSize: "0.58rem",
               letterSpacing: "0.3em",
               marginTop: "0.35rem",
@@ -694,7 +769,7 @@ export default function App() {
           position: "sticky",
           top: 60,
           zIndex: 40,
-          background: "rgba(5,5,8,0.96)",
+          background: isDayMode ? "rgba(240,252,240,0.96)" : "rgba(5,5,8,0.96)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           borderBottom: "1px solid var(--theme-border)",
@@ -703,6 +778,7 @@ export default function App() {
           justifyContent: "center",
           padding: "0.6rem 1rem",
           flexWrap: "wrap",
+          transition: "background 0.5s ease",
         }}
         data-ocid="nav.panel"
         aria-label="Sector navigation"
@@ -735,7 +811,11 @@ export default function App() {
                 border: `1px solid ${isActive ? col : "var(--theme-border)"}`,
                 background: isActive ? `${col}12` : "rgba(255,255,255,0.03)",
                 backdropFilter: "blur(12px)",
-                color: isActive ? col : "rgba(212,216,224,0.55)",
+                color: isActive
+                  ? col
+                  : isDayMode
+                    ? "rgba(30,60,30,0.6)"
+                    : "rgba(212,216,224,0.55)",
                 cursor: "pointer",
                 transition: "all 0.25s ease",
                 textTransform: "uppercase",
@@ -1029,7 +1109,11 @@ export default function App() {
                           background: isActive
                             ? `${col}10`
                             : "rgba(255,255,255,0.03)",
-                          color: isActive ? col : "rgba(212,216,224,0.5)",
+                          color: isActive
+                            ? col
+                            : isDayMode
+                              ? "rgba(30,70,30,0.6)"
+                              : "rgba(212,216,224,0.5)",
                           cursor: "pointer",
                           transition: "all 0.2s",
                           textTransform: "uppercase",
@@ -1119,8 +1203,10 @@ export default function App() {
           textAlign: "center",
           position: "relative",
           zIndex: 2,
-          background:
-            "linear-gradient(0deg, rgba(2,2,6,0.98) 0%, transparent 100%)",
+          background: isDayMode
+            ? "linear-gradient(0deg, rgba(240,252,240,0.92) 0%, transparent 100%)"
+            : "linear-gradient(0deg, rgba(2,2,6,0.98) 0%, transparent 100%)",
+          transition: "background 0.5s ease",
         }}
       >
         <h3
@@ -1138,7 +1224,7 @@ export default function App() {
         </h3>
         <p
           style={{
-            color: "rgba(212,216,224,0.5)",
+            color: isDayMode ? "rgba(20,60,20,0.7)" : "rgba(212,216,224,0.5)",
             maxWidth: 600,
             margin: "0 auto 20px auto",
             lineHeight: 1.6,
@@ -1178,7 +1264,7 @@ export default function App() {
         </a>
         <p
           style={{
-            color: "rgba(100,100,120,0.6)",
+            color: isDayMode ? "rgba(20,60,20,0.5)" : "rgba(100,100,120,0.6)",
             marginTop: "1.5rem",
             fontSize: "0.72rem",
             fontFamily: "'Share Tech Mono', monospace",
@@ -1196,6 +1282,12 @@ export default function App() {
           </a>
         </p>
       </footer>
+
+      {/* Day / Night mode toggle */}
+      <DayNightToggle
+        isDayMode={isDayMode}
+        onToggle={() => setManualDayMode(!isDayMode)}
+      />
 
       <SpotifyPlayer
         visible={spotifyVisible}

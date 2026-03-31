@@ -845,3 +845,66 @@ select option {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ── Day Mode overrides ─────────────────────────────────────────────────── */
+
+/* When .day-mode is applied to the root wrapper, shift key CSS variables
+   so the page background becomes transparent (lets DayBackground canvas
+   show through) and text/card colours adapt to daytime readability. */
+.day-mode {
+  --bg-void: rgba(220, 248, 220, 0.06);
+  --theme-primary: #2a7a2a;
+  --theme-glow: rgba(42, 122, 42, 0.35);
+  --theme-border: rgba(60, 140, 60, 0.28);
+  transition: background 0.6s ease, color 0.4s ease;
+}
+
+.day-mode .glass-card,
+.day-mode .glass-card-gold {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(60, 140, 60, 0.28) !important;
+  color: #1a2e1a !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Override glassmorphic card headings in day mode */
+.day-mode h1,
+.day-mode h2,
+.day-mode h3,
+.day-mode h4 {
+  text-shadow: none !important;
+}
+
+/* Nav bar background in day mode */
+.day-mode header,
+.day-mode nav {
+  background: rgba(240, 252, 240, 0.94) !important;
+  border-color: rgba(60, 140, 60, 0.25) !important;
+}
+
+/* Inputs in day mode */
+.day-mode .glass-input,
+.day-mode .admin-access-input {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(60, 140, 60, 0.35) !important;
+  color: #1a2e1a !important;
+}
+
+/* Sector tab pills in day mode */
+.day-mode .sector-tab {
+  background: rgba(240, 252, 240, 0.7) !important;
+  border-color: rgba(60, 140, 60, 0.3) !important;
+  color: #2a4a2a !important;
+}
+
+/* Dropdown list names in day mode — ensure visibility */
+.day-mode select,
+.day-mode select option {
+  background-color: #f0fff0 !important;
+  color: #1a2e1a !important;
+}
+
+/* Day mode scrollbar */
+.day-mode ::-webkit-scrollbar-track {
+  background: rgba(220, 245, 220, 0.5);
+}
