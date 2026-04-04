@@ -6,6 +6,7 @@ export function useBackgroundMusic(
 ) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   useEffect(() => {
     if (!musicUrl) {
@@ -13,22 +14,30 @@ export function useBackgroundMusic(
         audioRef.current.pause();
         audioRef.current = null;
         setIsPlaying(false);
+        setAutoplayBlocked(false);
       }
       return;
     }
 
+    // Create or update audio element imperatively (not JSX)
     if (!audioRef.current) {
       audioRef.current = new Audio(musicUrl);
       audioRef.current.loop = true;
-    } else {
+    } else if (audioRef.current.src !== musicUrl) {
       audioRef.current.src = musicUrl;
     }
 
     if (isEnabled) {
       audioRef.current
         .play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false));
+        .then(() => {
+          setIsPlaying(true);
+          setAutoplayBlocked(false);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+          setAutoplayBlocked(true);
+        });
     } else {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -41,14 +50,20 @@ export function useBackgroundMusic(
     };
   }, [musicUrl, isEnabled]);
 
-  const play = () => {
+  /** Attempt playback — call this from a user interaction handler */
+  const startPlayback = () => {
     if (audioRef.current) {
       audioRef.current
         .play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          setIsPlaying(true);
+          setAutoplayBlocked(false);
+        })
         .catch(() => {});
     }
   };
+
+  const play = () => startPlayback();
 
   const pause = () => {
     if (audioRef.current) {
@@ -57,5 +72,5 @@ export function useBackgroundMusic(
     }
   };
 
-  return { isPlaying, play, pause };
+  return { isPlaying, autoplayBlocked, startPlayback, play, pause };
 }

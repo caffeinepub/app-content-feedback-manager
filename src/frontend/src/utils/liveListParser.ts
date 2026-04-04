@@ -1,3 +1,5 @@
+// ── Shared interfaces ────────────────────────────────────────────────────────
+
 export interface ParsedAppEntry {
   appName: string;
   usernames: string[];
@@ -22,11 +24,17 @@ export interface PriceParseResult {
   errorMessage?: string;
 }
 
+// Also exported as ParsedAppImport for any callers that used that name
+export type ParsedAppImport = ParsedAppEntry;
+
+// ── Regex patterns ────────────────────────────────────────────────────────────
+
 // Old format: *14/02/2026 :-* or *14/02/2026:*
 const DATE_LINE_REGEX_OLD = /^\*\s*(\d{1,2}\/\d{1,2}\/\d{2,4})\s*[:\-]*\s*\*$/;
 
 // New format: Share post :- 03/16/26
-const DATE_LINE_REGEX_NEW = /^share\s+post\s*:-\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i;
+const DATE_LINE_REGEX_NEW =
+  /^share\s+post\s*:-?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i;
 
 // Old format: *AppName*
 const APP_NAME_REGEX_OLD = /^\*([^*]+)\*$/;
@@ -37,6 +45,12 @@ const NUMBERED_LINE_REGEX = /^\d+[.)]\s+(.+)$/;
 // Separator lines (3+ dashes, equals, stars)
 const SEPARATOR_REGEX = /^[-=_*]{3,}$/;
 
+// Skip lines that are purely symbols/numbers (e.g. "#123 #123")
+const SKIP_ONLY_SYMBOLS = /^[\s\d#@*\-._, ]+$/;
+
+// ── parseLiveListReport ───────────────────────────────────────────────────────
+// Used by AdminLiveList component — keeps backward compatibility.
+
 export function parseLiveListReport(text: string): ParseResult {
   const lines = text.split("\n").map((l) => l.trim());
 
@@ -46,8 +60,6 @@ export function parseLiveListReport(text: string): ParseResult {
   let currentAppName: string | null = null;
   let currentDate: string | undefined = undefined;
   let currentUsernames: string[] = [];
-  // Once an app name is found in "new format" style, lock it
-  // so subsequent plain-text lines are not misread as new app names.
   let appNameLocked = false;
 
   const flushGroup = () => {
@@ -73,7 +85,6 @@ export function parseLiveListReport(text: string): ParseResult {
     if (oldDateMatch) {
       flushGroup();
       currentDate = oldDateMatch[1];
-      // Keep currentAppName: multiple dates belong to the same app
       continue;
     }
 
@@ -90,7 +101,7 @@ export function parseLiveListReport(text: string): ParseResult {
     if (oldAppMatch) {
       flushGroup();
       currentAppName = oldAppMatch[1].trim();
-      currentDate = undefined; // reset date for new app block
+      currentDate = undefined;
       appNameLocked = true;
       continue;
     }
@@ -100,7 +111,11 @@ export function parseLiveListReport(text: string): ParseResult {
     if (numberedMatch) {
       if (currentAppName !== null) {
         const username = numberedMatch[1].trim();
-        if (username) {
+        if (
+          username &&
+          !SKIP_ONLY_SYMBOLS.test(username) &&
+          username.length >= 2
+        ) {
           const dedupeKey = `${currentAppName}|${username}|${currentDate ?? ""}`;
           if (!seen.has(dedupeKey)) {
             seen.add(dedupeKey);
@@ -113,14 +128,13 @@ export function parseLiveListReport(text: string): ParseResult {
 
     // ── 5. Plain non-numbered line (potential app name in new format) ─────
     if (!appNameLocked) {
-      // Strip trailing colon / dash suffix: "Reviews world PVT. LTD.:" → "Reviews world PVT. LTD."
       const potentialName = line.replace(/[:\-]+\s*$/, "").trim();
       if (potentialName.length > 0) {
         currentAppName = potentialName;
         appNameLocked = true;
       }
     }
-    // If appNameLocked, non-numbered plain lines are section headers or noise – ignore.
+    // If appNameLocked, non-numbered plain lines are section headers — ignore.
   }
 
   // Flush whatever is left
@@ -143,11 +157,91 @@ export function parseLiveListReport(text: string): ParseResult {
   };
 }
 
-/**
- * Parse a bulk price list text in CSV-like format:
- *   AppName, Price, [Active]
- * Returns structured price entries or an error.
- */
+// ── parseLiveListText ─────────────────────────────────────────────────────────
+// Alternative entry point that returns ParsedAppImport[] (same shape, new name).
+// Groups by appName+date so each entry is one "batch" of usernames.
+
+export function parseLiveListText(text: string): ParsedAppImport[] {
+  const lines = text.split("\n");
+  const results = new Map<string, ParsedAppImport>();
+
+  let currentAppName = "";
+  let currentDate = "";
+
+  // Detect app name from first non-empty line
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      currentAppName = trimmed.replace(/:$/, "").trim();
+      break;
+    }
+  }
+
+  if (!currentAppName) return [];
+
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check for date line (new or old format)
+    const newDateMatch = trimmed.match(DATE_LINE_REGEX_NEW);
+    if (newDateMatch) {
+      currentDate = newDateMatch[1];
+      continue;
+    }
+    const oldDateMatch = trimmed.match(DATE_LINE_REGEX_OLD);
+    if (oldDateMatch) {
+      currentDate = oldDateMatch[1];
+      continue;
+    }
+
+    // Check for numbered name
+    const nameMatch = trimmed.match(NUMBERED_LINE_REGEX);
+    if (nameMatch) {
+      const username = nameMatch[1].trim();
+      if (!username || SKIP_ONLY_SYMBOLS.test(username) || username.length < 2)
+        continue;
+
+      const uniqueKey = `${currentAppName}|${username}|${currentDate}`;
+      if (seen.has(uniqueKey)) continue;
+      seen.add(uniqueKey);
+
+      const groupKey = `${currentAppName}__${currentDate}`;
+      if (!results.has(groupKey)) {
+        results.set(groupKey, {
+          appName: currentAppName,
+          usernames: [],
+          importDate: currentDate || undefined,
+        });
+      }
+      // biome-ignore lint/style/noNonNullAssertion: just set above
+      results.get(groupKey)!.usernames.push(username);
+      continue;
+    }
+
+    // Potential new app name (header line)
+    if (
+      (trimmed.endsWith(":") || /^[A-Z]/.test(trimmed)) &&
+      !NUMBERED_LINE_REGEX.test(trimmed) &&
+      !newDateMatch &&
+      !oldDateMatch &&
+      trimmed.length > 3
+    ) {
+      const potentialApp = trimmed.replace(/:$/, "").trim();
+      if (potentialApp !== currentAppName && potentialApp.length > 2) {
+        currentAppName = potentialApp;
+        currentDate = "";
+      }
+    }
+  }
+
+  return Array.from(results.values());
+}
+
+// ── parsePriceListText ────────────────────────────────────────────────────────
+
 export function parsePriceListText(text: string): PriceParseResult {
   const lines = text
     .split("\n")

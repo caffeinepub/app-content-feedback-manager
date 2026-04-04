@@ -10,19 +10,22 @@ export default function BootSequence({ onComplete }: Props) {
   );
   const [barWidth, setBarWidth] = useState(0);
   const [opacity, setOpacity] = useState(1);
-  const doneCalled = useRef(false);
-  // Use a ref so the effect never re-runs due to onComplete identity changes
+  // hasStarted ensures the effect body runs at most once even in StrictMode
+  const hasStarted = useRef(false);
+  // Keep a stable ref to onComplete so the empty-dep effect can call it
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
   });
 
   useEffect(() => {
-    if (sessionStorage.getItem("booted")) {
-      if (!doneCalled.current) {
-        doneCalled.current = true;
-        onCompleteRef.current();
-      }
+    // Guard: if this effect somehow fires twice (StrictMode), bail immediately
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
+    // Already booted this session — skip straight to app
+    if (sessionStorage.getItem("re_boot_played")) {
+      onCompleteRef.current();
       return;
     }
 
@@ -30,7 +33,7 @@ export default function BootSequence({ onComplete }: Props) {
     const t1 = setTimeout(() => setPhase("e"), 350);
     // E stamp in
     const t2 = setTimeout(() => setPhase("bar"), 700);
-    // Progress bar
+    // Progress bar fill
     const t3 = setTimeout(() => {
       let w = 0;
       const interval = setInterval(() => {
@@ -42,18 +45,15 @@ export default function BootSequence({ onComplete }: Props) {
         }
       }, 16);
     }, 750);
-    // Fadeout
+    // Start fade-out
     const t4 = setTimeout(() => {
       setOpacity(0);
     }, 2400);
-    // Done — hard cap at 3.5s so it can never get stuck
+    // Hard cap at 3 000 ms — can never get stuck
     const t5 = setTimeout(() => {
       setPhase("done");
-      sessionStorage.setItem("booted", "1");
-      if (!doneCalled.current) {
-        doneCalled.current = true;
-        onCompleteRef.current();
-      }
+      sessionStorage.setItem("re_boot_played", "1");
+      onCompleteRef.current();
     }, 3000);
 
     return () => {

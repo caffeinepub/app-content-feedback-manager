@@ -6,6 +6,7 @@ import {
   Music2,
   RefreshCw,
   Save,
+  Settings2,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -79,6 +80,18 @@ export default function AdminSettings() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingMusic, setIsUploadingMusic] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Comment Generation Controls state (localStorage-backed)
+  const [forceCountEnabled, setForceCountEnabled] = useState(
+    () => localStorage.getItem("adminForceCountEnabled") === "true",
+  );
+  const [forceCountValue, setForceCountValue] = useState(() =>
+    Number(localStorage.getItem("adminForceCount") ?? 3),
+  );
+  const [maxLimitValue, setMaxLimitValue] = useState(() =>
+    Number(localStorage.getItem("adminMaxLimit") ?? 0),
+  );
+  const [genControlsSaved, setGenControlsSaved] = useState(false);
 
   const accessKey = settings?.accessKey ?? null;
 
@@ -206,6 +219,14 @@ export default function AdminSettings() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to wipe data");
     }
+  };
+
+  const handleSaveGenControls = () => {
+    localStorage.setItem("adminForceCountEnabled", String(forceCountEnabled));
+    localStorage.setItem("adminForceCount", String(forceCountValue));
+    localStorage.setItem("adminMaxLimit", String(maxLimitValue));
+    setGenControlsSaved(true);
+    setTimeout(() => setGenControlsSaved(false), 2000);
   };
 
   return (
@@ -768,7 +789,11 @@ export default function AdminSettings() {
                 earningsMode === "valueSum"
                   ? "oklch(0.70 0.18 145 / 0.15)"
                   : "oklch(0.10 0.025 260 / 0.5)",
-              border: `1px solid ${earningsMode === "valueSum" ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.22 0.05 260 / 0.4)"}`,
+              border: `1px solid ${
+                earningsMode === "valueSum"
+                  ? "oklch(0.65 0.20 145 / 0.5)"
+                  : "oklch(0.22 0.05 260 / 0.4)"
+              }`,
               color:
                 earningsMode === "valueSum"
                   ? "oklch(0.75 0.22 145)"
@@ -802,7 +827,11 @@ export default function AdminSettings() {
                 earningsMode === "flatRate"
                   ? "oklch(0.70 0.20 185 / 0.15)"
                   : "oklch(0.10 0.025 260 / 0.5)",
-              border: `1px solid ${earningsMode === "flatRate" ? "oklch(0.70 0.20 185 / 0.5)" : "oklch(0.22 0.05 260 / 0.4)"}`,
+              border: `1px solid ${
+                earningsMode === "flatRate"
+                  ? "oklch(0.70 0.20 185 / 0.5)"
+                  : "oklch(0.22 0.05 260 / 0.4)"
+              }`,
               color:
                 earningsMode === "flatRate"
                   ? "oklch(0.78 0.22 188)"
@@ -871,7 +900,11 @@ export default function AdminSettings() {
                 background: singleCheckerEarningsEnabled
                   ? "oklch(0.65 0.20 145 / 0.2)"
                   : "oklch(0.55 0.22 25 / 0.2)",
-                border: `1px solid ${singleCheckerEarningsEnabled ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.55 0.22 25 / 0.5)"}`,
+                border: `1px solid ${
+                  singleCheckerEarningsEnabled
+                    ? "oklch(0.65 0.20 145 / 0.5)"
+                    : "oklch(0.55 0.22 25 / 0.5)"
+                }`,
                 color: singleCheckerEarningsEnabled
                   ? "oklch(0.72 0.20 145)"
                   : "oklch(0.68 0.22 25)",
@@ -920,7 +953,11 @@ export default function AdminSettings() {
                 background: bulkCheckerEarningsEnabled
                   ? "oklch(0.65 0.20 145 / 0.2)"
                   : "oklch(0.55 0.22 25 / 0.2)",
-                border: `1px solid ${bulkCheckerEarningsEnabled ? "oklch(0.65 0.20 145 / 0.5)" : "oklch(0.55 0.22 25 / 0.5)"}`,
+                border: `1px solid ${
+                  bulkCheckerEarningsEnabled
+                    ? "oklch(0.65 0.20 145 / 0.5)"
+                    : "oklch(0.55 0.22 25 / 0.5)"
+                }`,
                 color: bulkCheckerEarningsEnabled
                   ? "oklch(0.72 0.20 145)"
                   : "oklch(0.68 0.22 25)",
@@ -935,6 +972,180 @@ export default function AdminSettings() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Comment Generation Controls */}
+      <div
+        className="glass-card p-5 rounded-2xl space-y-4"
+        style={{ border: "1px solid oklch(0.82 0.20 70 / 0.3)" }}
+        data-ocid="admin.comment_controls.panel"
+      >
+        <h3
+          className="font-bold text-sm uppercase tracking-wider flex items-center gap-2"
+          style={{ color: "oklch(0.82 0.20 70)" }}
+        >
+          <Settings2 className="w-4 h-4" />
+          Comment Generation Controls
+        </h3>
+        <p className="text-xs" style={{ color: "oklch(0.55 0.04 260)" }}>
+          Override user-facing comment count controls in the Single Comment
+          Generator.
+        </p>
+
+        {/* Force Count toggle row */}
+        <div
+          className="flex items-center justify-between px-4 py-3 rounded-xl"
+          style={{
+            background: "oklch(0.10 0.03 260 / 0.6)",
+            border: "1px solid oklch(0.22 0.05 260 / 0.4)",
+          }}
+        >
+          <div>
+            <div
+              className="font-bold text-xs uppercase"
+              style={{ color: "oklch(0.82 0.04 260)" }}
+            >
+              Force Comment Count
+            </div>
+            <div
+              className="text-xs mt-0.5"
+              style={{ color: "oklch(0.50 0.04 260)" }}
+            >
+              Override user input — always generate this many comments
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setForceCountEnabled((prev) => !prev)}
+            className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
+            style={{
+              background: forceCountEnabled
+                ? "oklch(0.82 0.20 70 / 0.2)"
+                : "oklch(0.55 0.22 25 / 0.2)",
+              border: `1px solid ${
+                forceCountEnabled
+                  ? "oklch(0.82 0.20 70 / 0.5)"
+                  : "oklch(0.55 0.22 25 / 0.5)"
+              }`,
+              color: forceCountEnabled
+                ? "oklch(0.85 0.20 72)"
+                : "oklch(0.68 0.22 25)",
+            }}
+            data-ocid="admin.comment_controls.force_count.toggle"
+          >
+            {forceCountEnabled ? "ON" : "OFF"}
+          </button>
+        </div>
+
+        {/* Force Count value */}
+        <div
+          className="px-4 py-3 rounded-xl"
+          style={{
+            background: forceCountEnabled
+              ? "oklch(0.82 0.20 70 / 0.06)"
+              : "oklch(0.10 0.03 260 / 0.4)",
+            border: `1px solid ${
+              forceCountEnabled
+                ? "oklch(0.82 0.20 70 / 0.2)"
+                : "oklch(0.22 0.05 260 / 0.3)"
+            }`,
+            opacity: forceCountEnabled ? 1 : 0.5,
+            transition: "opacity 0.2s",
+          }}
+        >
+          <label
+            htmlFor="force-count-value"
+            className="block text-xs font-bold uppercase mb-2"
+            style={{
+              color: forceCountEnabled
+                ? "oklch(0.82 0.20 70)"
+                : "oklch(0.50 0.04 260)",
+            }}
+          >
+            Forced Count Value (1–50)
+          </label>
+          <input
+            id="force-count-value"
+            type="number"
+            min={1}
+            max={50}
+            value={forceCountValue}
+            disabled={!forceCountEnabled}
+            onChange={(e) =>
+              setForceCountValue(
+                Math.min(50, Math.max(1, Number(e.target.value))),
+              )
+            }
+            className="glass-input w-full px-3 py-2 text-sm"
+            style={{
+              borderColor: forceCountEnabled
+                ? "oklch(0.82 0.20 70 / 0.3)"
+                : undefined,
+            }}
+            data-ocid="admin.comment_controls.force_count.input"
+          />
+        </div>
+
+        {/* Max Limit */}
+        <div
+          className="px-4 py-3 rounded-xl"
+          style={{
+            background: "oklch(0.10 0.03 260 / 0.6)",
+            border: "1px solid oklch(0.22 0.05 260 / 0.4)",
+          }}
+        >
+          <label
+            htmlFor="max-limit-value"
+            className="block text-xs font-bold uppercase mb-1"
+            style={{ color: "oklch(0.70 0.20 185)" }}
+          >
+            Max Limit Per Request (0–100)
+          </label>
+          <div
+            className="text-xs mb-2"
+            style={{ color: "oklch(0.50 0.04 260)" }}
+          >
+            Users cannot request more than this number. Set to 0 for unlimited.
+          </div>
+          <input
+            id="max-limit-value"
+            type="number"
+            min={0}
+            max={100}
+            value={maxLimitValue}
+            onChange={(e) =>
+              setMaxLimitValue(
+                Math.min(100, Math.max(0, Number(e.target.value))),
+              )
+            }
+            className="glass-input w-full px-3 py-2 text-sm"
+            data-ocid="admin.comment_controls.max_limit.input"
+          />
+        </div>
+
+        {/* Save button */}
+        <button
+          type="button"
+          onClick={handleSaveGenControls}
+          className="w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all hover-lift flex items-center justify-center gap-2"
+          style={{
+            background: genControlsSaved
+              ? "linear-gradient(135deg, oklch(0.65 0.20 145), oklch(0.60 0.22 155))"
+              : "linear-gradient(135deg, oklch(0.75 0.18 65), oklch(0.70 0.20 185))",
+            color: "oklch(0.08 0.02 260)",
+          }}
+          data-ocid="admin.comment_controls.save_button"
+        >
+          {genControlsSaved ? (
+            <>
+              <span>✓</span> Saved!
+            </>
+          ) : (
+            <>
+              <Save className="w-3.5 h-3.5" /> Save Comment Controls
+            </>
+          )}
+        </button>
       </div>
 
       {/* Danger Zone */}
